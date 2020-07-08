@@ -6,16 +6,18 @@ import tyronCLI from './tyronCLI';
 
 // tslint:disable-next-line: no-unused-expression - Invoking `argv` is the way to trigger argument processing in `yargs`...
 yargs
-  .scriptName('tyron') // Makes usage help print 'tyron' instead of 'index.js'
+  .scriptName('tyron') // To make help print 'tyron' instead of 'index.js'
   .usage('Usage: $0 <command> [options]')
-  .demandCommand(1, 'A <command> is not specified.') // Requires a command to be specified
-  .command('operation', 'Generates a new <create|update|recover|deactivate> operation.', (yargs) => {
+  .demandCommand(1, ' Try: tyron <command>, with command= operation')
+  .command('operation', '(to execute a tyronZIL DID-operation, try: $tyron operation <subcommand>, with subcommand= create|update|recover|deactivate)', (yargs) => {
     yargs
-      .usage('Usage: $0 operation <create|update|recover|deactivate> [options]')
-      .demandCommand(1, 'An <operation type> is not specified.') // Requires a sub-command (operation type) to be specified
-      .command('create', 'Generates a tyronZIL DID create operation.', async () => {
+      .usage('Usage: $0 operation <subcommand> [options]')
+      .demandCommand(1, 'Specify a subcommand: create|update|recover|deactivate')
+      .command('create', '(creates a unique digital identity did:tyron:zil)', async () => {
         await tyronCLI.handleCreate();
       })
+
+      /*
       .command('update', 'Generates an tyronZIL DID update operation.', () => {
         console.log('To be implemented.');
       })
@@ -33,6 +35,7 @@ yargs
   })
   .command('resolve', 'Resolves a tyronZIL DID (read operation).', () => {
     console.log('To be implemented.');
+    */
   })
   .strict() // The command must be one of the explicitly defined commands
   .help(false) // Disabling --help option.

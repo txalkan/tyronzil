@@ -4,7 +4,7 @@ import {
   SidetreeResponse,
   SidetreeResponseModel
 } from '@decentralized-identity/sidetree';
-import ProtocolVersionModel from '@decentralized-identity/sidetree/dist/lib/core/VersionManager';
+import { ProtocolVersionModel } from '@decentralized-identity/sidetree/dist/lib/core/VersionManager';
 import * as Koa from 'koa';
 import * as getRawBody from 'raw-body';
 import * as Router from 'koa-router';
@@ -15,13 +15,13 @@ interface tyronZILConfig extends SidetreeConfig {
 }
 
 // Default configuration file:
-let configFilePath = './json/config-core-testnet.json';
+let configFilePath = '../json/config-core-testnet.json';
 
 /** Selects default configuration file (config-core-testnet.json) */
 const config: tyronZILConfig = require(configFilePath);
 
 // Default protocol versioning file:
-let versioningConfigFilePath = './json/versioning-core-testnet.json';
+let versioningConfigFilePath = '../json/versioning-core-testnet.json';
 
 /** Selects default protocol versioning file (versioning-core-testnet.json) */
 const protocolVersions: ProtocolVersionModel[] = require(versioningConfigFilePath);

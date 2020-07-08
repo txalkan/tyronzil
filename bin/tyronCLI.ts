@@ -5,8 +5,10 @@ export default class tyronCLI {
 
     /** Handles the `create` subcommand */
     public static async handleCreate() {
-        const createOperationData = await tyronOperations.createOperation();
+        const createOperationOutput = await tyronOperations.createOperation();
+        const didSuffix= createOperationOutput.createOperation.didUniqueSuffix;
 
+        console.log(`Your decentralized digital identity on Zilliqa is: ` + `did:tyron:zil:${didSuffix}`);
     }
 
 }

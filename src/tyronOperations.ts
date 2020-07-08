@@ -9,7 +9,7 @@ import Multihash from '@decentralized-identity/sidetree/dist/lib/core/versions/l
 import PublicKeyPurpose from '@decentralized-identity/sidetree/dist/lib/core/versions/latest/PublicKeyPurpose';
 import Jwk from '@decentralized-identity/sidetree/dist/lib/core/versions/latest/util/Jwk';
 import DocumentModel from '@decentralized-identity/sidetree/dist/lib/core/versions/latest/models/DocumentModel';
-import CreateOperation from '@decentralized-identity/sidetree/lib/core/versions/latest/CreateOperation';
+import CreateOperation from '@decentralized-identity/sidetree/dist/lib/core/versions/latest/CreateOperation';
 
 /** Defines input data for a Sidetree-based `DID-create` tyron-operation REQUEST*/
 interface CreateOperationRequestInput {
