@@ -1,2 +1,3 @@
 # tyronZIL-js
-Sidetree-based DID client for Zilliqa in TypeScript
+
+Sidetree-based DID client for the Zilliqa blockchain, implemented in TypeScript.
