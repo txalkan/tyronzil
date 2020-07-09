@@ -4,9 +4,8 @@
 import * as yargs from 'yargs';
 import tyronCLI from './tyronCLI';
 
-// tslint:disable-next-line: no-unused-expression - Invoking `argv` is the way to trigger argument processing in `yargs`...
 yargs
-  .scriptName('tyron') // To make help print 'tyron' instead of 'index.js'
+  .scriptName('tyron')
   .usage('Usage: $0 <command> [options]')
   .demandCommand(1, ' Try: tyron <command>, with command= operation')
   .command('operation', '(to execute a tyronZIL DID-operation, try: $tyron operation <subcommand>, with subcommand= create|update|recover|deactivate)', (yargs) => {

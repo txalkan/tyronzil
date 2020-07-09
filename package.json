@@ -29,6 +29,7 @@
   "homepage": "https://github.com/julio-cabdu/tyronzil-js#readme",
   "dependencies": {
     "@decentralized-identity/sidetree": "^0.9.1",
+    "chalk": "^4.1.0",
     "koa": "^2.13.0",
     "koa-router": "^9.1.0",
     "raw-body": "^2.4.1",
