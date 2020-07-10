@@ -16,19 +16,19 @@ export default class tyronCLI {
 
     /** Handles the `create` subcommand */
     public static async handleCreate() {
-    const createOperationOutput = await tyronCreateOperation.createOperation();
-    const didSuffix = createOperationOutput.createOperation.didUniqueSuffix;
-    const tyronZILScheme: didScheme = {
-        schemeIdentifier:'did:',
-        methodName: 'tyron:',
-        methodNamespace: 'zil:',
-        methodSpecificId: didSuffix,
-    }
-    console.log(`Your decentralized digital identity on Zilliqa is: ` + LogColors.green(`${tyronZILScheme.schemeIdentifier}${tyronZILScheme.methodName}`) + LogColors.lightBlue(`${tyronZILScheme.methodNamespace}`) + LogColors.brightYellow(`${tyronZILScheme.methodSpecificId}`));
-    
-    const tyron_did_document: tyronDocument = {
+        const createOperationOutput = await tyronCreateOperation.createOperation();
+        const didUniqueSuffix = createOperationOutput.createOperation.didUniqueSuffix;
+        const tyronZILScheme: didScheme = {
+            schemeIdentifier:'did:',
+            methodName: 'tyron:',
+            methodNamespace: 'zil:',
+            methodSpecificId: didUniqueSuffix,
+        }
+        console.log(`Your decentralized digital identity on Zilliqa is: ` + LogColors.green(`${tyronZILScheme.schemeIdentifier}${tyronZILScheme.methodName}`) + LogColors.lightBlue(`${tyronZILScheme.methodNamespace}`) + LogColors.brightYellow(`${tyronZILScheme.methodSpecificId}`));
         
-    };
+        const tyron_did_document: tyronDocument = {
+            
+        };
     }
 
 }
