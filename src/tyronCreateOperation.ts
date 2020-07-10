@@ -20,7 +20,7 @@ import DeltaModel from '@decentralized-identity/sidetree/dist/lib/core/versions/
 interface CreateOperationOutput {
     signingKey: PublicKeyModel;
     signingPrivateKey: JwkEs256k;
-    updateRevealValueEncoded: string;
+    encodedUpdateRevealValue: string;
     updateKey: JwkEs256k;
     updatePrivateKey: JwkEs256k;
     recoveryKey: JwkEs256k;
@@ -41,7 +41,7 @@ interface CreateOperationRequestInput {
 interface CreateOperationRequestOutput {
     type: OperationType.Create;
     suffixData: string;
-    deltaEncoded: string;
+    encodedDelta: string;
 }
 
 /** Defines input data to anchor a Sidetree-based `DID-create` tyron-operation */
@@ -72,7 +72,7 @@ interface AnchoredCreateOperationOutput {
     updatePrivateKey: JwkEs256k;
     signingKey: PublicKeyModel;
     signingPrivateKey: JwkEs256k;
-    nextUpdateRevealValueEncodedString: string;
+    encodedUpdateRevealValue: string;
 }
 
 /** Generates a Sidetree-based `DID-create` tyron-operation */
@@ -83,9 +83,9 @@ export default class tyronCreateOperation {
      * @param ids array of service-endpoint ids
      */
     public static serviceEndpoints(ids: string[]): ServiceEndpointModel[] {
-        const serviceEndpoints = []; 
+        const SERVICE_ENDPOINTS = []; 
         for (const id of ids) {
-            serviceEndpoints.push(
+            SERVICE_ENDPOINTS.push(
                 {
                     'id': id,
                     'type': 'someType',
@@ -93,130 +93,131 @@ export default class tyronCreateOperation {
                 }
             );
         }
-        return serviceEndpoints;
+        return SERVICE_ENDPOINTS;
     }
 
     /** Generates a Sidetree-based `DID-create` tyron-operation */
     public static async createOperation(): Promise<CreateOperationOutput> {
         
         /** To create the DID main public key */
-        const signing_key_input: OperationKeyPairInput = {
+        const SIGNING_KEY_INPUT: OperationKeyPairInput = {
             id: 'signingKey',
         };
         // Creates DID main key-pair:
-        const [signing_key, signing_private_key] = await tyronCryptography.operationKeyPair(signing_key_input);
+        const [SIGNING_KEY, SIGNING_PRIVATE_KEY] = await tyronCryptography.operationKeyPair(SIGNING_KEY_INPUT);
         
         // to-do define
-        const update_reveal_value_encoded = Multihash.canonicalizeThenHashThenEncode(signing_key.jwk);
+        const ENCODED_UPDATE_REVEAL_VALUE = Multihash.canonicalizeThenHashThenEncode(SIGNING_KEY.jwk);
         
         // Creates service endpoints:
-        const service_endpoints = tyronCreateOperation.serviceEndpoints(['serviceEndpointId001', 'serviceEndpointId002']);
+        const SERVICE_ENDPOINTS = tyronCreateOperation.serviceEndpoints(['serviceEndpointId001', 'serviceEndpointId002']);
 
         // Creates key-pair for the updateCommitment:
-        const [update_key, update_private_key] = await Jwk.generateEs256kKeyPair();
+        const [UPDATE_KEY, UPDATE_PRIVATE_KEY] = await Jwk.generateEs256kKeyPair();
         
         // Creates key-pair for the recoveryCommitment:
-        const [recovery_key, recovery_private_key] = await Jwk.generateEs256kKeyPair();
+        const [RECOVERY_KEY, RECOVERY_PRIVATE_KEY] = await Jwk.generateEs256kKeyPair();
         
-        /** Input data for the operation-request */
-        const operation_request_input: CreateOperationRequestInput = {
-            mainPublicKeys: [signing_key],
-            serviceEndpoints: service_endpoints,
-            updateKey: update_key,
-            recoveryKey: recovery_key
+        /** Input data for the operation-EncodedStringrequest */
+        const OPERATION_REQUEST_INPUT: CreateOperationRequestInput = {
+            mainPublicKeys: [SIGNING_KEY],
+            serviceEndpoints: SERVICE_ENDPOINTS,
+            updateKey: UPDATE_KEY,
+            recoveryKey: RECOVERY_KEY
         };
         /** DID data from the create operation-request */
-        const operation_request = await tyronCreateOperation.createOperationRequest(operation_request_input);
-            const operation_buffer = Buffer.from(JSON.stringify(operation_request));
+        const OPERATION_REQUEST = await tyronCreateOperation.createOperationRequest(OPERATION_REQUEST_INPUT);
+            const OPERATION_BUFFER = Buffer.from(JSON.stringify(OPERATION_REQUEST));
         
         /** DID data from the Sidetree create operation */
-        const create_operation = await CreateOperation.parse(operation_buffer);
+        const CREATE_OPERATION = await CreateOperation.parse(OPERATION_BUFFER);
         
         /** Data from a new Sidetree-based `DID-create` tyron-operation */
-        const operation_output: CreateOperationOutput = {
-            signingKey: signing_key,
-            signingPrivateKey: signing_private_key,
-            updateRevealValueEncoded: update_reveal_value_encoded,
-            updateKey: update_key,
-            updatePrivateKey: update_private_key,
-            recoveryKey: recovery_key,
-            recoveryPrivateKey: recovery_private_key,
-            operationRequest: operation_request,
-            createOperation: create_operation
+        const OPERATION_OUTPUT: CreateOperationOutput = {
+            signingKey: SIGNING_KEY,
+            signingPrivateKey: SIGNING_PRIVATE_KEY,
+            encodedUpdateRevealValue: ENCODED_UPDATE_REVEAL_VALUE,
+            updateKey: UPDATE_KEY,
+            updatePrivateKey: UPDATE_PRIVATE_KEY,
+            recoveryKey: RECOVERY_KEY,
+            recoveryPrivateKey: RECOVERY_PRIVATE_KEY,
+            operationRequest: OPERATION_REQUEST,
+            createOperation: CREATE_OPERATION
         };
-        return operation_output;
+        return OPERATION_OUTPUT;
 
     }
 
     /** Generates a Sidetree-based `DID-create` tyron-operation REQUEST  */
     public static async createOperationRequest(input: CreateOperationRequestInput): Promise<CreateOperationRequestOutput> {
         
-        // to-do define
-        const document: DocumentModel = {
+        // to-do define and fix import name convention publicKeys
+        const DOCUMENT: DocumentModel = {
             public_keys: input.mainPublicKeys,
             service_endpoints: input.serviceEndpoints
         };
-        const patch = [{
+        const PATCH = [{ // to-do learn about patches
             action: 'replace',
-            document
+            DOCUMENT
         }];
         
         /** Takes the input.updateKey and makes the updateCommitment value */
-        const update_commitment = Multihash.canonicalizeThenHashThenEncode(input.updateKey);
+        const UPDATE_COMMITMENT = Multihash.canonicalizeThenHashThenEncode(input.updateKey);
 
         /** The Create Operation Delta Object */
-        const delta: DeltaModel = {
-            patches: patch,
-            updateCommitment: update_commitment,
+        const DELTA: DeltaModel = {
+            patches: PATCH,
+            updateCommitment: UPDATE_COMMITMENT,
         };
-        const delta_buffer = Buffer.from(JSON.stringify(delta));
-            const delta_encoded = Encoder.encode(delta_buffer);    
-            const delta_hash = Encoder.encode(Multihash.hash(delta_buffer));
+        const DELTA_BUFFER = Buffer.from(JSON.stringify(DELTA));
+            const ENCODED_DELTA = Encoder.encode(DELTA_BUFFER);    
+            const DELTA_HASH = Encoder.encode(Multihash.hash(DELTA_BUFFER));
 
         /** Takes the input.recoveryKey and makes the recoveryCommitment */
-        const recovery_commitment = Multihash.canonicalizeThenHashThenEncode(input.recoveryKey);
+        const RECOVERY_COMMITMENT = Multihash.canonicalizeThenHashThenEncode(input.recoveryKey);
         
         /** The Create Operation Suffix Data Object */
-        const suffix_data = {
-            deltaHash: delta_hash,
-            recoveryCommitment: recovery_commitment
+        const SUFFIX_DATA = {
+            deltaHash: DELTA_HASH,
+            recoveryCommitment: RECOVERY_COMMITMENT
         };
-        const suffix_data_encoded = Encoder.encode(JSON.stringify(suffix_data));
+        const ENCODED_SUFFIX_DATA = Encoder.encode(JSON.stringify(SUFFIX_DATA));
         
         /** DID data to create a new Sidetree-based `DID-update` tyron-operation */
-        const operation_request: CreateOperationRequestOutput = {
+        const OPERATION_REQUEST: CreateOperationRequestOutput = {
             type: OperationType.Create,
-            suffixData: suffix_data_encoded,
-            deltaEncoded: delta_encoded
+            suffixData: ENCODED_SUFFIX_DATA,
+            encodedDelta: ENCODED_DELTA
         };
-        return operation_request;    
+        return OPERATION_REQUEST;    
     }
 
     /** Generates an anchored `DID-create` tyron-operation */
     public static async anchoredCreateOperation(input: AnchoredCreateOperationInput): Promise<AnchoredCreateOperationOutput> {
-        const create_operation_output = await tyronCreateOperation.createOperation();
-        const anchored_operation_model: AnchoredOperationModel = {
+        const CREATE_OPERATION_OUTPUT = await tyronCreateOperation.createOperation();
+        
+        const ANCHORED_OPERATION_MODEL: AnchoredOperationModel = {
             type: OperationType.Create,
-            didUniqueSuffix: create_operation_output.createOperation.didUniqueSuffix,
-            operationBuffer: create_operation_output.createOperation.operationBuffer,
+            didUniqueSuffix: CREATE_OPERATION_OUTPUT.createOperation.didUniqueSuffix,
+            operationBuffer: CREATE_OPERATION_OUTPUT.createOperation.operationBuffer,
             transactionNumber: input.transactionNumber,
             ledgerTime: input.ledgerTime,
             operationIndex: input.operationIndex
         };
         
-        const create_operation_anchored: AnchoredCreateOperationOutput = {
-            createOperation: create_operation_output.createOperation,
-            operationRequest: create_operation_output.operationRequest,
-            anchoredOperationModel: anchored_operation_model,
-            recoveryKey: create_operation_output.recoveryKey,
-            recoveryPrivateKey: create_operation_output.recoveryPrivateKey,
-            updateKey: create_operation_output.updateKey,
-            updatePrivateKey: create_operation_output.updatePrivateKey,
-            signingKey: create_operation_output.signingKey,
-            signingPrivateKey: create_operation_output.signingPrivateKey,
-            nextUpdateRevealValueEncodedString: create_operation_output.nextUpdateRevealValueEncodedString
+        const ANCHORED_CREATE_OPERATION: AnchoredCreateOperationOutput = {
+            createOperation: CREATE_OPERATION_OUTPUT.createOperation,
+            operationRequest: CREATE_OPERATION_OUTPUT.operationRequest,
+            anchoredOperationModel: ANCHORED_OPERATION_MODEL,
+            recoveryKey: CREATE_OPERATION_OUTPUT.recoveryKey,
+            recoveryPrivateKey: CREATE_OPERATION_OUTPUT.recoveryPrivateKey,
+            updateKey: CREATE_OPERATION_OUTPUT.updateKey,
+            updatePrivateKey: CREATE_OPERATION_OUTPUT.updatePrivateKey,
+            signingKey: CREATE_OPERATION_OUTPUT.signingKey,
+            signingPrivateKey: CREATE_OPERATION_OUTPUT.signingPrivateKey,
+            encodedUpdateRevealValue: CREATE_OPERATION_OUTPUT.encodedUpdateRevealValue
         };
-        return create_operation_anchored;
+        return ANCHORED_CREATE_OPERATION;
     }
 }
 
