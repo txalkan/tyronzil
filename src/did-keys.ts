@@ -6,6 +6,7 @@ import Jws from '@decentralized-identity/sidetree/dist/lib/core/versions/latest/
 import * as crypto from 'crypto';
 import Encoder from '@decentralized-identity/sidetree/dist/lib/core/versions/latest/Encoder';
 import Multihash from '@decentralized-identity/sidetree/dist/lib/core/versions/latest/Multihash';
+import SignedDataModel from './models/signed-data-model';
 
 /** Defines input data to generate a cryptographic key pair */
 export interface OperationKeyPairInput {
@@ -13,8 +14,8 @@ export interface OperationKeyPairInput {
     purpose?: PublicKeyPurpose[]
 }
 
-/** Generates tyron cryptographic operations */
-export class tyronCryptography {
+/** Generates cryptographic operations */
+export class cryptography {
 
     /** 
      * Asymmetric cryptography to generate the key pair using the KEY_ALGORITHM (secp256k1)
@@ -31,7 +32,7 @@ export class tyronCryptography {
     }
 
     /** Signs the given payload as a ES256K compact JWS */
-    public static async signUsingEs256k (payload: any, privateKey: JwkEs256k): Promise<string> {
+    public static async signUsingEs256k (payload: SignedDataModel, privateKey: JwkEs256k): Promise<string> {
         const protectedHeader = {
             alg: 'ES256K'
         };

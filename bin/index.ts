@@ -2,15 +2,15 @@
 // So `npm i` installs the CLI correctly across all operating systems
 
 import * as yargs from 'yargs';
-import tyronCLI from './tyronCLI';
+import tyronCLI from './tyronZIL-CLI';
 
 yargs
-  .scriptName('tyron')
+  .scriptName('tyronzil')
   .usage('Usage: $0 <command> [options]')
-  .demandCommand(1, ' Try: tyron <command>, with command= operation')
-  .command('operation', '(to execute a tyronZIL DID-operation, try: $tyron operation <subcommand>, with subcommand= create|update|recover|deactivate)', (yargs) => {
+  .demandCommand(1, 'Try: tyronzil <command>, with command= did')
+  .command('did', '(to execute a tyronZIL DID-operation, try: $tyronzil did <subcommand>, with subcommand= create|update|recover|deactivate)', (yargs) => {
     yargs
-      .usage('Usage: $0 operation <subcommand> [options]')
+      .usage('Usage: $0 did <subcommand> [options]')
       .demandCommand(1, 'Specify a subcommand: create|update|recover|deactivate')
       .command('create', '(creates a unique digital identity did:tyron:zil)', async () => {
         await tyronCLI.handleCreate();

@@ -15,66 +15,68 @@ interface tyronZILConfig extends SidetreeConfig {
 }
 
 // Default configuration file:
-let configFilePath = '../json/config-core-testnet.json';
+const CONFIG_FILE_PATH = '../json/config-core-testnet.json';
 
 /** Selects default configuration file (config-core-testnet.json) */
-const config: tyronZILConfig = require(configFilePath);
+/* eslint-disable */
+const CONFIG: tyronZILConfig = require(CONFIG_FILE_PATH);
 
 // Default protocol versioning file:
-let versioningConfigFilePath = '../json/versioning-core-testnet.json';
+const versioningConfigFilePath = '../json/versioning-core-testnet.json';
 
 /** Selects default protocol versioning file (versioning-core-testnet.json) */
-const protocolVersions: ProtocolVersionModel[] = require(versioningConfigFilePath);
+/* eslint-disable */
+const PROTOCOL_VERSION: ProtocolVersionModel[] = require(versioningConfigFilePath);
 
 /** Creates an instance of the Sidetree Core service */
-const sidetreeCore = new SidetreeCore(config, protocolVersions);
+const SIDETREE_CORE = new SidetreeCore(CONFIG, PROTOCOL_VERSION);
 
 /** Creates a Koa application */
-const app = new Koa();
+const APP = new Koa();
 
 // Raw body parser
-app.use(async (ctx, next) => {
+APP.use(async (ctx, next) => {
   ctx.body = await getRawBody(ctx.req);
   await next();
 });
 
 /** Creates a Koa-router */
-const router = new Router();
+const ROUTER = new Router();
 
 // Version request
-router.get('/version', async (ctx, _next) => {
-  const response = await sidetreeCore.handleGetVersionRequest();
-  setKoaResponse(response, ctx.response);
+ROUTER.get('/version', async (ctx, _next) => {
+  const RESPONSE = await SIDETREE_CORE.handleGetVersionRequest();
+  setKoaResponse(RESPONSE, ctx.response);
 });
 
 // DID operation requests
-router.post('/operations', async (ctx, _next) => {
-  const response = await sidetreeCore.handleOperationRequest(ctx.body);
-  setKoaResponse(response, ctx.response);
+ROUTER.post('/operations', async (ctx, _next) => {
+  const RESPONSE = await SIDETREE_CORE.handleOperationRequest(ctx.body);
+  setKoaResponse(RESPONSE, ctx.response);
 });
 
 // DID resolver
-const resolvePath = '/identifiers/';
-router.get(`${resolvePath}:did`, async (ctx, _next) => {
+const RESOLUTION_PATH = '/resolve/';
+ROUTER.get(`${RESOLUTION_PATH}:did`, async (ctx, _next) => {
   // Remove '/identifiers/' from the URL
-  const didOrDidDocument = ctx.url.split(resolvePath)[1];
-  const response = await sidetreeCore.handleResolveRequest(didOrDidDocument);
-  setKoaResponse(response, ctx.response);
+  const didOrDidDocument = ctx.url.split(RESOLUTION_PATH)[1];
+  const RESPONSE = await SIDETREE_CORE.handleResolveRequest(didOrDidDocument);
+  setKoaResponse(RESPONSE, ctx.response);
 });
 
-app.use(router.routes())
-   .use(router.allowedMethods());
+APP.use(ROUTER.routes())
+   .use(ROUTER.allowedMethods());
 
 // Responds with 400 BadRequest for all unhandled paths
-app.use((ctx, _next) => {
+APP.use((ctx, _next) => {
   ctx.response.status = 400;
 });
 
-sidetreeCore.initialize()
+SIDETREE_CORE.initialize()
 .then(() => {
-  const port = config.port;
-  app.listen(port, () => {
-    console.log(`The tyronZIL Sidetree service is running on port: ${port}`);
+  const PORT = CONFIG.port;
+  APP.listen(PORT, () => {
+    console.log(`The tyronZIL Sidetree service is running on port: ${PORT}`);
   });
 })
 .catch((error: Error) => {
