@@ -1,12 +1,27 @@
+/*
+    TyronZIL-js: Decentralized identity client for the Zilliqa blockchain platform
+    Copyright (C) 2020 Julio Cesar Cabrapan Duarte
+
+    This program is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+*/
+
 import LogColors from './log-colors';
-import didCreate from '../src/did-operations/did-create';
+import DidCreate from '../src/did-operations/did-create';
 import DidDoc from '../src/did-document';
 
 //import tyronDocument from '../src/did-document';
 
 
 /** Defines the tyronZIL DID scheme */
-interface didScheme {
+interface DidScheme {
     schemeIdentifier: string;
     methodName: string;
     methodNamespace: string;
@@ -14,13 +29,13 @@ interface didScheme {
 }
 
 /** Handles the tyronZIL CLI DID operations */
-export default class tyronCLI {
+export default class TyronCLI {
 
     /** Handles the `create` subcommand */
     public static async handleCreate(): Promise<void> {
-        const DID_CREATED = await didCreate.execute();
+        const DID_CREATED = await DidCreate.execute();
         const DID_SUFFIX = DID_CREATED.didSuffix;
-        const TYRONZIL_SCHEME: didScheme = {
+        const TYRONZIL_SCHEME: DidScheme = {
             schemeIdentifier:'did:',
             methodName: 'tyron:',
             methodNamespace: 'zil:',

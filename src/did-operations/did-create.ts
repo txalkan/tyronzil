@@ -1,5 +1,20 @@
+/*
+    TyronZIL-js: Decentralized identity client for the Zilliqa blockchain platform
+    Copyright (C) 2020 Julio Cesar Cabrapan Duarte
+
+    This program is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+*/
+
 import {
-    cryptography,
+    Cryptography,
     OperationKeyPairInput
  } from '../did-keys';
 import PublicKeyModel from '@decentralized-identity/sidetree/dist/lib/core/versions/latest/models/PublicKeyModel';
@@ -123,7 +138,7 @@ export default class DidCreate {
             id: 'signingKey',
         };
         // Creates DID main key-pair:
-        const [SIGNING_KEY, SIGNING_PRIVATE_KEY] = await cryptography.operationKeyPair(SIGNING_KEY_INPUT);
+        const [SIGNING_KEY, SIGNING_PRIVATE_KEY] = await Cryptography.operationKeyPair(SIGNING_KEY_INPUT);
         
         // Creates key-pair for the updateCommitment (save private key for next update operation)
         const [UPDATE_KEY, UPDATE_PRIVATE_KEY] = await Jwk.generateEs256kKeyPair();

@@ -1,5 +1,20 @@
+/*
+    TyronZIL-js: Decentralized identity client for the Zilliqa blockchain platform
+    Copyright (C) 2020 Julio Cesar Cabrapan Duarte
+
+    This program is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+*/
+
 import {
-    cryptography,
+    Cryptography,
     OperationKeyPairInput
  } from '../did-keys';
 import JwkEs256k from '@decentralized-identity/sidetree/dist/lib/core/models/JwkEs256k';
@@ -61,7 +76,7 @@ export default class didUpdate {
             id: 'newSigningKey'
         };
         // Creates a new DID main key-pair:
-        const [NEW_SIGNING_KEY, NEW_SIGNING_PRIVATE_KEY] = await cryptography.operationKeyPair(NEW_SIGNING_KEY_INPUT);
+        const [NEW_SIGNING_KEY, NEW_SIGNING_PRIVATE_KEY] = await Cryptography.operationKeyPair(NEW_SIGNING_KEY_INPUT);
         const PATCH: PatchModel = {
             action: PatchAction.AddKeys,
             publicKeys: [NEW_SIGNING_KEY],
@@ -121,7 +136,7 @@ export default class didUpdate {
             delta_hash: DELTA_HASH,
             update_key: input.updateKey
         };
-        const SIGNED_DATA_JWS = await cryptography.signUsingEs256k(SIGNED_DATA, input.nextUpdatePrivateKey);
+        const SIGNED_DATA_JWS = await Cryptography.signUsingEs256k(SIGNED_DATA, input.nextUpdatePrivateKey);
         
         /** The Update Operation Signed Data Object to-do */
         /** DID data to update the Sidetree-based `DID` operation to-do document? */
