@@ -4,10 +4,10 @@
   "description": "Sidetree-based DID client for the Zilliqa blockchain",
   "main": "dist/src/core.js",
   "bin": {
-    "tyronzil": "./dist/bin/index.js"
+    "tyronzil": "./dist/src/bin/index.js"
   },
   "scripts": {
-    "build": "tsc && copyfiles \"json/**/*.json\" dist",
+    "build": "tsc && copyfiles \"config/**/*.json\" dist",
     "test": "echo \"Error: no test specified\" && exit 1",
     "start": "node dist/src/core.js",
     "lint": "eslint . --ext .ts"

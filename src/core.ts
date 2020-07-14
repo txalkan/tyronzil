@@ -30,14 +30,14 @@ interface tyronZILConfig extends SidetreeConfig {
 }
 
 // Default configuration file:
-const CONFIG_FILE_PATH = '../json/config-core-testnet.json';
+const CONFIG_FILE_PATH = '../config/config-core-testnet.json';
 
 /** Selects default configuration file (config-core-testnet.json) */
 /* eslint-disable */
 const CONFIG: tyronZILConfig = require(CONFIG_FILE_PATH);
 
 // Default protocol versioning file:
-const versioningConfigFilePath = '../json/versioning-core-testnet.json';
+const versioningConfigFilePath = '../config/versioning-core-testnet.json';
 
 /** Selects default protocol versioning file (versioning-core-testnet.json) */
 /* eslint-disable */

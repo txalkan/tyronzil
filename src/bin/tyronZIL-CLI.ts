@@ -14,8 +14,8 @@
 */
 
 import LogColors from './log-colors';
-import DidCreate from '../src/did-operations/did-create';
-import DidDoc from '../src/did-document';
+import DidCreate from '../lib/did-operations/did-create';
+import DidDoc from '../lib/did-document';
 
 //import tyronDocument from '../src/did-document';
 
