@@ -6,7 +6,7 @@ Developed by [Julio Cabrapan Duarte](https://github.com/julio-cabdu)
 
 Funded by [ZILHive](https://zilhive.org/)
 
-**TyronZIL-js**: Open-source reference implementation for Node.js
+**tyronZIL-js**: Open-source reference implementation for Node.js
 > Derivative work of [decentralized-identity/sidetree](https://github.com/decentralized-identity/sidetree) and [decentralized-identity/ion](https://github.com/decentralized-identity/ion) (both [Apache 2](https://www.apache.org/licenses/LICENSE-2.0) software)
 
 ## Problem summary
