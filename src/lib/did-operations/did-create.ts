@@ -13,6 +13,9 @@
     GNU General Public License for more details.
 */
 
+import OperationType from '@decentralized-identity/sidetree/dist/lib/core/enums/OperationType';
+import CreateOperation from '@decentralized-identity/sidetree/dist/lib/core/versions/latest/CreateOperation';
+
 import {
     Cryptography,
     OperationKeyPairInput
@@ -23,20 +26,19 @@ import Jwk from '@decentralized-identity/sidetree/dist/lib/core/versions/latest/
 import Multihash from '@decentralized-identity/sidetree/dist/lib/core/versions/latest/Multihash';
 import Encoder from '@decentralized-identity/sidetree/dist/lib/core/versions/latest/Encoder';
 
-import OperationType from '@decentralized-identity/sidetree/dist/lib/core/enums/OperationType';
-import CreateOperation from '@decentralized-identity/sidetree/dist/lib/core/versions/latest/CreateOperation';
-
 import ServiceEndpointModel from '@decentralized-identity/sidetree/dist/lib/core/versions/latest/models/ServiceEndpointModel';
 import serviceEndpoints from '../service-endpoints';
-//import RecoverOperation from '@decentralized-identity/sidetree/dist/lib/core/versions/latest/RecoverOperation';
+
 import DocumentModel from '@decentralized-identity/sidetree/dist/lib/core/versions/latest/models/DocumentModel';
 import { PatchModel, PatchAction } from '../models/did-patches';
 import DeltaModel from '@decentralized-identity/sidetree/dist/lib/core/versions/latest/models/DeltaModel';
 import SuffixDataModel from '../models/suffix-data-model';
+import AnchoredOperationModel from '@decentralized-identity/sidetree/dist/lib/core/models/AnchoredOperationModel';
 
 /** Defines output data for a Sidetree-based `DID-create` operation */
 interface CreateOperationOutput {
-    operationRequest: CreateRequestOutput;
+    operationRequest: RequestOutput;
+    operationBuffer: Buffer;
     createOperation: CreateOperation;
     signingKeys: PublicKeyModel[];
     signingPrivateKeys: JwkEs256k[];
@@ -50,42 +52,32 @@ interface CreateOperationOutput {
 }
 
 /** Defines input data for a Sidetree-based `DID-create` operation REQUEST*/
-interface CreateRequestInput {
+interface RequestInput {
     mainPublicKeys: PublicKeyModel[];
     serviceEndpoints?: ServiceEndpointModel[];
     updateCommitment: string;
-    recoveryKey: JwkEs256k;
     recoveryCommitment: string;
 }
 
 /** Defines output data of a Sidetree-based `DID-create` operation REQUEST*/
-interface CreateRequestOutput {
+interface RequestOutput {
     type: OperationType.Create;
     suffix_data: string; //to-do fix name to suffixData
     delta: string; // to-do encodedDelta
 }
 
 /** Defines input data to anchor a Sidetree-based `DID-create` operation */
-interface AnchoredCreateOperationInput {
-    transactionNumber: number;
-    ledgerTime: number;
-    operationIndex: number;
-}
-
-/** Defines model for the anchored data of a `DID-create` operation */
-interface AnchoredOperationModel {
-    type: OperationType;
-    didUniqueSuffix: string;
-    operationBuffer: Buffer;
+interface AnchoredCreateInput {
     transactionNumber: number;
     ledgerTime: number;
     operationIndex: number;
 }
 
 /** Defines output data of an anchored `DID-create` operation */
-interface AnchoredDidCreateOutput {
+interface AnchoredCreateOutput {
+    operationRequest: RequestOutput;
+    operationBuffer: Buffer;
     createOperation: CreateOperation;
-    operationRequest: CreateRequestOutput;
     anchoredOperationModel: AnchoredOperationModel;
     recoveryKey: JwkEs256k;
     recoveryPrivateKey: JwkEs256k;
@@ -98,7 +90,8 @@ interface AnchoredDidCreateOutput {
 
 /** Generates a Sidetree-based `DID-create` operation */
 export default class DidCreate {
-    public readonly operationRequest: CreateRequestOutput;
+    public readonly operationRequest: RequestOutput;
+    public readonly operationBuffer: Buffer;
     public readonly createOperation: CreateOperation;
     public readonly didSuffix: string;
     public readonly type: OperationType.Create;
@@ -116,6 +109,7 @@ export default class DidCreate {
         operationOutput: CreateOperationOutput
     ) {
         this.operationRequest = operationOutput.operationRequest;
+        this.operationBuffer = operationOutput.operationBuffer;
         this.createOperation = operationOutput.createOperation;
         this.didSuffix = operationOutput.createOperation.didUniqueSuffix;
         this.type = OperationType.Create;
@@ -164,23 +158,24 @@ export default class DidCreate {
         const SERVICE_ENDPOINTS = await serviceEndpoints.new([SERVICE1, SERVICE2]);
 
         /** Input data for the operation-request */
-        const OPERATION_REQUEST_INPUT: CreateRequestInput = {
+        const OPERATION_REQUEST_INPUT: RequestInput = {
             mainPublicKeys: [SIGNING_KEY],
             serviceEndpoints: SERVICE_ENDPOINTS,
             updateCommitment: UPDATE_COMMITMENT,
-            recoveryKey: RECOVERY_KEY,
             recoveryCommitment: RECOVERY_COMMITMENT
         };
-        /** DID data from the create operation-request */
+        
+        /** DID data to generate a new Sidetree-based `DID-create` operation */
         const OPERATION_REQUEST = await DidCreate.operationRequest(OPERATION_REQUEST_INPUT);
             const OPERATION_BUFFER = Buffer.from(JSON.stringify(OPERATION_REQUEST));
         
-        /** DID data from the Sidetree create operation */
+        /** Executes the Sidetree create operation */
         const CREATE_OPERATION = await CreateOperation.parse(OPERATION_BUFFER);
         
         /** Output data from a new Sidetree-based `DID-create` operation */
         const OPERATION_OUTPUT: CreateOperationOutput = {
             operationRequest: OPERATION_REQUEST,
+            operationBuffer: OPERATION_BUFFER,
             createOperation: CREATE_OPERATION,
             signingKeys: [SIGNING_KEY],
             signingPrivateKeys: [SIGNING_PRIVATE_KEY],
@@ -197,9 +192,8 @@ export default class DidCreate {
     }
 
     /** Generates a Sidetree-based `DID-create` operation REQUEST  */
-    public static async operationRequest(input: CreateRequestInput): Promise<CreateRequestOutput> {
+    public static async operationRequest(input: RequestInput): Promise<RequestOutput> {
         
-        // to-do define and fix import name convention publicKeys
         const DOCUMENT: DocumentModel = {
             public_keys: input.mainPublicKeys,
             service_endpoints: input.serviceEndpoints
@@ -225,31 +219,32 @@ export default class DidCreate {
         };
         const ENCODED_SUFFIX_DATA = Encoder.encode(JSON.stringify(SUFFIX_DATA));
         
-        /** DID data to create a new Sidetree-based `DID-update` operation */
-        const OPERATION_REQUEST: CreateRequestOutput = {
+        /** DID data to generate a new Sidetree-based `DID-create` operation */
+        const OPERATION_REQUEST: RequestOutput = {
             type: OperationType.Create,
-            suffix_data: ENCODED_SUFFIX_DATA, // to-do rename to encodedSuffixData
+            suffix_data: ENCODED_SUFFIX_DATA, // to-do rename to encodedSuffixData once Sidetree library accepts PR
             delta: ENCODED_DELTA
         };
         return OPERATION_REQUEST;    
     }
 
     /** Generates an anchored `DID-create` operation */
-    public static async anchoredCreateOperation(input: AnchoredCreateOperationInput): Promise<AnchoredDidCreateOutput> {
+    public static async anchoredCreateOperation(input: AnchoredCreateInput): Promise<AnchoredCreateOutput> {
         const CREATE_OPERATION_OUTPUT = await DidCreate.execute();
         
         const ANCHORED_OPERATION_MODEL: AnchoredOperationModel = {
             type: OperationType.Create,
             didUniqueSuffix: CREATE_OPERATION_OUTPUT.createOperation.didUniqueSuffix,
-            operationBuffer: CREATE_OPERATION_OUTPUT.createOperation.operationBuffer,
+            operationBuffer: CREATE_OPERATION_OUTPUT.operationBuffer,
             transactionNumber: input.transactionNumber,
-            ledgerTime: input.ledgerTime,
+            transactionTime: input.ledgerTime,
             operationIndex: input.operationIndex
         };
         
-        const ANCHORED_OPERATION_OUTPUT: AnchoredDidCreateOutput = {
-            createOperation: CREATE_OPERATION_OUTPUT.createOperation,
+        const ANCHORED_OPERATION_OUTPUT: AnchoredCreateOutput = {
             operationRequest: CREATE_OPERATION_OUTPUT.operationRequest,
+            operationBuffer: CREATE_OPERATION_OUTPUT.operationBuffer,
+            createOperation: CREATE_OPERATION_OUTPUT.createOperation,
             anchoredOperationModel: ANCHORED_OPERATION_MODEL,
             recoveryKey: CREATE_OPERATION_OUTPUT.recoveryKey,
             recoveryPrivateKey: CREATE_OPERATION_OUTPUT.recoveryPrivateKey,
