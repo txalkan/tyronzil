@@ -19,9 +19,9 @@ import {
  } from '../did-keys';
 import JwkEs256k from '@decentralized-identity/sidetree/dist/lib/core/models/JwkEs256k';
 import Jwk from '@decentralized-identity/sidetree/dist/lib/core/versions/latest/util/Jwk';
+import Jws from '@decentralized-identity/sidetree/dist/lib/core/versions/latest/util/Jws';
 import Multihash from '@decentralized-identity/sidetree/dist/lib/core/versions/latest/Multihash';
 import Encoder from '@decentralized-identity/sidetree/dist/lib/core/versions/latest/Encoder';
-
 import OperationType from '@decentralized-identity/sidetree/dist/lib/core/enums/OperationType';
 import UpdateOperation from '@decentralized-identity/sidetree/dist/lib/core/versions/latest/UpdateOperation';
 import PublicKeyModel from '@decentralized-identity/sidetree/dist/lib/core/versions/latest/models/PublicKeyModel';
@@ -38,7 +38,7 @@ interface UpdateOperationInput {
 
 /** Defines output data of a Sidetree-based `DID-update` operation */
 interface UpdateOperationOutput {
-    operationRequest: RequestOutput;
+    sidetreeRequest: RequestData;
     operationBuffer: Buffer;
     updateOperation: UpdateOperation;
     newSigningKeys: PublicKeyModel[];
@@ -57,20 +57,25 @@ interface RequestInput {
     patches: PatchModel[];
 }
 
-/** Defines output data of a Sidetree-based `DID-update` operation REQUEST*/ //to-do change names
-interface RequestOutput {
-    didUniqueSuffix: string;
-    type: OperationType.Update;
+/** Defines data for a Sidetree UpdateOperation REQUEST*/
+interface RequestData {
+    did_suffix: string;
     signed_data: string;
-    encodedDelta: string;
+    type: OperationType.Update;
+    delta: string;
 }
 
 /** Generates a Sidetree-based `DID-update` operation */
 export default class DidUpdate{
-    public readonly operationRequest: RequestOutput;
+    public readonly sidetreeRequest: RequestData;
     public readonly operationBuffer: Buffer;
     public readonly updateOperation: UpdateOperation;
     public readonly type: OperationType.Update;
+    public readonly didUniqueSuffix: string;
+    public readonly signedDataJws: Jws;
+    public readonly signedData: UpdateSignedDataModel;
+    public readonly encodedDelta: string | undefined;
+    public readonly delta: DeltaModel | undefined; // undefined when Map file mode is ON
     public readonly newSigningKeys: PublicKeyModel[];
     public readonly newSigningPrivateKeys: JwkEs256k[];
     public readonly nextUpdateKey: JwkEs256k;
@@ -80,10 +85,15 @@ export default class DidUpdate{
     private constructor (
         operationOutput: UpdateOperationOutput
     ) {
-        this.operationRequest = operationOutput.operationRequest;
+        this.sidetreeRequest = operationOutput.sidetreeRequest;
         this.operationBuffer = operationOutput.operationBuffer;
         this.updateOperation = operationOutput.updateOperation;
         this.type = OperationType.Update;
+        this.didUniqueSuffix = operationOutput.updateOperation.didUniqueSuffix;
+        this.signedDataJws = operationOutput.updateOperation.signedDataJws;
+        this.signedData = operationOutput.updateOperation.signedData;
+        this.encodedDelta = operationOutput.updateOperation.encodedDelta;
+        this.delta = operationOutput.updateOperation.delta;
         this.newSigningKeys = operationOutput.newSigningKeys;
         this.newSigningPrivateKeys = operationOutput.newSigningPrivateKeys;
         this.nextUpdateKey = operationOutput.nextUpdateKey;
@@ -112,8 +122,8 @@ export default class DidUpdate{
         /** Utilizes the NEXT_UPDATE_KEY to make a new `update reveal value` for the next update operation */
         const NEXT_UPDATE_COMMITMENT = Multihash.canonicalizeThenHashThenEncode(NEXT_UPDATE_KEY);
 
-        /** Input data for the update operation-request */
-        const OPERATION_REQUEST_INPUT: RequestInput = {
+        /** Input data for the Sidetree request */
+        const SIDETREE_REQUEST_INPUT: RequestInput = {
             didUniqueSuffix: input.didUniqueSuffix,
             updateKey: input.updateKey,
             updatePrivateKey: input.updatePrivateKey,
@@ -121,9 +131,9 @@ export default class DidUpdate{
             patches: [PATCH]
         };
 
-        /** DID data to generate a Sidetree-based `DID-update` operation */
-        const OPERATION_REQUEST = await DidUpdate.operationRequest(OPERATION_REQUEST_INPUT);
-            const OPERATION_BUFFER = Buffer.from(JSON.stringify(OPERATION_REQUEST));
+        /** Sidetree data to generate a `DID-update` operation */
+        const SIDETREE_REQUEST = await DidUpdate.sidetreeRequest(SIDETREE_REQUEST_INPUT);
+            const OPERATION_BUFFER = Buffer.from(JSON.stringify(SIDETREE_REQUEST));
         
         /** Executes the Sidetree update operation 
          * @returns UpdateOperation = {operationBuffer, didUniqueSuffix, signedData, signedDataModel, encodedDelta, delta} */
@@ -131,7 +141,7 @@ export default class DidUpdate{
         
         /** Output data from a Sidetree-based `DID-update` operation */
         const OPERATION_OUTPUT: UpdateOperationOutput = {
-            operationRequest: OPERATION_REQUEST,
+            sidetreeRequest: SIDETREE_REQUEST,
             operationBuffer: OPERATION_BUFFER,
             updateOperation: UPDATE_OPERATION,
             newSigningKeys: [NEW_SIGNING_KEY],
@@ -143,8 +153,8 @@ export default class DidUpdate{
         return new DidUpdate(OPERATION_OUTPUT);
     }
 
-    /** Generates a Sidetree-based `DID-update` operation REQUEST  */
-    public static async operationRequest(input: RequestInput): Promise<RequestOutput> {
+    /** Generates the Sidetree data for the `DID-update` operation */
+    public static async sidetreeRequest(input: RequestInput): Promise<RequestData> {
         
         /** The Update Operation Delta Object */
         const DELTA: DeltaModel = {
@@ -162,16 +172,14 @@ export default class DidUpdate{
             update_key: input.updateKey
         };
         const SIGNED_DATA_JWS = await Cryptography.signUsingEs256k(SIGNED_DATA, input.updatePrivateKey);
-        
-        /** The Update Operation Signed Data Object to-do */
-        
+
         /** DID data to generate a Sidetree-based `DID-update` operation */
-        const OPERATION_REQUEST: RequestOutput = {
-            didUniqueSuffix: input.didUniqueSuffix,
+        const SIDETREE_REQUEST: RequestData = {
+            did_suffix: input.didUniqueSuffix,
             type: OperationType.Update,
             signed_data: SIGNED_DATA_JWS,
-            encodedDelta: ENCODED_DELTA
+            delta: ENCODED_DELTA
         };
-        return OPERATION_REQUEST;
+        return SIDETREE_REQUEST;
     }
 }

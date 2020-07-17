@@ -37,7 +37,7 @@ import AnchoredOperationModel from '@decentralized-identity/sidetree/dist/lib/co
 
 /** Defines output data for a Sidetree-based `DID-create` operation */
 interface CreateOperationOutput {
-    operationRequest: RequestOutput;
+    sidetreeRequest: RequestData;
     operationBuffer: Buffer;
     createOperation: CreateOperation;
     signingKeys: PublicKeyModel[];
@@ -59,11 +59,11 @@ interface RequestInput {
     recoveryCommitment: string;
 }
 
-/** Defines output data of a Sidetree-based `DID-create` operation REQUEST*/
-interface RequestOutput {
+/** Defines data for a Sidetree CreateOperation REQUEST*/
+interface RequestData {
+    suffix_data: string;
     type: OperationType.Create;
-    suffix_data: string; //to-do fix name to suffixData
-    delta: string; // to-do encodedDelta
+    delta: string;
 }
 
 /** Defines input data to anchor a Sidetree-based `DID-create` operation */
@@ -75,7 +75,7 @@ interface AnchoredCreateInput {
 
 /** Defines output data of an anchored `DID-create` operation */
 interface AnchoredCreateOutput {
-    operationRequest: RequestOutput;
+    sidetreeRequest: RequestData;
     operationBuffer: Buffer;
     createOperation: CreateOperation;
     anchoredOperationModel: AnchoredOperationModel;
@@ -90,11 +90,15 @@ interface AnchoredCreateOutput {
 
 /** Generates a Sidetree-based `DID-create` operation */
 export default class DidCreate {
-    public readonly operationRequest: RequestOutput;
+    public readonly sidetreeRequest: RequestData;
     public readonly operationBuffer: Buffer;
     public readonly createOperation: CreateOperation;
-    public readonly didSuffix: string;
     public readonly type: OperationType.Create;
+    public readonly didUniqueSuffix: string;
+    public readonly encodedSuffixData: string;
+    public readonly suffixData: SuffixDataModel;
+    public readonly encodedDelta: string | undefined;
+    public readonly delta: DeltaModel | undefined; // undefined when Anchor file mode is ON
     public readonly signingKeys: PublicKeyModel[];
     public readonly signingPrivateKeys: JwkEs256k[];
     public readonly updateKey: JwkEs256k;
@@ -108,11 +112,15 @@ export default class DidCreate {
     private constructor (
         operationOutput: CreateOperationOutput
     ) {
-        this.operationRequest = operationOutput.operationRequest;
+        this.sidetreeRequest = operationOutput.sidetreeRequest;
         this.operationBuffer = operationOutput.operationBuffer;
         this.createOperation = operationOutput.createOperation;
-        this.didSuffix = operationOutput.createOperation.didUniqueSuffix;
+        this.didUniqueSuffix = operationOutput.createOperation.didUniqueSuffix;
         this.type = OperationType.Create;
+        this.encodedSuffixData = operationOutput.createOperation.encodedSuffixData;
+        this.suffixData = operationOutput.createOperation.suffixData;
+        this.encodedDelta = operationOutput.createOperation.encodedDelta;
+        this.delta = operationOutput.createOperation.delta;
         this.signingKeys = operationOutput.signingKeys;
         this.signingPrivateKeys = operationOutput.signingPrivateKeys;
         this.updateKey = operationOutput.updateKey;
@@ -157,24 +165,24 @@ export default class DidCreate {
         }
         const SERVICE_ENDPOINTS = await serviceEndpoints.new([SERVICE1, SERVICE2]);
 
-        /** Input data for the operation-request */
-        const OPERATION_REQUEST_INPUT: RequestInput = {
+        /** Input data for the Sidetree request */
+        const SIDETREE_REQUEST_INPUT: RequestInput = {
             mainPublicKeys: [SIGNING_KEY],
             serviceEndpoints: SERVICE_ENDPOINTS,
             updateCommitment: UPDATE_COMMITMENT,
             recoveryCommitment: RECOVERY_COMMITMENT
         };
         
-        /** DID data to generate a new Sidetree-based `DID-create` operation */
-        const OPERATION_REQUEST = await DidCreate.operationRequest(OPERATION_REQUEST_INPUT);
-            const OPERATION_BUFFER = Buffer.from(JSON.stringify(OPERATION_REQUEST));
+        /** Sidetree data to generate a `DID-create` operation */
+        const SIDETREE_REQUEST = await DidCreate.sidetreeRequest(SIDETREE_REQUEST_INPUT);
+            const OPERATION_BUFFER = Buffer.from(JSON.stringify(SIDETREE_REQUEST));
         
         /** Executes the Sidetree create operation */
         const CREATE_OPERATION = await CreateOperation.parse(OPERATION_BUFFER);
         
         /** Output data from a new Sidetree-based `DID-create` operation */
         const OPERATION_OUTPUT: CreateOperationOutput = {
-            operationRequest: OPERATION_REQUEST,
+            sidetreeRequest: SIDETREE_REQUEST,
             operationBuffer: OPERATION_BUFFER,
             createOperation: CREATE_OPERATION,
             signingKeys: [SIGNING_KEY],
@@ -191,8 +199,8 @@ export default class DidCreate {
 
     }
 
-    /** Generates a Sidetree-based `DID-create` operation REQUEST  */
-    public static async operationRequest(input: RequestInput): Promise<RequestOutput> {
+    /** Generates the Sidetree data for the `DID-create` operation */
+    public static async sidetreeRequest(input: RequestInput): Promise<RequestData> {
         
         const DOCUMENT: DocumentModel = {
             public_keys: input.mainPublicKeys,
@@ -220,12 +228,12 @@ export default class DidCreate {
         const ENCODED_SUFFIX_DATA = Encoder.encode(JSON.stringify(SUFFIX_DATA));
         
         /** DID data to generate a new Sidetree-based `DID-create` operation */
-        const OPERATION_REQUEST: RequestOutput = {
+        const SIDETREE_REQUEST: RequestData = {
             type: OperationType.Create,
-            suffix_data: ENCODED_SUFFIX_DATA, // to-do rename to encodedSuffixData once Sidetree library accepts PR
+            suffix_data: ENCODED_SUFFIX_DATA,
             delta: ENCODED_DELTA
         };
-        return OPERATION_REQUEST;    
+        return SIDETREE_REQUEST;    
     }
 
     /** Generates an anchored `DID-create` operation */
@@ -242,7 +250,7 @@ export default class DidCreate {
         };
         
         const ANCHORED_OPERATION_OUTPUT: AnchoredCreateOutput = {
-            operationRequest: CREATE_OPERATION_OUTPUT.operationRequest,
+            sidetreeRequest: CREATE_OPERATION_OUTPUT.sidetreeRequest,
             operationBuffer: CREATE_OPERATION_OUTPUT.operationBuffer,
             createOperation: CREATE_OPERATION_OUTPUT.createOperation,
             anchoredOperationModel: ANCHORED_OPERATION_MODEL,

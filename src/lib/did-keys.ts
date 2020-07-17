@@ -21,7 +21,7 @@ import Jws from '@decentralized-identity/sidetree/dist/lib/core/versions/latest/
 import * as crypto from 'crypto';
 import Encoder from '@decentralized-identity/sidetree/dist/lib/core/versions/latest/Encoder';
 import Multihash from '@decentralized-identity/sidetree/dist/lib/core/versions/latest/Multihash';
-import SignedDataModel from './models/signed-data-model';
+import { UpdateSignedDataModel, RecoverSignedDataModel, DeactivateSignedDataModel } from './models/signed-data-model';
 
 /** Defines input data to generate a cryptographic key pair */
 export interface OperationKeyPairInput {
@@ -47,7 +47,7 @@ export class Cryptography {
     }
 
     /** Signs the given payload as a ES256K compact JWS */
-    public static async signUsingEs256k (payload: SignedDataModel, privateKey: JwkEs256k): Promise<string> {
+    public static async signUsingEs256k (payload: UpdateSignedDataModel | RecoverSignedDataModel | DeactivateSignedDataModel, privateKey: JwkEs256k): Promise<string> {
         const protectedHeader = {
             alg: 'ES256K'
         };

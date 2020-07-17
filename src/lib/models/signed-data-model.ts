@@ -18,17 +18,25 @@ import JwkEs256k from '@decentralized-identity/sidetree/dist/lib/core/models/Jwk
 /** Defines model for the JWS payload object required by the Update Operation Signed Data Object */
 export interface UpdateSignedDataModel {
     /** Encoded representation of the Update Operation Delta Object hash */
-    delta_hash: string; //todo change name to kebab
-    /** The JCS canonicalized IETF RFC 7517 compliant JWK representation matching the previous updateCommitment value */
+    delta_hash: string;
+    /** The JCS canonicalized IETF RFC 7517 compliant JWK representation matching the previous update commitment value */
     update_key: JwkEs256k;
 }
 
 /** Defines model for the JWS payload object required by the Recovery Operation Signed Data Object */
 export interface RecoverSignedDataModel {
     /** Encoded representation of the Recovery Operation Delta Object hash */
-    delta_hash: string; //todo change name to kebab
-    /** The JCS canonicalized IETF RFC 7517 compliant JWK representation matching the previous recoveryCommitment value */
+    delta_hash: string;
+    /** The JCS canonicalized IETF RFC 7517 compliant JWK representation matching the previous recovery commitment value */
     recovery_key: JwkEs256k;
     /** A new recovery commitment for the next recover operation */
     recovery_commitment: string;
+}
+
+/** Defines model for the JWS payload object required by the Deactivate Operation Signed Data Object */
+export interface DeactivateSignedDataModel {
+    /** The unique suffix of the DID to deactivate */
+    did_suffix: string;
+    /** The JCS canonicalized IETF RFC 7517 compliant JWK representation matching the previous recovery commitment value */
+    recovery_key: JwkEs256k;
 }
