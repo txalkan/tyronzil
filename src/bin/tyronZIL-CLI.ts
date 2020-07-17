@@ -16,6 +16,7 @@
 import LogColors from './log-colors';
 import DidCreate from '../lib/did-operations/did-create';
 import DidDoc from '../lib/did-document';
+import DidState from '@decentralized-identity/sidetree/dist/lib/core/models/DidState';
 
 //import tyronDocument from '../src/did-document';
 
@@ -34,7 +35,7 @@ export default class TyronCLI {
     /** Handles the `create` subcommand */
     public static async handleCreate(): Promise<void> {
         const DID_CREATED = await DidCreate.execute();
-        const DID_SUFFIX = DID_CREATED.didSuffix;
+        const DID_SUFFIX = DID_CREATED.didUniqueSuffix;
         const TYRONZIL_SCHEME: DidScheme = {
             schemeIdentifier:'did:',
             methodName: 'tyron:',
@@ -49,9 +50,20 @@ export default class TyronCLI {
         const SERVICE = JSON.stringify(DID_CREATED.serviceEndpoints);
         console.log(`& your service endpoints are: ${SERVICE}`);
         
-        const TYRONZIL_DOCUMENT = await DidDoc.new();
+        const TYRONZIL_DOCUMENT = await DidDoc.make(DID_CREATED);
         const DOC_STRING = JSON.stringify(TYRONZIL_DOCUMENT);
         console.log(`& youR DID-document is: ${DOC_STRING}`);
+
+        /*
+        const DID_STATE_INPUT: DidState = {
+            document: TYRONZIL_DOCUMENT,
+            nextRecoveryCommitmentHash: DID_CREATED.recoveryCommitment,
+            nextUpdateCommitmentHash: DID_CREATED.updateRevealValue,
+            lastOperationTransactionNumber: TRANSACTION_NUMBER,
+        };
+
+        const DID_STATE = await DID_STATE.applyCreate(DID_STATE_INPUT);
+        */
     }
 
 }

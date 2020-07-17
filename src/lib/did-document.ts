@@ -54,7 +54,7 @@ export default class DidDoc {
     /** Creates a brand new DID and its document */
     public static async new(): Promise<DidDoc> {
         const DID_CREATED: DidCreate = await DidCreate.execute();
-        const DID_SUFFIX = DID_CREATED.didSuffix;
+        const DID_SUFFIX = DID_CREATED.didUniqueSuffix;
         const NET = 'testnet:'; // to-do add namespace 
         const ID: string = 'did:tyron:zil:' + NET + DID_SUFFIX;
         
@@ -87,6 +87,73 @@ export default class DidDoc {
         }
 
         const SERVICE_ENDPOINTS = DID_CREATED.serviceEndpoints;
+        const SERVICE = [];
+        
+        if (Array.isArray(SERVICE_ENDPOINTS)) {
+            for (const service of SERVICE_ENDPOINTS) {
+                const serviceEndpoint: ServiceEndpointModel = {
+                    id: ID + '#' + service.id,
+                    type: service.type,
+                    endpoint: service.endpoint
+                };
+                SERVICE.push(serviceEndpoint);
+            }
+        }
+
+        const OPERATION_OUTPUT: DidDocOutput = {
+            id: ID,
+        };
+        
+        if (PUBLIC_KEY.length !== 0) {
+            OPERATION_OUTPUT.publicKey = PUBLIC_KEY;
+        }
+
+        if (AUTHENTICATION.length !== 0) {
+            OPERATION_OUTPUT.authentication = AUTHENTICATION;
+        }
+
+        if (SERVICE.length !== 0) {
+            OPERATION_OUTPUT.service = SERVICE;
+        }
+
+        return new DidDoc(OPERATION_OUTPUT);
+    }
+
+    /** Makes the corresponding DID document */
+    public static async make(input: DidCreate): Promise<DidDoc> {
+        const DID_SUFFIX = input.didUniqueSuffix;
+        const NET = 'testnet:'; // to-do add namespace 
+        const ID: string = 'did:tyron:zil:' + NET + DID_SUFFIX;
+        
+        const SIGNING_KEYS: PublicKeyModel[] = input.signingKeys;
+        const PUBLIC_KEY = [];
+        const AUTHENTICATION = [];
+
+        if (Array.isArray(SIGNING_KEYS)) {
+            for (const key of SIGNING_KEYS) {
+                const id: string = ID + '#' + key.id;
+                const VERIFICATION_METHOD: VerificationMethodModel = {
+                    id: id,
+                    type: key.type,
+                    // at this point in the development, every tyronZIL DID is the sole controller of its own DID
+                    controller: ID,
+                    jwk: key.jwk
+                };
+                const PURPOSE: Set<string> = new Set(key.purpose);
+                if (PURPOSE.has(PublicKeyPurpose.General)) {
+                    PUBLIC_KEY.push(VERIFICATION_METHOD);
+                    if (PURPOSE.has(PublicKeyPurpose.Auth)) {
+                        // referenced key:
+                        AUTHENTICATION.push(id);
+                    }
+                } else if (PURPOSE.has(PublicKeyPurpose.Auth)) {
+                    // embedded key:
+                    AUTHENTICATION.push(VERIFICATION_METHOD);
+                }
+            }
+        }
+
+        const SERVICE_ENDPOINTS = input.serviceEndpoints;
         const SERVICE = [];
         
         if (Array.isArray(SERVICE_ENDPOINTS)) {
