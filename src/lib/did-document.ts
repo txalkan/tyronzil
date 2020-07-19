@@ -33,6 +33,7 @@ interface DidDocOutput {
     updated?: number; // timestamp of the most recent change
 }
 
+/** Generates a tyronZIL DID document */
 export default class DidDoc {
     public readonly id: string;
     public readonly controller?: string;

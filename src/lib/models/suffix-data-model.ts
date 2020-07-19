@@ -15,8 +15,6 @@
 
 // to-do will rename to deltaHash and recoveryCommitment after PR
 export default interface SuffixDataModel {
-    delta_hash?: string;
-    deltaHash?: string;
-    recovery_commitment?: string;
-    recoveryCommitment?: string;
+    delta_hash: string;
+    recovery_commitment: string;
 }

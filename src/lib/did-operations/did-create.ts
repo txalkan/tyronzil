@@ -21,6 +21,8 @@ import {
     OperationKeyPairInput
  } from '../did-keys';
 import PublicKeyModel from '@decentralized-identity/sidetree/dist/lib/core/versions/latest/models/PublicKeyModel';
+import PublicKeyPurpose from '@decentralized-identity/sidetree/dist/lib/core/versions/latest/PublicKeyPurpose';
+
 import JwkEs256k from '@decentralized-identity/sidetree/dist/lib/core/models/JwkEs256k';
 import Jwk from '@decentralized-identity/sidetree/dist/lib/core/versions/latest/util/Jwk';
 import Multihash from '@decentralized-identity/sidetree/dist/lib/core/versions/latest/Multihash';
@@ -30,7 +32,7 @@ import ServiceEndpointModel from '@decentralized-identity/sidetree/dist/lib/core
 import serviceEndpoints from '../service-endpoints';
 
 import DocumentModel from '@decentralized-identity/sidetree/dist/lib/core/versions/latest/models/DocumentModel';
-import { PatchModel, PatchAction } from '../models/did-patches';
+import { PatchModel, PatchAction } from '../models/patch-model';
 import DeltaModel from '@decentralized-identity/sidetree/dist/lib/core/versions/latest/models/DeltaModel';
 import SuffixDataModel from '../models/suffix-data-model';
 import AnchoredOperationModel from '@decentralized-identity/sidetree/dist/lib/core/models/AnchoredOperationModel';
@@ -53,7 +55,7 @@ interface CreateOperationOutput {
 
 /** Defines input data for a Sidetree-based `DID-create` operation REQUEST*/
 interface RequestInput {
-    mainPublicKeys: PublicKeyModel[];
+    signingKeys: PublicKeyModel[];
     serviceEndpoints?: ServiceEndpointModel[];
     updateCommitment: string;
     recoveryCommitment: string;
@@ -62,8 +64,8 @@ interface RequestInput {
 /** Defines data for a Sidetree CreateOperation REQUEST*/
 interface RequestData {
     suffix_data: string;
-    type: OperationType.Create;
-    delta: string;
+    type?: OperationType.Create;
+    delta?: string;
 }
 
 /** Defines input data to anchor a Sidetree-based `DID-create` operation */
@@ -86,6 +88,11 @@ interface AnchoredCreateOutput {
     signingKeys: PublicKeyModel[];
     signingPrivateKeys: JwkEs256k[];
     updateRevealValue: string;
+}
+
+export interface VerificationMethodInput {
+    id: string;
+    purpose: PublicKeyPurpose[];
 }
 
 /** Generates a Sidetree-based `DID-create` operation */
@@ -118,7 +125,10 @@ export default class DidCreate {
         this.didUniqueSuffix = operationOutput.createOperation.didUniqueSuffix;
         this.type = OperationType.Create;
         this.encodedSuffixData = operationOutput.createOperation.encodedSuffixData;
-        this.suffixData = operationOutput.createOperation.suffixData;
+        this.suffixData = {
+            delta_hash: operationOutput.createOperation.suffixData.deltaHash,
+            recovery_commitment: operationOutput.createOperation.suffixData.recoveryCommitment
+        };
         this.encodedDelta = operationOutput.createOperation.encodedDelta;
         this.delta = operationOutput.createOperation.delta;
         this.signingKeys = operationOutput.signingKeys;
@@ -132,15 +142,15 @@ export default class DidCreate {
         this.serviceEndpoints = operationOutput.serviceEndpoints;
     }
 
-    /** Generates a Sidetree-based `DID-create` operation */
+    /** Generates a Sidetree-based `DID-create` operation without input */
     public static async execute(): Promise<DidCreate> {
         
-        /** To create the DID main public key */
-        const SIGNING_KEY_INPUT: OperationKeyPairInput = {
-            id: 'signingKey',
+        /** To create the DID primary public key */
+        const PRIMARY_KEY_INPUT: OperationKeyPairInput = {
+            id: 'primarySigningKey',
         };
-        // Creates DID main key-pair:
-        const [SIGNING_KEY, SIGNING_PRIVATE_KEY] = await Cryptography.operationKeyPair(SIGNING_KEY_INPUT);
+        // Creates DID primary key-pair:
+        const [PRIMARY_KEY, PRIMARY_PRIVATE_KEY] = await Cryptography.operationKeyPair(PRIMARY_KEY_INPUT);
         
         // Creates key-pair for the updateCommitment (save private key for next update operation)
         const [UPDATE_KEY, UPDATE_PRIVATE_KEY] = await Jwk.generateEs256kKeyPair();
@@ -167,7 +177,7 @@ export default class DidCreate {
 
         /** Input data for the Sidetree request */
         const SIDETREE_REQUEST_INPUT: RequestInput = {
-            mainPublicKeys: [SIGNING_KEY],
+            signingKeys: [PRIMARY_KEY],
             serviceEndpoints: SERVICE_ENDPOINTS,
             updateCommitment: UPDATE_COMMITMENT,
             recoveryCommitment: RECOVERY_COMMITMENT
@@ -185,8 +195,97 @@ export default class DidCreate {
             sidetreeRequest: SIDETREE_REQUEST,
             operationBuffer: OPERATION_BUFFER,
             createOperation: CREATE_OPERATION,
-            signingKeys: [SIGNING_KEY],
-            signingPrivateKeys: [SIGNING_PRIVATE_KEY],
+            signingKeys: [PRIMARY_KEY],
+            signingPrivateKeys: [PRIMARY_PRIVATE_KEY],
+            updateKey: UPDATE_KEY,
+            updatePrivateKey: UPDATE_PRIVATE_KEY,
+            updateRevealValue: UPDATE_COMMITMENT,
+            recoveryKey: RECOVERY_KEY,
+            recoveryPrivateKey: RECOVERY_PRIVATE_KEY,
+            recoveryCommitment: RECOVERY_COMMITMENT,
+            serviceEndpoints: SERVICE_ENDPOINTS       
+        };
+        return new DidCreate(OPERATION_OUTPUT);
+
+    }
+    
+    /** Generates a Sidetree-based `DID-create` operation with input from the CLI */
+    public static async executeCli(input: VerificationMethodInput[]): Promise<DidCreate> {
+        
+        const SIGNING_KEYS = [];
+        const PRIVATE_SIGNING_KEYS = [];
+        
+        const PRIMARY_METHOD_INPUT = input[0];
+
+        /** To create the DID primary public key */
+        const PRIMARY_KEY_INPUT: OperationKeyPairInput = {
+            id: PRIMARY_METHOD_INPUT.id,
+            purpose: PRIMARY_METHOD_INPUT.purpose
+        }
+        // Creates DID primary key-pair:
+        const [PRIMARY_KEY, PRIMARY_PRIVATE_KEY] = await Cryptography.operationKeyPair(PRIMARY_KEY_INPUT);
+        SIGNING_KEYS.push(PRIMARY_KEY);
+        PRIVATE_SIGNING_KEYS.push(PRIMARY_PRIVATE_KEY);
+
+        if (input.length === 2) {
+            const SECONDARY_METHOD_INPUT = input[1];
+            
+            /** To create the DID secondary public key */
+            const SECONDARY_KEY_INPUT: OperationKeyPairInput = {
+                id: SECONDARY_METHOD_INPUT.id,
+                purpose: SECONDARY_METHOD_INPUT.purpose
+            }
+            // Creates DID secondary key-pair:
+            const [SECONDARY_KEY, SECONDARY_PRIVATE_KEY] = await Cryptography.operationKeyPair(SECONDARY_KEY_INPUT);
+            SIGNING_KEYS.push(SECONDARY_KEY);
+            PRIVATE_SIGNING_KEYS.push(SECONDARY_PRIVATE_KEY);
+        }
+
+        // Creates key-pair for the updateCommitment (save private key for next update operation)
+        const [UPDATE_KEY, UPDATE_PRIVATE_KEY] = await Jwk.generateEs256kKeyPair();
+        /** Utilizes the UPDATE_KEY to make the `update reveal value` for the next update operation */
+        const UPDATE_COMMITMENT = Multihash.canonicalizeThenHashThenEncode(UPDATE_KEY);
+
+        // Creates key-pair for the recoveryCommitment (save private key for next recovery operation)
+        const [RECOVERY_KEY, RECOVERY_PRIVATE_KEY] = await Jwk.generateEs256kKeyPair();
+        /** Utilizes the RECOVERY_KEY to make the next recovery commitment hash */
+        const RECOVERY_COMMITMENT = Multihash.canonicalizeThenHashThenEncode(RECOVERY_KEY);
+        
+        // create service endpoints:
+        const SERVICE1: ServiceEndpointModel = {
+            id: '1',
+            type: 'service#1',
+            endpoint: 'https://url.com'
+        }
+        const SERVICE2: ServiceEndpointModel = {
+            id: '2',
+            type: 'service#2',
+            endpoint: 'https://url.com'
+        }
+        const SERVICE_ENDPOINTS = await serviceEndpoints.new([SERVICE1, SERVICE2]);
+
+        /** Input data for the Sidetree request */
+        const SIDETREE_REQUEST_INPUT: RequestInput = {
+            signingKeys: SIGNING_KEYS,
+            serviceEndpoints: SERVICE_ENDPOINTS,
+            updateCommitment: UPDATE_COMMITMENT,
+            recoveryCommitment: RECOVERY_COMMITMENT
+        };
+        
+        /** Sidetree data to generate a `DID-create` operation */
+        const SIDETREE_REQUEST = await DidCreate.sidetreeRequest(SIDETREE_REQUEST_INPUT);
+            const OPERATION_BUFFER = Buffer.from(JSON.stringify(SIDETREE_REQUEST));
+        
+        /** Executes the Sidetree create operation */
+        const CREATE_OPERATION = await CreateOperation.parse(OPERATION_BUFFER);
+        
+        /** Output data from a new Sidetree-based `DID-create` operation */
+        const OPERATION_OUTPUT: CreateOperationOutput = {
+            sidetreeRequest: SIDETREE_REQUEST,
+            operationBuffer: OPERATION_BUFFER,
+            createOperation: CREATE_OPERATION,
+            signingKeys: SIGNING_KEYS,
+            signingPrivateKeys: PRIVATE_SIGNING_KEYS,
             updateKey: UPDATE_KEY,
             updatePrivateKey: UPDATE_PRIVATE_KEY,
             updateRevealValue: UPDATE_COMMITMENT,
@@ -203,7 +302,7 @@ export default class DidCreate {
     public static async sidetreeRequest(input: RequestInput): Promise<RequestData> {
         
         const DOCUMENT: DocumentModel = {
-            public_keys: input.mainPublicKeys,
+            public_keys: input.signingKeys,
             service_endpoints: input.serviceEndpoints
         };
         const PATCH: PatchModel = {
@@ -229,8 +328,8 @@ export default class DidCreate {
         
         /** DID data to generate a new Sidetree-based `DID-create` operation */
         const SIDETREE_REQUEST: RequestData = {
-            type: OperationType.Create,
             suffix_data: ENCODED_SUFFIX_DATA,
+            type: OperationType.Create,
             delta: ENCODED_DELTA
         };
         return SIDETREE_REQUEST;    

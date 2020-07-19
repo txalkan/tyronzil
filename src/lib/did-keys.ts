@@ -18,10 +18,7 @@ import PublicKeyModel from '@decentralized-identity/sidetree/dist/lib/core/versi
 import JwkEs256k from '@decentralized-identity/sidetree/dist/lib/core/models/JwkEs256k';
 import Jwk from '@decentralized-identity/sidetree/dist/lib/core/versions/latest/util/Jwk';
 import Jws from '@decentralized-identity/sidetree/dist/lib/core/versions/latest/util/Jws';
-import * as crypto from 'crypto';
-import Encoder from '@decentralized-identity/sidetree/dist/lib/core/versions/latest/Encoder';
-import Multihash from '@decentralized-identity/sidetree/dist/lib/core/versions/latest/Multihash';
-import { UpdateSignedDataModel, RecoverSignedDataModel, DeactivateSignedDataModel } from './models/signed-data-model';
+import { UpdateSignedDataModel, RecoverSignedDataModel, DeactivateSignedDataModel } from './models/signed-data-models';
 
 /** Defines input data to generate a cryptographic key pair */
 export interface OperationKeyPairInput {
@@ -53,12 +50,5 @@ export class Cryptography {
         };
         const compactJws = Jws.signAsCompactJws(payload, privateKey, protectedHeader);
         return compactJws;
-    }
-    
-    /** Generates a random hash */
-    public static randomHash(): string {
-        const randomBuffer = crypto.randomBytes(32);
-        const randomHash = Encoder.encode(Multihash.hash(randomBuffer));
-        return randomHash;
     }
 }

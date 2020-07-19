@@ -19,7 +19,7 @@ import JwkEs256k from "@decentralized-identity/sidetree/dist/lib/core/models/Jwk
 import { Cryptography } from '../did-keys';
 import Jwk from '@decentralized-identity/sidetree/dist/lib/core/versions/latest/util/Jwk';
 import Jws from '@decentralized-identity/sidetree/dist/lib/core/versions/latest/util/Jws';
-import { DeactivateSignedDataModel } from '../models/signed-data-model';
+import { DeactivateSignedDataModel } from '../models/signed-data-models';
 
 /** Defines input data for a Sidetree-based `DID-deactivate` operation */
 interface DeactivateOperationInput {
@@ -60,7 +60,10 @@ export default class DidDeactivate {
         this.type = OperationType.Deactivate;
         this.didUniqueSuffix = operationOutput.deactivateOperation.didUniqueSuffix;
         this.signedDataJws = operationOutput.deactivateOperation.signedDataJws;
-        this.signedData = operationOutput.deactivateOperation.signedData;
+        this.signedData = {
+            did_suffix: operationOutput.deactivateOperation.signedData.didSuffix,
+            recovery_key: operationOutput.deactivateOperation.signedData.recoveryKey
+        };
     }
 
     /** Generates a Sidetree-based `DID-deactivate` operation */

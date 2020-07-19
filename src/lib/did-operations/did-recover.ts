@@ -27,10 +27,10 @@ import Jwk from '@decentralized-identity/sidetree/dist/lib/core/versions/latest/
 import Jws from '@decentralized-identity/sidetree/dist/lib/core/versions/latest/util/Jws';
 import serviceEndpoints from '../service-endpoints';
 import DocumentModel from '@decentralized-identity/sidetree/dist/lib/core/versions/latest/models/DocumentModel';
-import { PatchModel, PatchAction } from '../models/did-patches';
+import { PatchModel, PatchAction } from '../models/patch-model';
 import DeltaModel from '@decentralized-identity/sidetree/dist/lib/core/versions/latest/models/DeltaModel';
 import Encoder from '@decentralized-identity/sidetree/dist/lib/core/versions/latest/Encoder';
-import { RecoverSignedDataModel } from '../models/signed-data-model';
+import { RecoverSignedDataModel } from '../models/signed-data-models';
 
 /** Defines input data for a Sidetree-based `DID-recover` operation */
 interface RecoverOperationInput {
@@ -68,8 +68,8 @@ interface RequestInput {
 interface RequestData {
     did_suffix: string;
     signed_data: string;
-    type: OperationType.Recover;
-    delta: string;
+    type?: OperationType.Recover;
+    delta?: string;
 }
 
 
@@ -102,7 +102,11 @@ export default class DidRecover {
         this.type = OperationType.Recover;
         this.didUniqueSuffix = operationOutput.recoverOperation.didUniqueSuffix;
         this.signedDataJws = operationOutput.recoverOperation.signedDataJws;
-        this.signedData = operationOutput.recoverOperation.signedData;
+        this.signedData = {
+            delta_hash: operationOutput.recoverOperation.signedData.deltaHash,
+            recovery_key:operationOutput.recoverOperation.signedData.recoveryKey,
+            recovery_commitment: operationOutput.recoverOperation.signedData.recoveryCommitment
+        };
         this.encodedDelta = operationOutput.recoverOperation.encodedDelta;
         this.delta = operationOutput.recoverOperation.delta;
         this.signingKeys = operationOutput.signingKeys;

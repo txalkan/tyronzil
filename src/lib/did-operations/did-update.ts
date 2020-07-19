@@ -25,9 +25,9 @@ import Encoder from '@decentralized-identity/sidetree/dist/lib/core/versions/lat
 import OperationType from '@decentralized-identity/sidetree/dist/lib/core/enums/OperationType';
 import UpdateOperation from '@decentralized-identity/sidetree/dist/lib/core/versions/latest/UpdateOperation';
 import PublicKeyModel from '@decentralized-identity/sidetree/dist/lib/core/versions/latest/models/PublicKeyModel';
-import { PatchModel, PatchAction } from '../models/did-patches';
+import { PatchModel, PatchAction } from '../models/patch-model';
 import DeltaModel from '@decentralized-identity/sidetree/dist/lib/core/versions/latest/models/DeltaModel';
-import { UpdateSignedDataModel } from '../models/signed-data-model';
+import { UpdateSignedDataModel } from '../models/signed-data-models';
 
 /** Defines input data for a Sidetree-based `DID-update` operation*/
 interface UpdateOperationInput {
@@ -61,8 +61,8 @@ interface RequestInput {
 interface RequestData {
     did_suffix: string;
     signed_data: string;
-    type: OperationType.Update;
-    delta: string;
+    type?: OperationType.Update;
+    delta?: string;
 }
 
 /** Generates a Sidetree-based `DID-update` operation */
@@ -91,7 +91,10 @@ export default class DidUpdate{
         this.type = OperationType.Update;
         this.didUniqueSuffix = operationOutput.updateOperation.didUniqueSuffix;
         this.signedDataJws = operationOutput.updateOperation.signedDataJws;
-        this.signedData = operationOutput.updateOperation.signedData;
+        this.signedData = {
+            delta_hash: operationOutput.updateOperation.signedData.deltaHash,
+            update_key: operationOutput.updateOperation.signedData.updateKey
+        };
         this.encodedDelta = operationOutput.updateOperation.encodedDelta;
         this.delta = operationOutput.updateOperation.delta;
         this.newSigningKeys = operationOutput.newSigningKeys;
@@ -176,8 +179,8 @@ export default class DidUpdate{
         /** DID data to generate a Sidetree-based `DID-update` operation */
         const SIDETREE_REQUEST: RequestData = {
             did_suffix: input.didUniqueSuffix,
-            type: OperationType.Update,
             signed_data: SIGNED_DATA_JWS,
+            type: OperationType.Update,
             delta: ENCODED_DELTA
         };
         return SIDETREE_REQUEST;
