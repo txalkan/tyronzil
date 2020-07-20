@@ -18,6 +18,7 @@ import PublicKeyModel from '@decentralized-identity/sidetree/dist/lib/core/versi
 import JwkEs256k from '@decentralized-identity/sidetree/dist/lib/core/models/JwkEs256k';
 import Jwk from '@decentralized-identity/sidetree/dist/lib/core/versions/latest/util/Jwk';
 import Jws from '@decentralized-identity/sidetree/dist/lib/core/versions/latest/util/Jws';
+import TyronZILScheme from './tyronZIL-scheme';
 import { UpdateSignedDataModel, RecoverSignedDataModel, DeactivateSignedDataModel } from './models/signed-data-models';
 
 /** Defines input data to generate a cryptographic key pair */
@@ -44,8 +45,11 @@ export class Cryptography {
     }
 
     /** Signs the given payload as a ES256K compact JWS */
-    public static async signUsingEs256k (payload: UpdateSignedDataModel | RecoverSignedDataModel | DeactivateSignedDataModel, privateKey: JwkEs256k): Promise<string> {
+    public static async signUsingEs256k (didTyronZIL: TyronZILScheme, payload: UpdateSignedDataModel | RecoverSignedDataModel | DeactivateSignedDataModel, privateKey: JwkEs256k): Promise<string> {
+        const PUBLIC_KEY = Jwk.getEs256kPublicKey(privateKey);
+
         const protectedHeader = {
+            kid: didTyronZIL + '#'+ PUBLIC_KEY,
             alg: 'ES256K'
         };
         const compactJws = Jws.signAsCompactJws(payload, privateKey, protectedHeader);

@@ -13,6 +13,7 @@
     GNU General Public License for more details.
 */
 
+import TyronZILScheme from '../tyronZIL-scheme';
 import OperationType from '@decentralized-identity/sidetree/dist/lib/core/enums/OperationType';
 import DeactivateOperation from '@decentralized-identity/sidetree/dist/lib/core/versions/latest/DeactivateOperation';
 import JwkEs256k from "@decentralized-identity/sidetree/dist/lib/core/models/JwkEs256k";
@@ -24,7 +25,7 @@ import { DeactivateSignedDataModel } from '../models/signed-data-models';
 /** Defines input data for a Sidetree-based `DID-deactivate` operation */
 interface DeactivateOperationInput {
     type: OperationType.Deactivate;
-    didUniqueSuffix: string;
+    didTyronZIL: TyronZILScheme;
     recoveryPrivateKey: JwkEs256k;
 }
 
@@ -71,14 +72,14 @@ export default class DidDeactivate {
         
         /** To create the Deactivate Operation Signed Data Object */
         const SIGNED_DATA: DeactivateSignedDataModel = {
-            did_suffix: input.didUniqueSuffix,
+            did_suffix: input.didTyronZIL.didUniqueSuffix,
             recovery_key: Jwk.getEs256kPublicKey(input.recoveryPrivateKey),
         };
-        const SIGNED_DATA_JWS = await Cryptography.signUsingEs256k(SIGNED_DATA, input.recoveryPrivateKey);
+        const SIGNED_DATA_JWS = await Cryptography.signUsingEs256k(input.didTyronZIL, SIGNED_DATA, input.recoveryPrivateKey);
         
         /** DID data to generate a Sidetree deactivate operation */
         const OPERATION_REQUEST: RequestData = {
-            did_suffix: input.didUniqueSuffix,
+            did_suffix: input.didTyronZIL.didUniqueSuffix,
             signed_data: SIGNED_DATA_JWS
         };
 

@@ -99,7 +99,7 @@ export default class TyronCLI {
         
         const DID_tyronZIL = await TyronZILScheme.newDID(DID_DATA);
         
-        console.log(`Your decentralized identity on Zilliqa is: ` + LogColors.green(`${DID_tyronZIL.did}${DID_tyronZIL.methodName}`) + LogColors.lightBlue(`${DID_tyronZIL.blockchain}${DID_tyronZIL.network}`) + LogColors.brightYellow(`${DID_tyronZIL.didUniqueSuffix}`));
+        console.log(`Your decentralized identity on Zilliqa is: ` + LogColors.green(`${DID_tyronZIL.schemeIdentifier}${DID_tyronZIL.methodName}`) + LogColors.lightBlue(`${DID_tyronZIL.blockchain}${DID_tyronZIL.network}`) + LogColors.brightYellow(`${DID_tyronZIL.didUniqueSuffix}`));
         
         const PUBLIC_KEY = JSON.stringify(DID_CREATED.signingKeys);
         console.log(`Your public key(s): ${PUBLIC_KEY}`);

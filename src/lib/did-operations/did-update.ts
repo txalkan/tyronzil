@@ -13,6 +13,7 @@
     GNU General Public License for more details.
 */
 
+import TyronZILScheme from '../tyronZIL-scheme';
 import {
     Cryptography,
     OperationKeyPairInput
@@ -31,7 +32,7 @@ import { UpdateSignedDataModel } from '../models/signed-data-models';
 
 /** Defines input data for a Sidetree-based `DID-update` operation*/
 interface UpdateOperationInput {
-    didUniqueSuffix: string;
+    didTyronZIL: TyronZILScheme;
     updateKey: JwkEs256k;
     updatePrivateKey: JwkEs256k;
 }
@@ -50,7 +51,7 @@ interface UpdateOperationOutput {
 
 /** Defines input data for a Sidetree-based `DID-update` operation REQUEST*/
 interface RequestInput {
-    didUniqueSuffix: string;
+    didTyronZIL: TyronZILScheme;
     updateKey: JwkEs256k;
     updatePrivateKey: JwkEs256k;
     nextUpdateRevealValue: string;
@@ -127,7 +128,7 @@ export default class DidUpdate{
 
         /** Input data for the Sidetree request */
         const SIDETREE_REQUEST_INPUT: RequestInput = {
-            didUniqueSuffix: input.didUniqueSuffix,
+            didTyronZIL: input.didTyronZIL,
             updateKey: input.updateKey,
             updatePrivateKey: input.updatePrivateKey,
             nextUpdateRevealValue: NEXT_UPDATE_COMMITMENT,
@@ -174,11 +175,11 @@ export default class DidUpdate{
             delta_hash: DELTA_HASH,
             update_key: input.updateKey
         };
-        const SIGNED_DATA_JWS = await Cryptography.signUsingEs256k(SIGNED_DATA, input.updatePrivateKey);
+        const SIGNED_DATA_JWS = await Cryptography.signUsingEs256k(input.didTyronZIL, SIGNED_DATA, input.updatePrivateKey);
 
         /** DID data to generate a Sidetree-based `DID-update` operation */
         const SIDETREE_REQUEST: RequestData = {
-            did_suffix: input.didUniqueSuffix,
+            did_suffix: input.didTyronZIL.didUniqueSuffix,
             signed_data: SIGNED_DATA_JWS,
             type: OperationType.Update,
             delta: ENCODED_DELTA

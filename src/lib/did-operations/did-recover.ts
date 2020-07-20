@@ -13,6 +13,7 @@
     GNU General Public License for more details.
 */
 
+import TyronZILScheme from '../tyronZIL-scheme';
 import OperationType from '@decentralized-identity/sidetree/dist/lib/core/enums/OperationType';
 import RecoverOperation from '@decentralized-identity/sidetree/dist/lib/core/versions/latest/RecoverOperation';
 import JwkEs256k from "@decentralized-identity/sidetree/dist/lib/core/models/JwkEs256k";
@@ -35,7 +36,7 @@ import { RecoverSignedDataModel } from '../models/signed-data-models';
 /** Defines input data for a Sidetree-based `DID-recover` operation */
 interface RecoverOperationInput {
     type: OperationType.Recover;
-    didUniqueSuffix: string;
+    didTyronZIL: TyronZILScheme;
     recoveryPrivateKey: JwkEs256k;
 }
 
@@ -56,7 +57,7 @@ interface RecoverOperationOutput {
 
 /** Defines input data for a Sidetree-based `DID-recover` operation REQUEST*/
 interface RequestInput {
-    didUniqueSuffix: string;
+    didTyronZIL: TyronZILScheme;
     recoveryPrivateKey: JwkEs256k;
     mainPublicKeys: PublicKeyModel[];
     serviceEndpoints?: ServiceEndpointModel[];
@@ -155,7 +156,7 @@ export default class DidRecover {
 
         /** Input data for the Sidetree request */
         const SIDETREE_REQUEST_INPUT: RequestInput = {
-            didUniqueSuffix: input.didUniqueSuffix,
+            didTyronZIL: input.didTyronZIL,
             recoveryPrivateKey: input.recoveryPrivateKey,
             mainPublicKeys: [SIGNING_KEY],
             serviceEndpoints: SERVICE_ENDPOINTS,
@@ -214,11 +215,11 @@ export default class DidRecover {
             recovery_key: Jwk.getEs256kPublicKey(input.recoveryPrivateKey),
             recovery_commitment: input.nextRecoveryCommitment
         };
-        const SIGNED_DATA_JWS = await Cryptography.signUsingEs256k(SIGNED_DATA, input.recoveryPrivateKey);
+        const SIGNED_DATA_JWS = await Cryptography.signUsingEs256k(input.didTyronZIL, SIGNED_DATA, input.recoveryPrivateKey);
         
         /** DID data to generate a Sidetree-based `DID-recover` operation */
         const SIDETREE_REQUEST: RequestData = {
-            did_suffix: input.didUniqueSuffix,
+            did_suffix: input.didTyronZIL.didUniqueSuffix,
             signed_data: SIGNED_DATA_JWS,
             type: OperationType.Recover,
             delta: ENCODED_DELTA,
