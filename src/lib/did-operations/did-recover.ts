@@ -13,7 +13,7 @@
     GNU General Public License for more details.
 */
 
-import TyronZILScheme from '../tyronZIL-scheme';
+import TyronZILScheme from '../tyronZIL-schemes/did-scheme';
 import OperationType from '@decentralized-identity/sidetree/dist/lib/core/enums/OperationType';
 import RecoverOperation from '@decentralized-identity/sidetree/dist/lib/core/versions/latest/RecoverOperation';
 import JwkEs256k from "@decentralized-identity/sidetree/dist/lib/core/models/JwkEs256k";

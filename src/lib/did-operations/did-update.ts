@@ -13,7 +13,7 @@
     GNU General Public License for more details.
 */
 
-import TyronZILScheme from '../tyronZIL-scheme';
+import TyronZILScheme from '../tyronZIL-schemes/did-scheme';
 import {
     Cryptography,
     OperationKeyPairInput

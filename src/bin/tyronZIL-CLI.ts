@@ -17,10 +17,11 @@ import LogColors from './log-colors';
 import DidCreate from '../lib/did-operations/did-create';
 import { CLICreateInput, PublicKeyInput } from '../lib/models/cli-create-input-model';
 
-import TyronZILScheme from '../lib/tyronZIL-scheme';
-import { NetworkNamespace, SchemeInputData } from '../lib/tyronZIL-scheme';
+import TyronZILScheme from '../lib/tyronZIL-schemes/did-scheme';
+import { NetworkNamespace, SchemeInputData } from '../lib/tyronZIL-schemes/did-scheme';
 import * as readline from 'readline-sync';
 import PublicKeyPurpose from '@decentralized-identity/sidetree/dist/lib/core/versions/latest/PublicKeyPurpose';
+import { LongFormDidInput, TyronZILUrlScheme } from '../lib/tyronZIL-schemes/did-url-scheme';
 
 /*
 import DidDoc from '../lib/did-document';
@@ -108,6 +109,20 @@ export default class TyronCLI {
         
         const PUBLIC_KEY = JSON.stringify(DID_CREATED.publicKey);
         console.log(`Your public key(s): ${PUBLIC_KEY}`);
+
+        if (DID_CREATED.encodedDelta !== undefined) {
+            const LONG_DID_INPUT: LongFormDidInput = {
+                schemeInput: SCHEME_DATA,
+                encodedSuffixData: DID_CREATED.encodedSuffixData,
+                encodedDelta: DID_CREATED.encodedDelta
+            }
+
+            const LONG_FORM_DID = await TyronZILUrlScheme.longFormDid(LONG_DID_INPUT);
+
+            const LONG_DID_tyronZIL = LONG_FORM_DID.longFormDid;
+
+            console.log(`The corresponding Sidetree Long-Form DID is: ${LONG_DID_tyronZIL}`);
+        }
         
         /* 
         const SERVICE = JSON.stringify(DID_CREATED.serviceEndpoints);

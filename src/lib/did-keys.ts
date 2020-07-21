@@ -18,7 +18,7 @@ import PublicKeyModel from '@decentralized-identity/sidetree/dist/lib/core/versi
 import JwkEs256k from '@decentralized-identity/sidetree/dist/lib/core/models/JwkEs256k';
 import Jwk from '@decentralized-identity/sidetree/dist/lib/core/versions/latest/util/Jwk';
 import Jws from '@decentralized-identity/sidetree/dist/lib/core/versions/latest/util/Jws';
-import TyronZILScheme from './tyronZIL-scheme';
+import TyronZILScheme from './tyronZIL-schemes/did-scheme';
 import { UpdateSignedDataModel, RecoverSignedDataModel, DeactivateSignedDataModel } from './models/signed-data-models';
 
 /** Defines input data to generate a cryptographic key pair */

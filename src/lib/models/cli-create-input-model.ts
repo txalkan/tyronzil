@@ -13,7 +13,7 @@
     GNU General Public License for more details.
 */
 
-import { NetworkNamespace } from '../tyronZIL-scheme';
+import { NetworkNamespace } from '../tyronZIL-schemes/did-scheme';
 import PublicKeyPurpose from '@decentralized-identity/sidetree/dist/lib/core/versions/latest/PublicKeyPurpose';
 
 export interface CLICreateInput {

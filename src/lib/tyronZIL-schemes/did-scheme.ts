@@ -32,7 +32,7 @@ export default class TyronZILScheme {
     public readonly didUniqueSuffix: string;
     public readonly did_tyronZIL: string;
 
-    private constructor (
+    constructor (
         input: SchemeInputData
     ) {
         this.network = input.network;

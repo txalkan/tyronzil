@@ -23,8 +23,8 @@ import {
 import PublicKeyModel from '@decentralized-identity/sidetree/dist/lib/core/versions/latest/models/PublicKeyModel';
 import { Operation, Recovery, SidetreeVerificationRelationship } from '../models/verification-method-models';
 import { CLICreateInput } from '../models/cli-create-input-model';
-import TyronZILScheme from '../tyronZIL-scheme';
-import { SchemeInputData } from '../tyronZIL-scheme';
+import TyronZILScheme from '../tyronZIL-schemes/did-scheme';
+import { SchemeInputData } from '../tyronZIL-schemes/did-scheme';
 
 import JwkEs256k from '@decentralized-identity/sidetree/dist/lib/core/models/JwkEs256k';
 import Jwk from '@decentralized-identity/sidetree/dist/lib/core/versions/latest/util/Jwk';
@@ -261,7 +261,7 @@ export default class DidCreate {
         const VM_OPERATION: Operation = {
             id: ID,
             type: TYPE,
-            jwk: JWK,
+            publicKeyJwk: JWK,
             purpose: SidetreeVerificationRelationship.Operation
         }
         return VM_OPERATION;
@@ -276,7 +276,7 @@ export default class DidCreate {
         const VM_RECOVERY: Recovery = {
             id: ID,
             type: TYPE,
-            jwk: JWK,
+            publicKeyJwk: JWK,
             purpose: SidetreeVerificationRelationship.Recovery
         }
         return VM_RECOVERY;
