@@ -21,7 +21,10 @@ import {
     OperationKeyPairInput
  } from '../did-keys';
 import PublicKeyModel from '@decentralized-identity/sidetree/dist/lib/core/versions/latest/models/PublicKeyModel';
-import PublicKeyPurpose from '@decentralized-identity/sidetree/dist/lib/core/versions/latest/PublicKeyPurpose';
+import { Operation, Recovery, SidetreeVerificationRelationship } from '../models/verification-method-models';
+import { CLICreateInput } from '../models/cli-create-input-model';
+import TyronZILScheme from '../tyronZIL-scheme';
+import { SchemeInputData } from '../tyronZIL-scheme';
 
 import JwkEs256k from '@decentralized-identity/sidetree/dist/lib/core/models/JwkEs256k';
 import Jwk from '@decentralized-identity/sidetree/dist/lib/core/versions/latest/util/Jwk';
@@ -42,21 +45,23 @@ interface CreateOperationOutput {
     sidetreeRequest: RequestData;
     operationBuffer: Buffer;
     createOperation: CreateOperation;
-    signingKeys: PublicKeyModel[];
-    signingPrivateKeys: JwkEs256k[];
+    publicKey: PublicKeyModel[];
+    privateKey: JwkEs256k[];
+    operation: Operation;   // verification method
+    recovery: Recovery;     // verification method
     updateKey: JwkEs256k;
     updatePrivateKey: JwkEs256k;
     updateRevealValue: string;
     recoveryKey: JwkEs256k;
     recoveryPrivateKey: JwkEs256k;
     recoveryCommitment: string;
-    serviceEndpoints: ServiceEndpointModel[];
+    service: ServiceEndpointModel[];
 }
 
 /** Defines input data for a Sidetree-based `DID-create` operation REQUEST*/
 interface RequestInput {
-    signingKeys: PublicKeyModel[];
-    serviceEndpoints?: ServiceEndpointModel[];
+    publicKey: PublicKeyModel[];
+    service?: ServiceEndpointModel[];
     updateCommitment: string;
     recoveryCommitment: string;
 }
@@ -70,6 +75,7 @@ interface RequestData {
 
 /** Defines input data to anchor a Sidetree-based `DID-create` operation */
 interface AnchoredCreateInput {
+    cliCreateInput: CLICreateInput;
     transactionNumber: number;
     ledgerTime: number;
     operationIndex: number;
@@ -85,14 +91,9 @@ interface AnchoredCreateOutput {
     recoveryPrivateKey: JwkEs256k;
     updateKey: JwkEs256k;
     updatePrivateKey: JwkEs256k;
-    signingKeys: PublicKeyModel[];
-    signingPrivateKeys: JwkEs256k[];
+    publicKey: PublicKeyModel[];
+    privateKey: JwkEs256k[];
     updateRevealValue: string;
-}
-
-export interface VerificationMethodInput {
-    id: string;
-    purpose: PublicKeyPurpose[];
 }
 
 /** Generates a Sidetree-based `DID-create` operation */
@@ -106,15 +107,17 @@ export default class DidCreate {
     public readonly suffixData: SuffixDataModel;
     public readonly encodedDelta: string | undefined;
     public readonly delta: DeltaModel | undefined; // undefined when Anchor file mode is ON
-    public readonly signingKeys: PublicKeyModel[];
-    public readonly signingPrivateKeys: JwkEs256k[];
+    public readonly publicKey: PublicKeyModel[];
+    public readonly privateKey: JwkEs256k[];
+    public readonly operation: Operation;
+    public readonly recovery: Recovery;
     public readonly updateKey: JwkEs256k;
     public readonly updatePrivateKey: JwkEs256k;
     public readonly updateRevealValue: string;
     public readonly recoveryKey: JwkEs256k;
     public readonly recoveryPrivateKey: JwkEs256k;
     public readonly recoveryCommitment: string;
-    public readonly serviceEndpoints: ServiceEndpointModel[];
+    public readonly service: ServiceEndpointModel[];
 
     private constructor (
         operationOutput: CreateOperationOutput
@@ -131,114 +134,51 @@ export default class DidCreate {
         };
         this.encodedDelta = operationOutput.createOperation.encodedDelta;
         this.delta = operationOutput.createOperation.delta;
-        this.signingKeys = operationOutput.signingKeys;
-        this.signingPrivateKeys = operationOutput.signingPrivateKeys;
+        this.publicKey = operationOutput.publicKey;
+        this.privateKey = operationOutput.privateKey;
+        this.operation = operationOutput.operation;
+        this.recovery = operationOutput.recovery;
         this.updateKey = operationOutput.updateKey;
         this.updatePrivateKey = operationOutput.updatePrivateKey;
         this.updateRevealValue = operationOutput.updateRevealValue;
         this.recoveryKey = operationOutput.recoveryKey;
         this.recoveryPrivateKey = operationOutput.recoveryPrivateKey;
         this.recoveryCommitment = operationOutput.recoveryCommitment;
-        this.serviceEndpoints = operationOutput.serviceEndpoints;
+        this.service = operationOutput.service;
     }
 
-    /** Generates a Sidetree-based `DID-create` operation without input */
-    public static async execute(): Promise<DidCreate> {
-        
-        /** To create the DID primary public key */
-        const PRIMARY_KEY_INPUT: OperationKeyPairInput = {
-            id: 'primarySigningKey',
-        };
-        // Creates DID primary key-pair:
-        const [PRIMARY_KEY, PRIMARY_PRIVATE_KEY] = await Cryptography.operationKeyPair(PRIMARY_KEY_INPUT);
-        
-        // Creates key-pair for the updateCommitment (save private key for next update operation)
-        const [UPDATE_KEY, UPDATE_PRIVATE_KEY] = await Jwk.generateEs256kKeyPair();
-        /** Utilizes the UPDATE_KEY to make the `update reveal value` for the next update operation */
-        const UPDATE_COMMITMENT = Multihash.canonicalizeThenHashThenEncode(UPDATE_KEY);
-
-        // Creates key-pair for the recoveryCommitment (save private key for next recovery operation)
-        const [RECOVERY_KEY, RECOVERY_PRIVATE_KEY] = await Jwk.generateEs256kKeyPair();
-        /** Utilizes the RECOVERY_KEY to make the next recovery commitment hash */
-        const RECOVERY_COMMITMENT = Multihash.canonicalizeThenHashThenEncode(RECOVERY_KEY);
-        
-        // create service endpoints:
-        const SERVICE1: ServiceEndpointModel = {
-            id: '1',
-            type: 'service#1',
-            endpoint: 'https://url.com'
-        }
-        const SERVICE2: ServiceEndpointModel = {
-            id: '2',
-            type: 'service#2',
-            endpoint: 'https://url.com'
-        }
-        const SERVICE_ENDPOINTS = await serviceEndpoints.new([SERVICE1, SERVICE2]);
-
-        /** Input data for the Sidetree request */
-        const SIDETREE_REQUEST_INPUT: RequestInput = {
-            signingKeys: [PRIMARY_KEY],
-            serviceEndpoints: SERVICE_ENDPOINTS,
-            updateCommitment: UPDATE_COMMITMENT,
-            recoveryCommitment: RECOVERY_COMMITMENT
-        };
-        
-        /** Sidetree data to generate a `DID-create` operation */
-        const SIDETREE_REQUEST = await DidCreate.sidetreeRequest(SIDETREE_REQUEST_INPUT);
-            const OPERATION_BUFFER = Buffer.from(JSON.stringify(SIDETREE_REQUEST));
-        
-        /** Executes the Sidetree create operation */
-        const CREATE_OPERATION = await CreateOperation.parse(OPERATION_BUFFER);
-        
-        /** Output data from a new Sidetree-based `DID-create` operation */
-        const OPERATION_OUTPUT: CreateOperationOutput = {
-            sidetreeRequest: SIDETREE_REQUEST,
-            operationBuffer: OPERATION_BUFFER,
-            createOperation: CREATE_OPERATION,
-            signingKeys: [PRIMARY_KEY],
-            signingPrivateKeys: [PRIMARY_PRIVATE_KEY],
-            updateKey: UPDATE_KEY,
-            updatePrivateKey: UPDATE_PRIVATE_KEY,
-            updateRevealValue: UPDATE_COMMITMENT,
-            recoveryKey: RECOVERY_KEY,
-            recoveryPrivateKey: RECOVERY_PRIVATE_KEY,
-            recoveryCommitment: RECOVERY_COMMITMENT,
-            serviceEndpoints: SERVICE_ENDPOINTS       
-        };
-        return new DidCreate(OPERATION_OUTPUT);
-
-    }
-    
     /** Generates a Sidetree-based `DID-create` operation with input from the CLI */
-    public static async executeCli(input: VerificationMethodInput[]): Promise<DidCreate> {
+    public static async executeCli(input: CLICreateInput): Promise<DidCreate> {
         
-        const SIGNING_KEYS = [];
-        const PRIVATE_SIGNING_KEYS = [];
+        const PUBLIC_KEYS = [];
+        const PRIVATE_KEYS = [];
+
+        const PUBLIC_KEY_INPUT = input.publicKeyInput;
         
-        const PRIMARY_METHOD_INPUT = input[0];
+        const PRIMARY_KEY_INPUT = PUBLIC_KEY_INPUT[0];
 
         /** To create the DID primary public key */
-        const PRIMARY_KEY_INPUT: OperationKeyPairInput = {
-            id: PRIMARY_METHOD_INPUT.id,
-            purpose: PRIMARY_METHOD_INPUT.purpose
+        const KEY_PAIR_INPUT: OperationKeyPairInput = {
+            id: PRIMARY_KEY_INPUT.id,
+            purpose: PRIMARY_KEY_INPUT.purpose
         }
         // Creates DID primary key-pair:
-        const [PRIMARY_KEY, PRIMARY_PRIVATE_KEY] = await Cryptography.operationKeyPair(PRIMARY_KEY_INPUT);
-        SIGNING_KEYS.push(PRIMARY_KEY);
-        PRIVATE_SIGNING_KEYS.push(PRIMARY_PRIVATE_KEY);
+        const [PRIMARY_KEY, PRIMARY_PRIVATE_KEY] = await Cryptography.operationKeyPair(KEY_PAIR_INPUT);
+        PUBLIC_KEYS.push(PRIMARY_KEY);
+        PRIVATE_KEYS.push(PRIMARY_PRIVATE_KEY);
 
-        if (input.length === 2) {
-            const SECONDARY_METHOD_INPUT = input[1];
+        if (PUBLIC_KEY_INPUT.length === 2) {
+            const SECONDARY_KEY_INPUT = PUBLIC_KEY_INPUT[1];
             
             /** To create the DID secondary public key */
-            const SECONDARY_KEY_INPUT: OperationKeyPairInput = {
-                id: SECONDARY_METHOD_INPUT.id,
-                purpose: SECONDARY_METHOD_INPUT.purpose
+            const KEY_PAIR_INPUT: OperationKeyPairInput = {
+                id: SECONDARY_KEY_INPUT.id,
+                purpose: SECONDARY_KEY_INPUT.purpose
             }
             // Creates DID secondary key-pair:
-            const [SECONDARY_KEY, SECONDARY_PRIVATE_KEY] = await Cryptography.operationKeyPair(SECONDARY_KEY_INPUT);
-            SIGNING_KEYS.push(SECONDARY_KEY);
-            PRIVATE_SIGNING_KEYS.push(SECONDARY_PRIVATE_KEY);
+            const [SECONDARY_KEY, SECONDARY_PRIVATE_KEY] = await Cryptography.operationKeyPair(KEY_PAIR_INPUT);
+            PUBLIC_KEYS.push(SECONDARY_KEY);
+            PRIVATE_KEYS.push(SECONDARY_PRIVATE_KEY);
         }
 
         // Creates key-pair for the updateCommitment (save private key for next update operation)
@@ -250,7 +190,8 @@ export default class DidCreate {
         const [RECOVERY_KEY, RECOVERY_PRIVATE_KEY] = await Jwk.generateEs256kKeyPair();
         /** Utilizes the RECOVERY_KEY to make the next recovery commitment hash */
         const RECOVERY_COMMITMENT = Multihash.canonicalizeThenHashThenEncode(RECOVERY_KEY);
-        
+
+
         // create service endpoints:
         const SERVICE1: ServiceEndpointModel = {
             id: '1',
@@ -266,8 +207,8 @@ export default class DidCreate {
 
         /** Input data for the Sidetree request */
         const SIDETREE_REQUEST_INPUT: RequestInput = {
-            signingKeys: SIGNING_KEYS,
-            serviceEndpoints: SERVICE_ENDPOINTS,
+            publicKey: PUBLIC_KEYS,
+            service: SERVICE_ENDPOINTS,
             updateCommitment: UPDATE_COMMITMENT,
             recoveryCommitment: RECOVERY_COMMITMENT
         };
@@ -278,32 +219,75 @@ export default class DidCreate {
         
         /** Executes the Sidetree create operation */
         const CREATE_OPERATION = await CreateOperation.parse(OPERATION_BUFFER);
-        
+        const DID_SUFFIX = CREATE_OPERATION.didUniqueSuffix;
+
+        const SCHEME_DATA: SchemeInputData = {
+            network: input.network,
+            didUniqueSuffix: DID_SUFFIX
+        };
+
+        const DID_tyronZIL = await TyronZILScheme.newDID(SCHEME_DATA);
+
+        const VM_OPERATION = await this.generateVMOperation(UPDATE_KEY, DID_tyronZIL);
+        const VM_RECOVERY = await this.generateVMRecovery(RECOVERY_KEY, DID_tyronZIL);
+
         /** Output data from a new Sidetree-based `DID-create` operation */
         const OPERATION_OUTPUT: CreateOperationOutput = {
             sidetreeRequest: SIDETREE_REQUEST,
             operationBuffer: OPERATION_BUFFER,
             createOperation: CREATE_OPERATION,
-            signingKeys: SIGNING_KEYS,
-            signingPrivateKeys: PRIVATE_SIGNING_KEYS,
+            publicKey: PUBLIC_KEYS,
+            privateKey: PRIVATE_KEYS,
+            operation: VM_OPERATION,
+            recovery: VM_RECOVERY,
             updateKey: UPDATE_KEY,
             updatePrivateKey: UPDATE_PRIVATE_KEY,
             updateRevealValue: UPDATE_COMMITMENT,
             recoveryKey: RECOVERY_KEY,
             recoveryPrivateKey: RECOVERY_PRIVATE_KEY,
             recoveryCommitment: RECOVERY_COMMITMENT,
-            serviceEndpoints: SERVICE_ENDPOINTS       
+            service: SERVICE_ENDPOINTS       
         };
         return new DidCreate(OPERATION_OUTPUT);
 
+    }
+
+    /** Generates an Operation verification-method instance */
+    public static async generateVMOperation(updateKey: JwkEs256k, did: TyronZILScheme): Promise<Operation> {
+        const ID = did.did_tyronZIL + '#';
+        const TYPE = 'EcdsaSecp256k1VerificationKey2019';
+        const JWK = updateKey;
+        
+        const VM_OPERATION: Operation = {
+            id: ID,
+            type: TYPE,
+            jwk: JWK,
+            purpose: SidetreeVerificationRelationship.Operation
+        }
+        return VM_OPERATION;
+    }
+
+    /** Generates a Recovery verification-method instance */
+    public static async generateVMRecovery(recoveryKey: JwkEs256k, did: TyronZILScheme): Promise<Recovery> {
+        const ID = did.did_tyronZIL + '#';
+        const TYPE = 'EcdsaSecp256k1VerificationKey2019';
+        const JWK = recoveryKey;
+        
+        const VM_RECOVERY: Recovery = {
+            id: ID,
+            type: TYPE,
+            jwk: JWK,
+            purpose: SidetreeVerificationRelationship.Recovery
+        }
+        return VM_RECOVERY;
     }
 
     /** Generates the Sidetree data for the `DID-create` operation */
     public static async sidetreeRequest(input: RequestInput): Promise<RequestData> {
         
         const DOCUMENT: DocumentModel = {
-            public_keys: input.signingKeys,
-            service_endpoints: input.serviceEndpoints
+            public_keys: input.publicKey,
+            service_endpoints: input.service
         };
         const PATCH: PatchModel = {
             action: PatchAction.Replace,
@@ -337,7 +321,7 @@ export default class DidCreate {
 
     /** Generates an anchored `DID-create` operation */
     public static async anchoredCreateOperation(input: AnchoredCreateInput): Promise<AnchoredCreateOutput> {
-        const CREATE_OPERATION_OUTPUT = await DidCreate.execute();
+        const CREATE_OPERATION_OUTPUT = await this.executeCli(input.cliCreateInput)
         
         const ANCHORED_OPERATION_MODEL: AnchoredOperationModel = {
             type: OperationType.Create,
@@ -357,8 +341,8 @@ export default class DidCreate {
             recoveryPrivateKey: CREATE_OPERATION_OUTPUT.recoveryPrivateKey,
             updateKey: CREATE_OPERATION_OUTPUT.updateKey,
             updatePrivateKey: CREATE_OPERATION_OUTPUT.updatePrivateKey,
-            signingKeys: CREATE_OPERATION_OUTPUT.signingKeys,
-            signingPrivateKeys: CREATE_OPERATION_OUTPUT.signingPrivateKeys,
+            publicKey: CREATE_OPERATION_OUTPUT.publicKey,
+            privateKey: CREATE_OPERATION_OUTPUT.privateKey,
             updateRevealValue: CREATE_OPERATION_OUTPUT.updateRevealValue
         };
         return ANCHORED_OPERATION_OUTPUT;

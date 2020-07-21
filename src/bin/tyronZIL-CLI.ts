@@ -15,10 +15,10 @@
 
 import LogColors from './log-colors';
 import DidCreate from '../lib/did-operations/did-create';
-import { VerificationMethodInput } from '../lib/did-operations/did-create';
+import { CLICreateInput, PublicKeyInput } from '../lib/models/cli-create-input-model';
 
 import TyronZILScheme from '../lib/tyronZIL-scheme';
-import { NetworkNamespace, DidData } from '../lib/tyronZIL-scheme';
+import { NetworkNamespace, SchemeInputData } from '../lib/tyronZIL-scheme';
 import * as readline from 'readline-sync';
 import PublicKeyPurpose from '@decentralized-identity/sidetree/dist/lib/core/versions/latest/PublicKeyPurpose';
 
@@ -58,12 +58,12 @@ export default class TyronCLI {
             PRIMARY_KEY_ID = 'primarySigningKey';
         }
 
-        const PRIMARY_VERIFICATION_METHOD: VerificationMethodInput = {
+        const PRIMARY_PUBLIC_KEY: PublicKeyInput = {
             id: PRIMARY_KEY_ID,
             purpose: [PublicKeyPurpose.General, PublicKeyPurpose.Auth]
         };
     
-        const VERIFICATION_METHODS: VerificationMethodInput[] = [PRIMARY_VERIFICATION_METHOD];
+        const PUBLIC_KEYS: PublicKeyInput[] = [PRIMARY_PUBLIC_KEY];
     
         // Asks if the user wants a secondary key-pair, and its purpose:
         const MORE_KEYS = readline.question(`Would you like to have a secondary public keys? [y] - Defaults to 'no' `);
@@ -82,26 +82,31 @@ export default class TyronCLI {
                 SECONDARY_PURPOSE = [PublicKeyPurpose.General, PublicKeyPurpose.Auth]
             }
             
-            const SECONDARY_VERIFICATION_METHOD: VerificationMethodInput = {
+            const SECONDARY_PUBLIC_KEY: PublicKeyInput = {
                 id: SECONDARY_KEY_ID,
                 purpose: SECONDARY_PURPOSE
             };
-            VERIFICATION_METHODS.push(SECONDARY_VERIFICATION_METHOD);
+            PUBLIC_KEYS.push(SECONDARY_PUBLIC_KEY);
         }
 
-        const DID_CREATED = await DidCreate.executeCli(VERIFICATION_METHODS);
+        const INPUT: CLICreateInput = {
+            network: NETWORK,
+            publicKeyInput: PUBLIC_KEYS
+        }
+
+        const DID_CREATED = await DidCreate.executeCli(INPUT);
         const DID_SUFFIX = DID_CREATED.didUniqueSuffix;
         
-        const DID_DATA: DidData = {
+        const SCHEME_DATA: SchemeInputData = {
             network: NETWORK,
             didUniqueSuffix: DID_SUFFIX
         };
         
-        const DID_tyronZIL = await TyronZILScheme.newDID(DID_DATA);
+        const DID_tyronZIL = await TyronZILScheme.newDID(SCHEME_DATA);
         
         console.log(`Your decentralized identity on Zilliqa is: ` + LogColors.green(`${DID_tyronZIL.schemeIdentifier}${DID_tyronZIL.methodName}`) + LogColors.lightBlue(`${DID_tyronZIL.blockchain}${DID_tyronZIL.network}`) + LogColors.brightYellow(`${DID_tyronZIL.didUniqueSuffix}`));
         
-        const PUBLIC_KEY = JSON.stringify(DID_CREATED.signingKeys);
+        const PUBLIC_KEY = JSON.stringify(DID_CREATED.publicKey);
         console.log(`Your public key(s): ${PUBLIC_KEY}`);
         
         /* 

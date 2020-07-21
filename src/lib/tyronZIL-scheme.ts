@@ -18,7 +18,7 @@ export enum NetworkNamespace {
     Testnet = 'test:',
 }
 
-export interface DidData {
+export interface SchemeInputData {
     network: NetworkNamespace;
     didUniqueSuffix: string;
 }
@@ -33,7 +33,7 @@ export default class TyronZILScheme {
     public readonly did_tyronZIL: string;
 
     private constructor (
-        input: DidData
+        input: SchemeInputData
     ) {
         this.network = input.network;
         this.didUniqueSuffix = input.didUniqueSuffix;
@@ -41,13 +41,13 @@ export default class TyronZILScheme {
     }
 
     /** Generates a tyronZIL DID with the given didUniqueSuffix and network */
-    public static async newDID(input: DidData): Promise<TyronZILScheme> {
+    public static async newDID(input: SchemeInputData): Promise<TyronZILScheme> {
 
-        const DID_DATA: DidData = {
+        const SCHEME_DATA: SchemeInputData = {
             network: input.network,
             didUniqueSuffix: input.didUniqueSuffix,
         };
 
-        return new TyronZILScheme(DID_DATA);
+        return new TyronZILScheme(SCHEME_DATA);
     }
 }

@@ -16,11 +16,12 @@
 //import DidState from '@decentralized-identity/sidetree/dist/lib/core/models/DidState';
 import DidCreate from './did-operations/did-create';
 //import DocumentModel from '@decentralized-identity/sidetree/dist/lib/core/versions/latest/models/DocumentModel';
-import VerificationMethodModel from './models/verification-method-model';
+import { VerificationMethodModel } from './models/verification-method-models';
 //import PublicKeyModel from '@decentralized-identity/sidetree/dist/lib/core/versions/latest/models/PublicKeyModel';
 import ServiceEndpointModel from '@decentralized-identity/sidetree/dist/lib/core/versions/latest/models/ServiceEndpointModel';
 import PublicKeyModel from '@decentralized-identity/sidetree/dist/lib/core/versions/latest/models/PublicKeyModel';
 import PublicKeyPurpose from '@decentralized-identity/sidetree/dist/lib/core/versions/latest/PublicKeyPurpose';
+import { CLICreateInput } from './models/cli-create-input-model';
 
 interface DidDocOutput {
     id: string;
@@ -53,13 +54,13 @@ export default class DidDoc {
     }
 
     /** Creates a brand new DID and its document */
-    public static async new(): Promise<DidDoc> {
-        const DID_CREATED: DidCreate = await DidCreate.execute();
+    public static async new(input: CLICreateInput): Promise<DidDoc> {
+        const DID_CREATED: DidCreate = await DidCreate.executeCli(input);
         const DID_SUFFIX = DID_CREATED.didUniqueSuffix;
         const NET = 'testnet:'; // to-do add namespace 
         const ID: string = 'did:tyron:zil:' + NET + DID_SUFFIX;
         
-        const SIGNING_KEYS: PublicKeyModel[] = DID_CREATED.signingKeys;
+        const SIGNING_KEYS: PublicKeyModel[] = DID_CREATED.publicKey;
         const PUBLIC_KEY = [];
         const AUTHENTICATION = [];
 
@@ -87,7 +88,7 @@ export default class DidDoc {
             }
         }
 
-        const SERVICE_ENDPOINTS = DID_CREATED.serviceEndpoints;
+        const SERVICE_ENDPOINTS = DID_CREATED.service;
         const SERVICE = [];
         
         if (Array.isArray(SERVICE_ENDPOINTS)) {
@@ -126,7 +127,7 @@ export default class DidDoc {
         const NET = 'testnet:'; // to-do add namespace 
         const ID: string = 'did:tyron:zil:' + NET + DID_SUFFIX;
         
-        const SIGNING_KEYS: PublicKeyModel[] = input.signingKeys;
+        const SIGNING_KEYS: PublicKeyModel[] = input.publicKey;
         const PUBLIC_KEY = [];
         const AUTHENTICATION = [];
 
@@ -154,7 +155,7 @@ export default class DidDoc {
             }
         }
 
-        const SERVICE_ENDPOINTS = input.serviceEndpoints;
+        const SERVICE_ENDPOINTS = input.service;
         const SERVICE = [];
         
         if (Array.isArray(SERVICE_ENDPOINTS)) {

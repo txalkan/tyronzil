@@ -13,10 +13,15 @@
     GNU General Public License for more details.
 */
 
-/*
-export default class DidState {
-    /** Fetches the current state for the given DID */
-    //public static async fetch (did: tyronZILScheme) {}
-    /** Applies the new state to the given DID */
-    //public static async applyCreate() {}
-//}
+import { NetworkNamespace } from '../tyronZIL-scheme';
+import PublicKeyPurpose from '@decentralized-identity/sidetree/dist/lib/core/versions/latest/PublicKeyPurpose';
+
+export interface CLICreateInput {
+    network: NetworkNamespace;
+    publicKeyInput: PublicKeyInput[];
+}
+
+export interface PublicKeyInput {
+    id: string;
+    purpose: PublicKeyPurpose[];
+}

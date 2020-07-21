@@ -15,9 +15,22 @@
 
 import JwkEs256k from "@decentralized-identity/sidetree/dist/lib/core/models/JwkEs256k";
 
-export default interface VerificationMethodModel {
+export interface VerificationMethodModel {
     id: string;
     type: string;
     controller?: string;
-    jwk?: JwkEs256k;
+    jwk: JwkEs256k;
+}
+
+export interface Operation extends VerificationMethodModel {
+    purpose: SidetreeVerificationRelationship.Operation
+}
+
+export interface Recovery extends VerificationMethodModel {
+    purpose: SidetreeVerificationRelationship.Recovery
+}
+
+export enum SidetreeVerificationRelationship {
+    Operation = 'operation',
+    Recovery = 'recovery'
 }
