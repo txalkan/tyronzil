@@ -13,36 +13,63 @@
     GNU General Public License for more details.
 */
 import JsonAsync from '@decentralized-identity/sidetree/dist/lib/core/versions/latest/util/JsonAsync';
-import DocumentModel from '@decentralized-identity/sidetree/dist/lib/core/versions/latest/models/DocumentModel';
+import ServiceEndpointModel from '@decentralized-identity/sidetree/dist/lib/core/versions/latest/models/ServiceEndpointModel';
+import PublicKeyModel from '@decentralized-identity/sidetree/dist/lib/core/versions/latest/models/PublicKeyModel';
+import { Operation, Recovery } from './models/verification-method-models';
+import * as fs from 'fs';
+import SidetreeError from '@decentralized-identity/sidetree/dist/lib/common/SidetreeError';
 
 export interface DidStateModel {
-    document: DocumentModel;
-    updateCommitment: string | undefined;
-    recoverCommitment: string | undefined;
-    lastTransactionNumber?: number;    
+    did_tyronZIL: string;
+    publicKey: PublicKeyModel[];
+    operation: Operation;
+    recovery: Recovery;
+    service?: ServiceEndpointModel[];
+    lastTransaction?: number;    
 }
 
 export default class DidState {
+    public readonly did_tyronZIL: string;
+    public readonly publicKeys: PublicKeyModel[];
+    public readonly operation: Operation;
+    public readonly recovery: Recovery;
+    public readonly service?: ServiceEndpointModel[];
+    public readonly lastTransaction?: number;
+
+    private constructor(
+        input: DidStateModel
+    ) {
+        this.did_tyronZIL = input.did_tyronZIL;
+        this.publicKeys = input.publicKey;
+        this.operation = input.operation;
+        this.recovery = input.recovery;
+        this.service = input.service;
+        this.lastTransaction = input.lastTransaction;
+    }
+
+    public static async write(input: DidStateModel): Promise<DidState> {
+        return new DidState(input);
+    }
 
     /** Fetches the current state for the given DID */
-    
-    public static async fetch (did_tyronZIL: string) {
-        const fileName = `../../DB/did-states/${did_tyronZIL}-didState.json`;
+    public static async fetch(did_tyronZIL: string): Promise<DidState> {
+        const FILE_NAME = `${did_tyronZIL}-DID_STATE.json`;
+        fs.readFileSync(FILE_NAME)
 
-        let didStateFile;
+        let DID_STATE_FILE;
         try {
-            didStateFile = require(fileName);
+            DID_STATE_FILE = require(FILE_NAME);
         } catch (error) {
             console.log(error);
         }
         
-        const DID_STATE = await JsonAsync.parse(didStateFile);
+        const DID_STATE = await JsonAsync.parse(DID_STATE_FILE);
         
-        const properties = Object.keys(DID_STATE);
-        if (properties.length !== 4) {
-            console.log(`ERROR reading the file`)
+        const PROPERTIES = Object.keys(DID_STATE);
+        if (PROPERTIES.length !== 6) {
+            console.log(`There ma`)
         }
-        
+
 
 
 
@@ -50,4 +77,4 @@ export default class DidState {
     }
     /** Applies the new state to the given DID */
     //public static async applyCreate() {}
-//}
+}

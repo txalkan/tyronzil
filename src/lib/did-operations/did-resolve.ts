@@ -13,10 +13,10 @@
     GNU General Public License for more details.
 */
 
-import TyronZILScheme from "../tyronZIL-schemes/did-scheme";
-import DidDoc from "../did-document";
+//import DidDoc from "../did-document";
 
 /** tyronZIL's DID Resolver: resolves a DID into its DID-document */
+/*
 export default class DidResolve {
     public readonly didDocument: JSON;
 
@@ -41,4 +41,4 @@ export interface ResolutionOutput {
     metadata?: unknown;
     documentStream: Buffer | void;
     documentMetadata: unknown | void;
-}
+}*/

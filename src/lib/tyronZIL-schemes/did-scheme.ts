@@ -30,7 +30,7 @@ export default class TyronZILScheme {
     public readonly blockchain = 'zil:';
     public readonly network: NetworkNamespace;
     public readonly didUniqueSuffix: string;
-    public readonly did_tyronZIL: string;
+    public readonly did_tyronZIL: string;   // the fully constructed DID
 
     constructor (
         input: SchemeInputData

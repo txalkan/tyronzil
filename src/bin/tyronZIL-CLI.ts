@@ -16,16 +16,16 @@
 import LogColors from './log-colors';
 import DidCreate from '../lib/did-operations/did-create';
 import { CLICreateInput, PublicKeyInput } from '../lib/models/cli-create-input-model';
-
 import TyronZILScheme from '../lib/tyronZIL-schemes/did-scheme';
 import { NetworkNamespace, SchemeInputData } from '../lib/tyronZIL-schemes/did-scheme';
 import * as readline from 'readline-sync';
 import PublicKeyPurpose from '@decentralized-identity/sidetree/dist/lib/core/versions/latest/PublicKeyPurpose';
 import { LongFormDidInput, TyronZILUrlScheme } from '../lib/tyronZIL-schemes/did-url-scheme';
+import DidState, { DidStateModel } from '../lib/did-state';
+import * as fs from 'fs';
 
 /*
 import DidDoc from '../lib/did-document';
-import DidStateModel from '@decentralized-identity/sidetree/dist/lib/core/models/DidState';
 import { read } from 'fs'; */
 
 /** Handles the command-line interface DID operations */
@@ -34,10 +34,10 @@ export default class TyronCLI {
     /** Handles the `create` subcommand */
     public static async handleCreate(): Promise<void> {
         // Gets network choice from the user:
-        const network = readline.question('On which Zilliqa network do you want to create your tyronZIL DID, mainnet(m) or testnet(t)? [m/t] ');
+        const network = readline.question(`On which Zilliqa network do you want to create your tyronZIL DID, mainnet(m) or testnet(t)? [m/t] - Defaults to testnet - ` + LogColors.lightBlue(`Your answer: `));
         
         if (network.toLowerCase() !== 'm' && network.toLowerCase() !== 't') {
-            console.log('Invalid answer! Thus, using testnet as default.');
+            console.log(LogColors.green(`Creating your tyronZIL DID on the Zilliqa testnet..`));
         }
 
         // Defaults to testnet
@@ -52,9 +52,9 @@ export default class TyronCLI {
         }
         
         // Creates the first verification method used with a general purpose as the primary public key and for authentication as verification relationship:
-        console.log(`Let's create your primary public key! It's a general-purpose verification method, also used for authentication as verification relationship.`);
+        console.log(LogColors.green(`Let's create your primary public key! It's a general-purpose verification method, also used for authentication as the verification relationship.`));
         
-        let PRIMARY_KEY_ID = readline.question(`What is the key ID? Defaults to 'primarySigningKey' `);
+        let PRIMARY_KEY_ID = readline.question(`Choose a name for your key - Defaults to 'primarySigningKey' - ` + LogColors.lightBlue(`Your answer: `));
         if (PRIMARY_KEY_ID === "") {
             PRIMARY_KEY_ID = 'primarySigningKey';
         }
@@ -67,16 +67,16 @@ export default class TyronCLI {
         const PUBLIC_KEYS: PublicKeyInput[] = [PRIMARY_PUBLIC_KEY];
     
         // Asks if the user wants a secondary key-pair, and its purpose:
-        const MORE_KEYS = readline.question(`Would you like to have a secondary public keys? [y] - Defaults to 'no' `);
+        const MORE_KEYS = readline.question(`Would you like to have a secondary public keys? [y] - Defaults to 'no' - ` + LogColors.lightBlue(`Your answer: `));
 
         if (MORE_KEYS.toLowerCase() === 'y') {
-            let SECONDARY_KEY_ID = readline.question(`What is the key ID? Defaults to 'secondarySigningKey' `);
+            let SECONDARY_KEY_ID = readline.question(`Choose a name for your key - Defaults to 'secondarySigningKey' - ` + LogColors.lightBlue(`Your answer: `));
             if (SECONDARY_KEY_ID === "") {
                 SECONDARY_KEY_ID = 'secondarySigningKey';
             }
 
             let SECONDARY_PURPOSE = [PublicKeyPurpose.Auth];
-            const WHICH_PURPOSE = readline.question('What is the secondary purpose: general(1), authentication(2) or both(3)? [1/2/3] - Defaults to authentication. ');
+            const WHICH_PURPOSE = readline.question(`What is the secondary purpose: general(1), authentication(2) or both(3)? [1/2/3] - Defaults to authentication - ` + LogColors.lightBlue(`Your answer: `));
             if (WHICH_PURPOSE === '1') {
                 SECONDARY_PURPOSE = [PublicKeyPurpose.General]
             } else if (WHICH_PURPOSE === '3') {
@@ -105,11 +105,12 @@ export default class TyronCLI {
         
         const DID_tyronZIL = await TyronZILScheme.newDID(SCHEME_DATA);
         
-        console.log(`Your decentralized identity on Zilliqa is: ` + LogColors.green(`${DID_tyronZIL.schemeIdentifier}${DID_tyronZIL.methodName}`) + LogColors.lightBlue(`${DID_tyronZIL.blockchain}${DID_tyronZIL.network}`) + LogColors.brightYellow(`${DID_tyronZIL.didUniqueSuffix}`));
+        console.log(LogColors.green(`Your decentralized identity on Zilliqa is: `) + LogColors.brightGreen(`${DID_tyronZIL.did_tyronZIL}`));     
         
-        const PUBLIC_KEY = JSON.stringify(DID_CREATED.publicKey);
+        const PUBLIC_KEY = JSON.stringify(DID_CREATED.publicKey, null, 2);
         console.log(`Your public key(s): ${PUBLIC_KEY}`);
 
+        // Generate the Sidetree Long-Form DID
         if (DID_CREATED.encodedDelta !== undefined) {
             const LONG_DID_INPUT: LongFormDidInput = {
                 schemeInput: SCHEME_DATA,
@@ -121,8 +122,33 @@ export default class TyronCLI {
 
             const LONG_DID_tyronZIL = LONG_FORM_DID.longFormDid;
 
-            console.log(`The corresponding Sidetree Long-Form DID is: ${LONG_DID_tyronZIL}`);
+            console.log(LogColors.green(`The corresponding Sidetree Long-Form DID is: `) + `${LONG_DID_tyronZIL}`);
         }
+
+        // Write the DID-state:
+        const DID_STATE_MODEL: DidStateModel = {
+            did_tyronZIL: DID_tyronZIL.did_tyronZIL,
+            publicKey: DID_CREATED.publicKey,
+            operation: DID_CREATED.operation,
+            recovery: DID_CREATED.recovery,
+            service: DID_CREATED.service,
+        }
+
+        const DID_STATE = await DidState.write(DID_STATE_MODEL);
+
+        const PRINT_STATE = JSON.stringify(DID_STATE, null, 2);
+
+        console.log(`${PRINT_STATE}`);
+
+        // Save the DID-state:
+        const FILE_NAME = `${DID_STATE.did_tyronZIL}-DID_STATE.json`;
+
+        fs.writeFileSync(FILE_NAME, PRINT_STATE);
+        console.info(LogColors.yellow(`DID-state saved as: ${LogColors.brightYellow(FILE_NAME)}`));
+    
+    
+
+
         
         /* 
         const SERVICE = JSON.stringify(DID_CREATED.serviceEndpoints);
