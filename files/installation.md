@@ -1,5 +1,11 @@
 # Install tyronZIL-js
 
+> Getting ready:  
+> - Make sure to have the latest version of npm: ```npm install -g npm```  
+> - Also, install node-gyp: ```npm install -g node-gyp```  
+On macOS ```xcode-select --install``` as well  
+[Info about node-gyp](https://github.com/nodejs/node-gyp)
+
 1. ```git clone https://github.com/julio-cabdu/tyronZIL-js```
 
 2. ```cd tyronZIL-js```
@@ -10,4 +16,11 @@
 
 5. ```npm run build```
 
-6. ```npm install -g .```   // to get the CLI ready
+6. ```npm install -g .```       // to get the CLI ready
+
+## tyronZIL-CLI
+
+## DID-create
+
+Create your brand new tyronZIL DID and resolve it into its corresponding DID-document:
+``

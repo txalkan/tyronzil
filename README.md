@@ -16,3 +16,7 @@ Self-sovereign identity (SSI) allows people to prove who they are without a midd
 ## Contributing
 
 It'd be great to have your help! Please read the [contributing guideline](./files/CONTRIBUTING.md) and the [code of conduct](./files/CODE_OF_CONDUCT.md) :high_brightness:
+
+## Try it out
+
+[Follow these instructions](./files/installation.md) to get up and running with the tyronZIL-CLI.
