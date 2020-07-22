@@ -27,7 +27,6 @@ import SidetreeError from '@decentralized-identity/sidetree/dist/lib/common/Side
 import ErrorCode from '../lib/ErrorCode';
 import DidDoc from '../lib/did-document';
 import JsonAsync from '@decentralized-identity/sidetree/dist/lib/core/versions/latest/util/JsonAsync';
-//import { read } from 'fs'; */
 
 /** Handles the command-line interface DID operations */
 export default class TyronCLI {

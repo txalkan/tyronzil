@@ -148,12 +148,13 @@ export default class DidDoc {
             id: input.id,
             publicKey: input.publicKey,
             operation: input.operation,
-            recovery: input.publicKey,
+            recovery: input.recovery,
             authentication: input.authentication,
             service: input.service
         };
         return JSON.stringify(DOC);
     }
+
     /** Creates a brand new DID and its document */
     public static async resolve(didData: DidCreate, network: NetworkNamespace): Promise<DidDoc> {
         
@@ -187,11 +188,12 @@ export default class DidDoc {
                     PUBLIC_KEY.push(VERIFICATION_METHOD);
                     
                     if (PURPOSE.has(PublicKeyPurpose.Auth)) {
-                        AUTHENTICATION.push(id); // referenced key
+                        // referenced key:
+                        AUTHENTICATION.push(id); 
                     }
                 } else if (PURPOSE.has(PublicKeyPurpose.Auth)) {
-                    
-                    AUTHENTICATION.push(VERIFICATION_METHOD); // embedded key
+                    // embedded key:
+                    AUTHENTICATION.push(VERIFICATION_METHOD); 
                 }
             }
         }
@@ -210,8 +212,11 @@ export default class DidDoc {
             }
         }
 
-        const VM_OPERATION: Operation = didData.operation;
-        const VM_RECOVERY: Recovery = didData.recovery;
+        const VM_OPERATION: Operation = Object.assign({}, didData.operation);
+        delete VM_OPERATION.purpose;
+
+        const VM_RECOVERY: Recovery = Object.assign({}, didData.recovery);
+        delete VM_RECOVERY.purpose;
 
         const OPERATION_OUTPUT: DidDocOutput = {
             id: ID,
@@ -220,7 +225,7 @@ export default class DidDoc {
             recovery: VM_RECOVERY,
             authentication: AUTHENTICATION
         };
-        
+         
         if (SERVICE.length !== 0) {
             OPERATION_OUTPUT.service = SERVICE;
         }
