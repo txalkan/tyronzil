@@ -19,7 +19,7 @@ import { CLICreateInput, PublicKeyInput } from '../lib/models/cli-create-input-m
 import TyronZILScheme from '../lib/tyronZIL-schemes/did-scheme';
 import { NetworkNamespace, SchemeInputData } from '../lib/tyronZIL-schemes/did-scheme';
 import * as readline from 'readline-sync';
-import PublicKeyPurpose from '@decentralized-identity/sidetree/dist/lib/core/versions/latest/PublicKeyPurpose';
+import { PublicKeyPurpose } from '../lib/models/verification-method-models';
 import { LongFormDidInput, TyronZILUrlScheme } from '../lib/tyronZIL-schemes/did-url-scheme';
 import DidState, { DidStateModel } from '../lib/did-state';
 import * as fs from 'fs';

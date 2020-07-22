@@ -17,7 +17,7 @@ import TyronZILScheme from '../tyronZIL-schemes/did-scheme';
 import OperationType from '@decentralized-identity/sidetree/dist/lib/core/enums/OperationType';
 import RecoverOperation from '@decentralized-identity/sidetree/dist/lib/core/versions/latest/RecoverOperation';
 import JwkEs256k from "@decentralized-identity/sidetree/dist/lib/core/models/JwkEs256k";
-import PublicKeyModel from '@decentralized-identity/sidetree/dist/lib/core/versions/latest/models/PublicKeyModel';
+import { PublicKeyModel } from '../models/verification-method-models';
 import ServiceEndpointModel from '@decentralized-identity/sidetree/dist/lib/core/versions/latest/models/ServiceEndpointModel';
 import {
     Cryptography,
@@ -27,8 +27,7 @@ import Multihash from '@decentralized-identity/sidetree/dist/lib/core/versions/l
 import Jwk from '@decentralized-identity/sidetree/dist/lib/core/versions/latest/util/Jwk';
 import Jws from '@decentralized-identity/sidetree/dist/lib/core/versions/latest/util/Jws';
 import serviceEndpoints from '../service-endpoints';
-import DocumentModel from '@decentralized-identity/sidetree/dist/lib/core/versions/latest/models/DocumentModel';
-import { PatchModel, PatchAction } from '../models/patch-model';
+import { DocumentModel, PatchModel, PatchAction } from '../models/patch-model';
 import DeltaModel from '@decentralized-identity/sidetree/dist/lib/core/versions/latest/models/DeltaModel';
 import Encoder from '@decentralized-identity/sidetree/dist/lib/core/versions/latest/Encoder';
 import { RecoverSignedDataModel } from '../models/signed-data-models';

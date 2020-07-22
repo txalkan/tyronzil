@@ -13,10 +13,13 @@
     GNU General Public License for more details.
 */
 
-import PublicKeyModel from "@decentralized-identity/sidetree/dist/lib/core/versions/latest/models/PublicKeyModel";
+import { PublicKeyModel } from '../models/verification-method-models';
 import ServiceEndpointModel from "@decentralized-identity/sidetree/dist/lib/core/versions/latest/models/ServiceEndpointModel";
-import DocumentModel from "@decentralized-identity/sidetree/dist/lib/core/versions/latest/models/DocumentModel";
 
+export interface DocumentModel {
+    public_keys: PublicKeyModel[];
+    service_endpoints?: ServiceEndpointModel[]; 
+}
 export interface PatchModel {
     action: PatchAction;
     /** If the action is `remove-public-keys`, then Patch.publicKeys MUST be an array of PublicKeyModel.id strings */

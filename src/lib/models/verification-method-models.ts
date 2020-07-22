@@ -19,7 +19,11 @@ export interface VerificationMethodModel {
     id: string;
     type: string;
     controller?: string;
-    publicKeyJwk: JwkEs256k;
+    jwk: JwkEs256k;
+}
+
+export interface PublicKeyModel extends VerificationMethodModel {
+    purpose: PublicKeyPurpose[]
 }
 
 export interface Operation extends VerificationMethodModel {
@@ -33,4 +37,13 @@ export interface Recovery extends VerificationMethodModel {
 export enum SidetreeVerificationRelationship {
     Operation = 'operation',
     Recovery = 'recovery'
+}
+
+export enum PublicKeyPurpose {
+    General = 'general',
+    Auth = 'auth',
+    Agreement = 'agreement',
+    Assertion = 'assertion',
+    Delegation = 'delegation',
+    Invocation = 'invocation'
 }

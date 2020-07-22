@@ -20,8 +20,7 @@ import {
     Cryptography,
     OperationKeyPairInput
  } from '../did-keys';
-import PublicKeyModel from '@decentralized-identity/sidetree/dist/lib/core/versions/latest/models/PublicKeyModel';
-import { Operation, Recovery, SidetreeVerificationRelationship } from '../models/verification-method-models';
+import { PublicKeyModel, Operation, Recovery, SidetreeVerificationRelationship } from '../models/verification-method-models';
 import { CLICreateInput } from '../models/cli-create-input-model';
 import TyronZILScheme from '../tyronZIL-schemes/did-scheme';
 import { SchemeInputData } from '../tyronZIL-schemes/did-scheme';
@@ -34,8 +33,7 @@ import Encoder from '@decentralized-identity/sidetree/dist/lib/core/versions/lat
 import ServiceEndpointModel from '@decentralized-identity/sidetree/dist/lib/core/versions/latest/models/ServiceEndpointModel';
 import serviceEndpoints from '../service-endpoints';
 
-import DocumentModel from '@decentralized-identity/sidetree/dist/lib/core/versions/latest/models/DocumentModel';
-import { PatchModel, PatchAction } from '../models/patch-model';
+import { DocumentModel, PatchModel, PatchAction } from '../models/patch-model';
 import DeltaModel from '@decentralized-identity/sidetree/dist/lib/core/versions/latest/models/DeltaModel';
 import SuffixDataModel from '../models/suffix-data-model';
 import AnchoredOperationModel from '@decentralized-identity/sidetree/dist/lib/core/models/AnchoredOperationModel';
@@ -261,7 +259,7 @@ export default class DidCreate {
         const VM_OPERATION: Operation = {
             id: ID,
             type: TYPE,
-            publicKeyJwk: JWK,
+            jwk: JWK,
             purpose: SidetreeVerificationRelationship.Operation
         }
         return VM_OPERATION;
@@ -276,7 +274,7 @@ export default class DidCreate {
         const VM_RECOVERY: Recovery = {
             id: ID,
             type: TYPE,
-            publicKeyJwk: JWK,
+            jwk: JWK,
             purpose: SidetreeVerificationRelationship.Recovery
         }
         return VM_RECOVERY;

@@ -14,7 +14,7 @@
 */
 
 import { NetworkNamespace } from '../tyronZIL-schemes/did-scheme';
-import PublicKeyPurpose from '@decentralized-identity/sidetree/dist/lib/core/versions/latest/PublicKeyPurpose';
+import { PublicKeyPurpose } from '../models/verification-method-models';
 
 export interface CLICreateInput {
     network: NetworkNamespace;

@@ -7,4 +7,5 @@ export default class LogColors {
     public static brightGreen = chalk.greenBright;
     public static yellow = chalk.yellow;
     public static brightYellow = chalk.yellowBright;
+    public static red = chalk.red;
 }

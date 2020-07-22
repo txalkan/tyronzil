@@ -15,10 +15,8 @@
 
 //import DidState from '@decentralized-identity/sidetree/dist/lib/core/models/DidState';
 import DidCreate from './did-operations/did-create';
-import { Operation, Recovery, VerificationMethodModel } from './models/verification-method-models';
-import PublicKeyModel from '@decentralized-identity/sidetree/dist/lib/core/versions/latest/models/PublicKeyModel';
+import { PublicKeyModel, PublicKeyPurpose, Operation, Recovery, VerificationMethodModel } from './models/verification-method-models';
 import ServiceEndpointModel from '@decentralized-identity/sidetree/dist/lib/core/versions/latest/models/ServiceEndpointModel';
-import PublicKeyPurpose from '@decentralized-identity/sidetree/dist/lib/core/versions/latest/PublicKeyPurpose';
 import { CLICreateInput } from './models/cli-create-input-model';
 import TyronZILScheme, { SchemeInputData } from './tyronZIL-schemes/did-scheme';
 
@@ -81,7 +79,7 @@ export default class DidDoc {
 
                     // at this point in the development, every tyronZIL DID is the sole controller of its own DID
                     controller: ID,
-                    publicKeyJwk: key.jwk
+                    jwk: key.jwk
                 };
                 const PURPOSE: Set<string> = new Set(key.purpose);
 

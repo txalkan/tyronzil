@@ -18,6 +18,7 @@ import {
     Cryptography,
     OperationKeyPairInput
  } from '../did-keys';
+import { PublicKeyModel } from '../models/verification-method-models';
 import JwkEs256k from '@decentralized-identity/sidetree/dist/lib/core/models/JwkEs256k';
 import Jwk from '@decentralized-identity/sidetree/dist/lib/core/versions/latest/util/Jwk';
 import Jws from '@decentralized-identity/sidetree/dist/lib/core/versions/latest/util/Jws';
@@ -25,7 +26,6 @@ import Multihash from '@decentralized-identity/sidetree/dist/lib/core/versions/l
 import Encoder from '@decentralized-identity/sidetree/dist/lib/core/versions/latest/Encoder';
 import OperationType from '@decentralized-identity/sidetree/dist/lib/core/enums/OperationType';
 import UpdateOperation from '@decentralized-identity/sidetree/dist/lib/core/versions/latest/UpdateOperation';
-import PublicKeyModel from '@decentralized-identity/sidetree/dist/lib/core/versions/latest/models/PublicKeyModel';
 import { PatchModel, PatchAction } from '../models/patch-model';
 import DeltaModel from '@decentralized-identity/sidetree/dist/lib/core/versions/latest/models/DeltaModel';
 import { UpdateSignedDataModel } from '../models/signed-data-models';

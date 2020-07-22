@@ -14,16 +14,15 @@
 */
 import JsonAsync from '@decentralized-identity/sidetree/dist/lib/core/versions/latest/util/JsonAsync';
 import ServiceEndpointModel from '@decentralized-identity/sidetree/dist/lib/core/versions/latest/models/ServiceEndpointModel';
-import PublicKeyModel from '@decentralized-identity/sidetree/dist/lib/core/versions/latest/models/PublicKeyModel';
-import { Operation, Recovery } from './models/verification-method-models';
+import { PublicKeyModel, Operation, Recovery } from './models/verification-method-models';
 import * as fs from 'fs';
-import SidetreeError from '@decentralized-identity/sidetree/dist/lib/common/SidetreeError';
+import LogColors from '../bin/log-colors';
 
 export interface DidStateModel {
     did_tyronZIL: string;
     publicKey: PublicKeyModel[];
-    operation: Operation;
-    recovery: Recovery;
+    operation?: Operation;      // operation & recovery are undefined after deactivation
+    recovery?: Recovery;
     service?: ServiceEndpointModel[];
     lastTransaction?: number;    
 }
@@ -31,8 +30,8 @@ export interface DidStateModel {
 export default class DidState {
     public readonly did_tyronZIL: string;
     public readonly publicKeys: PublicKeyModel[];
-    public readonly operation: Operation;
-    public readonly recovery: Recovery;
+    public readonly operation?: Operation;
+    public readonly recovery?: Recovery;
     public readonly service?: ServiceEndpointModel[];
     public readonly lastTransaction?: number;
 
@@ -56,24 +55,25 @@ export default class DidState {
         const FILE_NAME = `${did_tyronZIL}-DID_STATE.json`;
         fs.readFileSync(FILE_NAME)
 
-        let DID_STATE_FILE;
+        let DID_STATE_FILE = undefined;
         try {
             DID_STATE_FILE = require(FILE_NAME);
         } catch (error) {
-            console.log(error);
+            console.log(LogColors.red(`Could not read the file`));
         }
         
-        const DID_STATE = await JsonAsync.parse(DID_STATE_FILE);
-        
-        const PROPERTIES = Object.keys(DID_STATE);
-        if (PROPERTIES.length !== 6) {
-            console.log(`There ma`)
-        }
+        const DID_STATE = await JsonAsync.parse(JSON.stringify(DID_STATE_FILE));
 
+        const DID_STATE_MODEL: DidStateModel = {
+            did_tyronZIL: DID_STATE.did_tyronZIL,
+            publicKey: DID_STATE.publicKey,
+            operation: DID_STATE.operation,
+            recovery: DID_STATE.recovery,
+            service: DID_STATE.service,
+            lastTransaction: DID_STATE.lastTransaction
+        };
 
-
-
-
+        return new DidState(DID_STATE_MODEL);
     }
     /** Applies the new state to the given DID */
     //public static async applyCreate() {}
