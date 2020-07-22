@@ -23,12 +23,15 @@ yargs
   .scriptName('tyronzil')
   .usage('Usage: $0 <command> [options]')
   .demandCommand(1, 'Try: tyronzil <command>, with command= did')
-  .command('did', '(to execute a tyronZIL DID-operation, try: $tyronzil did <subcommand>, with subcommand= create|update|recover|deactivate)', (yargs) => {
+  .command('did', '(to execute a tyronZIL DID-operation, try: $tyronzil did <subcommand>, with subcommand= create|resolve|update|recover|deactivate)', (yargs) => {
     yargs
       .usage('Usage: $0 did <subcommand> [options]')
-      .demandCommand(1, 'Specify a subcommand: create|update|recover|deactivate')
+      .demandCommand(1, 'Specify a subcommand: create|resolve|update|recover|deactivate')
       .command('create', '(creates a unique digital identity did:tyron:zil)', async () => {
         await tyronCLI.handleCreate();
+      })
+      .command('resolve', '(resolves the given DID into its DID-document)', async () => {
+        await tyronCLI.handleResolve();
       })
 
       /*

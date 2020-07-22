@@ -23,10 +23,11 @@ import { PublicKeyPurpose } from '../lib/models/verification-method-models';
 import { LongFormDidInput, TyronZILUrlScheme } from '../lib/tyronZIL-schemes/did-url-scheme';
 import DidState, { DidStateModel } from '../lib/did-state';
 import * as fs from 'fs';
-
-/*
+import SidetreeError from '@decentralized-identity/sidetree/dist/lib/common/SidetreeError';
+import ErrorCode from '../lib/ErrorCode';
 import DidDoc from '../lib/did-document';
-import { read } from 'fs'; */
+import JsonAsync from '@decentralized-identity/sidetree/dist/lib/core/versions/latest/util/JsonAsync';
+//import { read } from 'fs'; */
 
 /** Handles the command-line interface DID operations */
 export default class TyronCLI {
@@ -103,14 +104,15 @@ export default class TyronCLI {
             didUniqueSuffix: DID_SUFFIX
         };
         
-        const DID_tyronZIL = await TyronZILScheme.newDID(SCHEME_DATA);
+        const TYRON_SCHEME = await TyronZILScheme.newDID(SCHEME_DATA);
+        const DID_tyronZIL = TYRON_SCHEME.did_tyronZIL;
         
-        console.log(LogColors.green(`Your decentralized identity on Zilliqa is: `) + LogColors.brightGreen(`${DID_tyronZIL.did_tyronZIL}`));     
+        console.log(LogColors.green(`Your decentralized identity on Zilliqa is: `) + LogColors.brightGreen(`${TYRON_SCHEME.did_tyronZIL}`));     
         
         const PUBLIC_KEY = JSON.stringify(DID_CREATED.publicKey, null, 2);
         console.log(`Your public key(s): ${PUBLIC_KEY}`);
 
-        // Generate the Sidetree Long-Form DID
+        // Generates the Sidetree Long-Form DID
         if (DID_CREATED.encodedDelta !== undefined) {
             const LONG_DID_INPUT: LongFormDidInput = {
                 schemeInput: SCHEME_DATA,
@@ -125,9 +127,9 @@ export default class TyronCLI {
             console.log(LogColors.green(`The corresponding Sidetree Long-Form DID is: `) + `${LONG_DID_tyronZIL}`);
         }
 
-        // Write the DID-state:
+        // Writes the DID-state:
         const DID_STATE_MODEL: DidStateModel = {
-            did_tyronZIL: DID_tyronZIL.did_tyronZIL,
+            did_tyronZIL: DID_tyronZIL,
             publicKey: DID_CREATED.publicKey,
             operation: DID_CREATED.operation,
             recovery: DID_CREATED.recovery,
@@ -135,16 +137,39 @@ export default class TyronCLI {
         }
 
         const DID_STATE = await DidState.write(DID_STATE_MODEL);
-
         const PRINT_STATE = JSON.stringify(DID_STATE, null, 2);
 
-        console.log(`${PRINT_STATE}`);
-
-        // Save the DID-state:
-        const FILE_NAME = `${DID_STATE.did_tyronZIL}-DID_STATE.json`;
-
+        // Saves the DID-state:
+        const FILE_NAME = `${DID_tyronZIL}-DID_STATE.json`;
         fs.writeFileSync(FILE_NAME, PRINT_STATE);
         console.info(LogColors.yellow(`DID-state saved as: ${LogColors.brightYellow(FILE_NAME)}`));
+
+        // Creates the corresponding DID-document and saves it
+        const DID_RESOLVED = await DidDoc.resolve(DID_CREATED, NETWORK);
+        const DOC_STRING = await DidDoc.stringify(DID_RESOLVED);
+        const DID_DOC = await await JsonAsync.parse(DOC_STRING);
+        const PRINT_DOC = JSON.stringify(DID_DOC, null, 2);
+
+        const DOC_NAME = `${DID_tyronZIL}-DID_DOCUMENT.json`;
+        fs.writeFileSync(DOC_NAME, PRINT_DOC);
+        console.info(LogColors.yellow(`DID-document saved as: ${LogColors.brightYellow(DOC_NAME)}`));
+    }
+
+    /** Handles the `resolve` subcommand */
+    public static async handleResolve(): Promise<void> {
+        // Gets the DID to resolve from the user:
+        const DID = readline.question(`Which DID would you like to resolve? ` + LogColors.lightBlue(`Your answer: `));
+        
+        
+        //let PROPER_DID = undefined;
+        try {
+            //PROPER_DID = 
+            await TyronZILUrlScheme.validate(DID);
+        } catch {
+            throw new SidetreeError(ErrorCode.DidInvalidUrl);
+        }
+    }
+        // Resolve the DID into its DID-document
     
     
 
@@ -170,5 +195,3 @@ export default class TyronCLI {
         const DID_STATE = await DID_STATE.applyCreate(DID_STATE_INPUT);
         */
     }
-
-}

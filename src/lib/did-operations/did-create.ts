@@ -16,23 +16,15 @@
 import OperationType from '@decentralized-identity/sidetree/dist/lib/core/enums/OperationType';
 import CreateOperation from '@decentralized-identity/sidetree/dist/lib/core/versions/latest/CreateOperation';
 
-import {
-    Cryptography,
-    OperationKeyPairInput
- } from '../did-keys';
+import { Cryptography, OperationKeyPairInput, JwkEs256k } from '../did-keys';
 import { PublicKeyModel, Operation, Recovery, SidetreeVerificationRelationship } from '../models/verification-method-models';
 import { CLICreateInput } from '../models/cli-create-input-model';
 import TyronZILScheme from '../tyronZIL-schemes/did-scheme';
 import { SchemeInputData } from '../tyronZIL-schemes/did-scheme';
-
-import JwkEs256k from '@decentralized-identity/sidetree/dist/lib/core/models/JwkEs256k';
-import Jwk from '@decentralized-identity/sidetree/dist/lib/core/versions/latest/util/Jwk';
 import Multihash from '@decentralized-identity/sidetree/dist/lib/core/versions/latest/Multihash';
 import Encoder from '@decentralized-identity/sidetree/dist/lib/core/versions/latest/Encoder';
-
 import ServiceEndpointModel from '@decentralized-identity/sidetree/dist/lib/core/versions/latest/models/ServiceEndpointModel';
 import serviceEndpoints from '../service-endpoints';
-
 import { DocumentModel, PatchModel, PatchAction } from '../models/patch-model';
 import DeltaModel from '@decentralized-identity/sidetree/dist/lib/core/versions/latest/models/DeltaModel';
 import SuffixDataModel from '../models/suffix-data-model';
@@ -180,26 +172,26 @@ export default class DidCreate {
         }
 
         // Creates key-pair for the updateCommitment (save private key for next update operation)
-        const [UPDATE_KEY, UPDATE_PRIVATE_KEY] = await Jwk.generateEs256kKeyPair();
+        const [UPDATE_KEY, UPDATE_PRIVATE_KEY] = await Cryptography.jwkPair();
         /** Utilizes the UPDATE_KEY to make the `update reveal value` for the next update operation */
         const UPDATE_COMMITMENT = Multihash.canonicalizeThenHashThenEncode(UPDATE_KEY);
 
         // Creates key-pair for the recoveryCommitment (save private key for next recovery operation)
-        const [RECOVERY_KEY, RECOVERY_PRIVATE_KEY] = await Jwk.generateEs256kKeyPair();
+        const [RECOVERY_KEY, RECOVERY_PRIVATE_KEY] = await Cryptography.jwkPair();
         /** Utilizes the RECOVERY_KEY to make the next recovery commitment hash */
         const RECOVERY_COMMITMENT = Multihash.canonicalizeThenHashThenEncode(RECOVERY_KEY);
 
 
         // create service endpoints:
         const SERVICE1: ServiceEndpointModel = {
-            id: '1',
-            type: 'service#1',
-            endpoint: 'https://url.com'
+            id: 'tyronZIL-website',
+            type: 'method-specification',
+            endpoint: 'https://tyronZIL.com'
         }
         const SERVICE2: ServiceEndpointModel = {
-            id: '2',
-            type: 'service#2',
-            endpoint: 'https://url.com'
+            id: 'ZIL-address',
+            type: 'cryptocurrency-address',
+            endpoint: 'zil1egvj6ketfydy48uqzu8qphhj5w4xrkratv85ht'
         }
         const SERVICE_ENDPOINTS = await serviceEndpoints.new([SERVICE1, SERVICE2]);
 
@@ -252,7 +244,7 @@ export default class DidCreate {
 
     /** Generates an Operation verification-method instance */
     public static async generateVMOperation(updateKey: JwkEs256k, did: TyronZILScheme): Promise<Operation> {
-        const ID = did.did_tyronZIL + '#';
+        const ID = did.did_tyronZIL + '#' + updateKey.kid;
         const TYPE = 'EcdsaSecp256k1VerificationKey2019';
         const JWK = updateKey;
         
@@ -267,7 +259,7 @@ export default class DidCreate {
 
     /** Generates a Recovery verification-method instance */
     public static async generateVMRecovery(recoveryKey: JwkEs256k, did: TyronZILScheme): Promise<Recovery> {
-        const ID = did.did_tyronZIL + '#';
+        const ID = did.did_tyronZIL + '#' + recoveryKey.kid;
         const TYPE = 'EcdsaSecp256k1VerificationKey2019';
         const JWK = recoveryKey;
         

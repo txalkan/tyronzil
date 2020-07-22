@@ -25,9 +25,9 @@ export interface SchemeInputData {
 
 /** Defines the tyronZIL DID scheme */
 export default class TyronZILScheme {
-    public readonly schemeIdentifier = 'did:';
-    public readonly methodName = 'tyron:';
-    public readonly blockchain = 'zil:';
+    public static readonly schemeIdentifier = 'did:';
+    public static readonly methodName = 'tyron:';
+    public static readonly blockchain = 'zil:';
     public readonly network: NetworkNamespace;
     public readonly didUniqueSuffix: string;
     public readonly did_tyronZIL: string;   // the fully constructed DID
@@ -37,7 +37,7 @@ export default class TyronZILScheme {
     ) {
         this.network = input.network;
         this.didUniqueSuffix = input.didUniqueSuffix;
-        this.did_tyronZIL = this.schemeIdentifier + this.methodName + this.blockchain + this.network + this.didUniqueSuffix;
+        this.did_tyronZIL = TyronZILScheme.schemeIdentifier + TyronZILScheme.methodName + TyronZILScheme.blockchain + this.network + this.didUniqueSuffix;
     }
 
     /** Generates a tyronZIL DID with the given didUniqueSuffix and network */

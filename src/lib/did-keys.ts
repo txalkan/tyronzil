@@ -19,7 +19,7 @@ import TyronZILScheme from './tyronZIL-schemes/did-scheme';
 import { UpdateSignedDataModel, RecoverSignedDataModel, DeactivateSignedDataModel } from './models/signed-data-models';
 import { JWK } from 'jose';
 import SidetreeError from '@decentralized-identity/sidetree/dist/lib/common/SidetreeError';
-import ErrorCode from '@decentralized-identity/sidetree/lib/core/versions/latest/ErrorCode';
+import ErrorCode from './ErrorCode';
 
 /** Defines input data to generate a cryptographic key pair */
 export interface OperationKeyPairInput {
@@ -55,7 +55,7 @@ export class Cryptography {
     }
 
     /** Signs the given payload as a es256k compact JWS */
-    public static async signUsingKey (didTyronZIL: TyronZILScheme, payload: UpdateSignedDataModel | RecoverSignedDataModel | DeactivateSignedDataModel, privateKey: JwkEs256k): Promise<string> {
+    public static async signUsingEs256k (didTyronZIL: TyronZILScheme, payload: UpdateSignedDataModel | RecoverSignedDataModel | DeactivateSignedDataModel, privateKey: JwkEs256k): Promise<string> {
         const PUBLIC_KEY = this.getPublicKey(privateKey);
 
         const protectedHeader = {
@@ -119,7 +119,7 @@ export class Cryptography {
     }
 
     if (typeof jwk.kid !== 'string') {
-        throw new SidetreeError(ErrorCode.JwkEs256kMissingOrInvalidTypeKid);
+      throw new SidetreeError(ErrorCode.JwkEs256kMissingOrInvalidTypeKid);
       }
   }
 

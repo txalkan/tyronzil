@@ -13,9 +13,11 @@
     GNU General Public License for more details.
 */
 
-import TyronZILScheme, { SchemeInputData } from "./did-scheme";
+import TyronZILScheme, { SchemeInputData, NetworkNamespace } from "./did-scheme";
+import SidetreeError from "@decentralized-identity/sidetree/dist/lib/common/SidetreeError";
 // import { ParsedUrlQueryInput } from "querystring";
-// import { URL } from 'url';
+//import { URL } from 'url';
+import ErrorCode from '../ErrorCode';
 
 export interface UrlInput {
     schemeInput: SchemeInputData;
@@ -69,6 +71,30 @@ export class TyronZILUrlScheme extends TyronZILScheme {
         }
 
         return new TyronZILUrlScheme(URL_INPUT);
+    }
+
+    /** Validates if the given DID is a proper tyronZIL DID */
+    public static async validate(did: string): Promise<void> {
+        
+        /*
+        let IS_URL = undefined;
+        try {
+            IS_URL = new URL(did);
+        } catch {
+            throw new SidetreeError(ErrorCode.DidInvalidUrl);
+        }
+        */
+        const PREFIX = this.schemeIdentifier + this.methodName + this.blockchain;
+
+        if (!did.startsWith(PREFIX)) {
+            throw new SidetreeError(ErrorCode.IncorrectDidPrefix);
+        }
+
+        const NETWORK = did.substring(15, 18);
+        
+        if (NETWORK !== NetworkNamespace.Mainnet && NETWORK !== NetworkNamespace.Testnet) {
+            throw new SidetreeError(ErrorCode.IncorrectNetwork)
+        }
     }
 }
 
