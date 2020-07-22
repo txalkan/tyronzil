@@ -36,6 +36,8 @@
     "chalk": "^4.1.0",
     "koa": "^2.13.0",
     "koa-router": "^9.1.0",
+    "markdown-it": "^9.1.0",
+    "prom-client": "^10.2.3",
     "raw-body": "^2.4.1",
     "readline-sync": "^1.4.10",
     "yargs": "^15.4.0"

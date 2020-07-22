@@ -12,11 +12,8 @@
     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
     GNU General Public License for more details.
 */
-import JsonAsync from '@decentralized-identity/sidetree/dist/lib/core/versions/latest/util/JsonAsync';
 import ServiceEndpointModel from '@decentralized-identity/sidetree/dist/lib/core/versions/latest/models/ServiceEndpointModel';
 import { PublicKeyModel, Operation, Recovery } from './models/verification-method-models';
-import * as fs from 'fs';
-import LogColors from '../bin/log-colors';
 
 export interface DidStateModel {
     did_tyronZIL: string;
@@ -49,32 +46,4 @@ export default class DidState {
     public static async write(input: DidStateModel): Promise<DidState> {
         return new DidState(input);
     }
-
-    /** Fetches the current state for the given DID */
-    public static async fetch(did_tyronZIL: string): Promise<DidState> {
-        const FILE_NAME = `${did_tyronZIL}-DID_STATE.json`;
-        fs.readFileSync(FILE_NAME)
-
-        let DID_STATE_FILE = undefined;
-        try {
-            DID_STATE_FILE = require(FILE_NAME);
-        } catch (error) {
-            console.log(LogColors.red(`Could not read the file`));
-        }
-        
-        const DID_STATE = await JsonAsync.parse(JSON.stringify(DID_STATE_FILE));
-
-        const DID_STATE_MODEL: DidStateModel = {
-            did_tyronZIL: DID_STATE.did_tyronZIL,
-            publicKey: DID_STATE.publicKey,
-            operation: DID_STATE.operation,
-            recovery: DID_STATE.recovery,
-            service: DID_STATE.service,
-            lastTransaction: DID_STATE.lastTransaction
-        };
-
-        return new DidState(DID_STATE_MODEL);
-    }
-    /** Applies the new state to the given DID */
-    //public static async applyCreate() {}
 }

@@ -90,6 +90,7 @@ export class Cryptography {
    * Validates if the given key is a secp256k1 public key in JWK format allowed by Sidetree
    * @throws SidetreeError
    */
+  /* eslint-disable */
   public static validateKey(jwk: any) {
     if (jwk === undefined) {
       throw new SidetreeError(ErrorCode.JwkEs256kUndefined);

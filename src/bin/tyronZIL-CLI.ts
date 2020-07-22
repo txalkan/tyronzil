@@ -23,8 +23,6 @@ import { PublicKeyPurpose } from '../lib/models/verification-method-models';
 import { LongFormDidInput, TyronZILUrlScheme } from '../lib/tyronZIL-schemes/did-url-scheme';
 import DidState, { DidStateModel } from '../lib/did-state';
 import * as fs from 'fs';
-import SidetreeError from '@decentralized-identity/sidetree/dist/lib/common/SidetreeError';
-import ErrorCode from '../lib/ErrorCode';
 import DidDoc from '../lib/did-document';
 import JsonAsync from '@decentralized-identity/sidetree/dist/lib/core/versions/latest/util/JsonAsync';
 
@@ -108,9 +106,6 @@ export default class TyronCLI {
         
         console.log(LogColors.green(`Your decentralized identity on Zilliqa is: `) + LogColors.brightGreen(`${TYRON_SCHEME.did_tyronZIL}`));     
         
-        const PUBLIC_KEY = JSON.stringify(DID_CREATED.publicKey, null, 2);
-        console.log(`Your public key(s): ${PUBLIC_KEY}`);
-
         // Generates the Sidetree Long-Form DID
         if (DID_CREATED.encodedDelta !== undefined) {
             const LONG_DID_INPUT: LongFormDidInput = {
@@ -143,7 +138,7 @@ export default class TyronCLI {
         fs.writeFileSync(FILE_NAME, PRINT_STATE);
         console.info(LogColors.yellow(`DID-state saved as: ${LogColors.brightYellow(FILE_NAME)}`));
 
-        // Creates the corresponding DID-document and saves it
+        // Resolves the DID into its DID-document:
         const DID_RESOLVED = await DidDoc.resolve(DID_CREATED, NETWORK);
         const DOC_STRING = await DidDoc.stringify(DID_RESOLVED);
         const DID_DOC = await await JsonAsync.parse(DOC_STRING);
@@ -153,44 +148,4 @@ export default class TyronCLI {
         fs.writeFileSync(DOC_NAME, PRINT_DOC);
         console.info(LogColors.yellow(`DID-document saved as: ${LogColors.brightYellow(DOC_NAME)}`));
     }
-
-    /** Handles the `resolve` subcommand */
-    public static async handleResolve(): Promise<void> {
-        // Gets the DID to resolve from the user:
-        const DID = readline.question(`Which DID would you like to resolve? ` + LogColors.lightBlue(`Your answer: `));
-        
-        
-        //let PROPER_DID = undefined;
-        try {
-            //PROPER_DID = 
-            await TyronZILUrlScheme.validate(DID);
-        } catch {
-            throw new SidetreeError(ErrorCode.DidInvalidUrl);
-        }
-    }
-        // Resolve the DID into its DID-document
-    
-    
-
-
-        
-        /* 
-        const SERVICE = JSON.stringify(DID_CREATED.serviceEndpoints);
-        console.log(`& your service endpoints are: ${SERVICE}`);
-        
-        const TYRONZIL_DOCUMENT = await DidDoc.make(DID_CREATED);
-        const DOC_STRING = JSON.stringify(TYRONZIL_DOCUMENT);
-        console.log(`& youR DID-document is: ${DOC_STRING}`);
-
-        const THIS_TRANSACTION_NUMBER = 1; // to-do fetch from blockchain
-
-        const DID_STATE_INPUT: DidStateModel = {
-            document: TYRONZIL_DOCUMENT,
-            nextRecoveryCommitmentHash: DID_CREATED.recoveryCommitment,
-            nextUpdateCommitmentHash: DID_CREATED.updateRevealValue,
-            lastOperationTransactionNumber: THIS_TRANSACTION_NUMBER,
-        };
-        /*
-        const DID_STATE = await DID_STATE.applyCreate(DID_STATE_INPUT);
-        */
-    }
+}

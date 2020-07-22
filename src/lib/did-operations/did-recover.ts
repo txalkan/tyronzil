@@ -16,15 +16,10 @@
 import TyronZILScheme from '../tyronZIL-schemes/did-scheme';
 import OperationType from '@decentralized-identity/sidetree/dist/lib/core/enums/OperationType';
 import RecoverOperation from '@decentralized-identity/sidetree/dist/lib/core/versions/latest/RecoverOperation';
-import JwkEs256k from "@decentralized-identity/sidetree/dist/lib/core/models/JwkEs256k";
 import { PublicKeyModel } from '../models/verification-method-models';
 import ServiceEndpointModel from '@decentralized-identity/sidetree/dist/lib/core/versions/latest/models/ServiceEndpointModel';
-import {
-    Cryptography,
-    OperationKeyPairInput
- } from '../did-keys';
+import { Cryptography, OperationKeyPairInput, JwkEs256k } from '../did-keys';
 import Multihash from '@decentralized-identity/sidetree/dist/lib/core/versions/latest/Multihash';
-import Jwk from '@decentralized-identity/sidetree/dist/lib/core/versions/latest/util/Jwk';
 import Jws from '@decentralized-identity/sidetree/dist/lib/core/versions/latest/util/Jws';
 import serviceEndpoints from '../service-endpoints';
 import { DocumentModel, PatchModel, PatchAction } from '../models/patch-model';
@@ -130,12 +125,12 @@ export default class DidRecover {
         const [SIGNING_KEY, SIGNING_PRIVATE_KEY] = await Cryptography.operationKeyPair(SIGNING_KEY_INPUT);
         
         // Creates key-pair for the update commitment (save private key for next update operation)
-        const [NEXT_UPDATE_KEY, NEXT_UPDATE_PRIVATE_KEY] = await Jwk.generateEs256kKeyPair();
+        const [NEXT_UPDATE_KEY, NEXT_UPDATE_PRIVATE_KEY] = await Cryptography.jwkPair();
         /** Utilizes the UPDATE_KEY to make the `update reveal value` for the next update operation */
         const NEXT_UPDATE_COMMITMENT = Multihash.canonicalizeThenHashThenEncode(NEXT_UPDATE_KEY);
 
         // Creates key-pair for the recovery commitment (save private key for next recovery operation)
-        const [NEXT_RECOVERY_KEY, NEXT_RECOVERY_PRIVATE_KEY] = await Jwk.generateEs256kKeyPair();
+        const [NEXT_RECOVERY_KEY, NEXT_RECOVERY_PRIVATE_KEY] = await Cryptography.jwkPair();
         /** Utilizes the NEXT_RECOVERY_KEY to make a new recovery commitment hash */
         const NEXT_RECOVERY_COMMITMENT = Multihash.canonicalizeThenHashThenEncode(NEXT_RECOVERY_KEY);
         
@@ -211,7 +206,7 @@ export default class DidRecover {
         /** To create the Recovery Operation Signed Data Object */
         const SIGNED_DATA: RecoverSignedDataModel = {
             delta_hash: DELTA_HASH,
-            recovery_key: Jwk.getEs256kPublicKey(input.recoveryPrivateKey),
+            recovery_key: Cryptography.getPublicKey(input.recoveryPrivateKey),
             recovery_commitment: input.nextRecoveryCommitment
         };
         const SIGNED_DATA_JWS = await Cryptography.signUsingEs256k(input.didTyronZIL, SIGNED_DATA, input.recoveryPrivateKey);
