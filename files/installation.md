@@ -20,7 +20,8 @@ On macOS ```xcode-select --install``` as well
 
 ## tyronZIL-CLI
 
-## DID-create
+### DID-create
 
 Create your brand new tyronZIL DID and resolve it into its corresponding DID-document:
-``
+
+```tyronzil did create``` and follow the instructions :zap:

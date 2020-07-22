@@ -19,4 +19,4 @@ It'd be great to have your help! Please read the [contributing guideline](./file
 
 ## Try it out
 
-[Follow these instructions](./files/installation.md) to get up and running with the tyronZIL-CLI.
+[Follow these instructions](./files/installation.md) to get up and running with the tyronZIL-CLI!
