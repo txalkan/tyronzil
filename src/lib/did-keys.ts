@@ -15,7 +15,6 @@
 
 import { PublicKeyModel, PublicKeyPurpose } from './models/verification-method-models';
 import Jws from '@decentralized-identity/sidetree/dist/lib/core/versions/latest/util/Jws';
-import TyronZILScheme from './tyronZIL-schemes/did-scheme';
 import { UpdateSignedDataModel, RecoverSignedDataModel, DeactivateSignedDataModel } from './models/signed-data-models';
 import { JWK } from 'jose';
 import SidetreeError from '@decentralized-identity/sidetree/dist/lib/common/SidetreeError';
@@ -45,57 +44,54 @@ export interface PrivateKeys {
 
 /** Generates cryptographic operations */
 export class Cryptography {
+  
+  /** 
+  * Asymmetric cryptography to generate the key pair using the KEY_ALGORITHM (secp256k1)
+   * @returns [publicKey, privateKey] */
+  public static async operationKeyPair(input: OperationKeyPairInput): Promise<[PublicKeyModel, JwkEs256k]> {
+    const [publicKey, privateKey] = await this.jwkPair();
+    const publicKeyModel: PublicKeyModel = {
+      id: input.id,
+      type: 'EcdsaSecp256k1VerificationKey2019',
+      jwk: publicKey,
+      purpose: input.purpose || Object.values(PublicKeyPurpose)
+    };
+    return [publicKeyModel, privateKey];
+  }
 
-    /** 
-     * Asymmetric cryptography to generate the key pair using the KEY_ALGORITHM (secp256k1)
-     * @returns [publicKey, privateKey] */
-    public static async operationKeyPair(input: OperationKeyPairInput): Promise<[PublicKeyModel, JwkEs256k]> {
-        const [publicKey, privateKey] = await this.jwkPair();
-        const publicKeyModel: PublicKeyModel = {
-            id: input.id,
-            type: 'EcdsaSecp256k1VerificationKey2019',
-            jwk: publicKey,
-            purpose: input.purpose || Object.values(PublicKeyPurpose)
-        };
-        return [publicKeyModel, privateKey];
-    }
+  /** Signs the given payload as a es256k compact JWS */
+  public static async signUsingEs256k (payload: UpdateSignedDataModel | RecoverSignedDataModel | DeactivateSignedDataModel, privateKey: JwkEs256k): Promise<string> {
+    const protectedHeader = {
+      alg: 'ES256K'
+    };
+    const compactJws = Jws.signAsCompactJws(payload, privateKey, protectedHeader);
+    return compactJws;
+  }
 
-    /** Signs the given payload as a es256k compact JWS */
-    public static async signUsingEs256k (didTyronZIL: TyronZILScheme, payload: UpdateSignedDataModel | RecoverSignedDataModel | DeactivateSignedDataModel, privateKey: JwkEs256k): Promise<string> {
-        const PUBLIC_KEY = this.getPublicKey(privateKey);
+  /**
+   * * Generates a secp256k1 key pair
+   * @returns [publicKey, privateKey]
+   * */
+  public static async jwkPair(): Promise<[JwkEs256k, JwkEs256k]> {
+    const KEY_PAIR = await JWK.generate('EC', 'secp256k1');
+    const JWK_ECKey = KEY_PAIR.toJWK();
 
-        const protectedHeader = {
-            kid: didTyronZIL + '#'+ PUBLIC_KEY.kid,
-            alg: 'ES256K'
-        };
-        const compactJws = Jws.signAsCompactJws(payload, privateKey, protectedHeader);
-        return compactJws;
-    }
+    const PUBLIC_KEY = {
+      kty: JWK_ECKey.kty,
+      crv: JWK_ECKey.crv,
+      x: JWK_ECKey.x,
+      y: JWK_ECKey.y,
+      kid: JWK_ECKey.kid
+    };
 
-    /**
-     * Generates a secp256k1 key pair
-     * @returns [publicKey, privateKey]
-     */
-    public static async jwkPair(): Promise<[JwkEs256k, JwkEs256k]> {
-        const KEY_PAIR = await JWK.generate('EC', 'secp256k1');
-        const JWK_ECKey = KEY_PAIR.toJWK();
-
-        const PUBLIC_KEY = {
-        kty: JWK_ECKey.kty,
-        crv: JWK_ECKey.crv,
-        x: JWK_ECKey.x,
-        y: JWK_ECKey.y,
-        kid: JWK_ECKey.kid
-        };
-
-        const PRIVATE_KEY = Object.assign({ d: KEY_PAIR.d }, PUBLIC_KEY);
-        return [PUBLIC_KEY, PRIVATE_KEY];
-    }
+    const PRIVATE_KEY = Object.assign({ d: KEY_PAIR.d }, PUBLIC_KEY);
+    return [PUBLIC_KEY, PRIVATE_KEY];
+  }
   
   /**
-   * Validates if the given key is a secp256k1 public key in JWK format allowed by Sidetree
+   * * Validates if the given key is a secp256k1 public key in JWK format allowed by Sidetree
    * @throws SidetreeError
-   */
+   * */
   // eslint-disable-next-line
   public static validateKey(jwk: any) {
     if (jwk === undefined) {
@@ -131,11 +127,28 @@ export class Cryptography {
   }
 
   /** Gets the public key corresponding to the given private es256k key */
-  public static getPublicKey (privateKey: JwkEs256k): JwkEs256k {
+  public static getPublicKey(privateKey: JwkEs256k): JwkEs256k {
     const KEY = Object.assign({}, privateKey);
 
     // Deletes the private key portion
     delete KEY.d;
+    return KEY;
+  }
+
+  /** Gets the corresponding public key with NO KID */
+  public static getPublicKeyNoKid(privateKey: JwkEs256k): JwkEs256k {
+    const KEY = Object.assign({}, privateKey);
+  
+    // Deletes the private key portion
+    delete KEY.d;
+    delete KEY.kid;
+    return KEY;
+  }
+  
+  public static removeKid(key: JwkEs256k): JwkEs256k {
+    const KEY = Object.assign({}, key);
+  
+    delete KEY.kid;
     return KEY;
   }
 }

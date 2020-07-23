@@ -42,7 +42,7 @@ interface RecoverOperationOutput {
     operationBuffer: Buffer;
     recoverOperation: RecoverOperation;
     publicKey: PublicKeyModel[];
-    privateKey: JwkEs256k[];
+    privateKey: string[];
     operation: Operation;   // verification method
     recovery: Recovery;     // verification method
     updateKey: JwkEs256k;
@@ -86,7 +86,7 @@ export default class DidRecover {
     public readonly encodedDelta: string | undefined;
     public readonly delta: DeltaModel | undefined; // undefined when Anchor file mode is ON
     public readonly publicKey: PublicKeyModel[];
-    public readonly privateKey: JwkEs256k[];
+    public readonly privateKey: string[];
     public readonly operation: Operation;
     public readonly recovery: Recovery;
     public readonly updateKey: JwkEs256k;
@@ -145,7 +145,7 @@ export default class DidRecover {
         // Creates DID primary key-pair:
         const [PRIMARY_KEY, PRIMARY_PRIVATE_KEY] = await Cryptography.operationKeyPair(KEY_PAIR_INPUT);
         PUBLIC_KEYS.push(PRIMARY_KEY);
-        PRIVATE_KEYS.push(PRIMARY_PRIVATE_KEY);
+        PRIVATE_KEYS.push(Encoder.encode(Buffer.from(JSON.stringify(PRIMARY_PRIVATE_KEY))));
 
         if (PUBLIC_KEY_INPUT.length === 2) {
             const SECONDARY_KEY_INPUT = PUBLIC_KEY_INPUT[1];
@@ -158,7 +158,7 @@ export default class DidRecover {
             // Creates DID secondary key-pair:
             const [SECONDARY_KEY, SECONDARY_PRIVATE_KEY] = await Cryptography.operationKeyPair(KEY_PAIR_INPUT);
             PUBLIC_KEYS.push(SECONDARY_KEY);
-            PRIVATE_KEYS.push(SECONDARY_PRIVATE_KEY);
+            PRIVATE_KEYS.push(Encoder.encode(Buffer.from(JSON.stringify(SECONDARY_PRIVATE_KEY))));
         }
 
         // Creates key-pair for the updateCommitment (save private key for next update operation)
@@ -241,10 +241,11 @@ export default class DidRecover {
         /** To create the Recovery Operation Signed Data Object */
         const SIGNED_DATA: RecoverSignedDataModel = {
             delta_hash: DELTA_HASH,
-            recovery_key: Cryptography.getPublicKey(input.recoveryPrivateKey),
+            recovery_key: Cryptography.getPublicKeyNoKid(input.recoveryPrivateKey),
             recovery_commitment: input.recoveryCommitment
         };
-        const SIGNED_DATA_JWS = await Cryptography.signUsingEs256k(input.did_tyronZIL, SIGNED_DATA, input.recoveryPrivateKey);
+        const recoveryNoKid = Cryptography.removeKid(input.recoveryPrivateKey)
+        const SIGNED_DATA_JWS = await Cryptography.signUsingEs256k(SIGNED_DATA, recoveryNoKid);
         
         /** DID data to generate a Sidetree-based `DID-recover` operation */
         const SIDETREE_REQUEST: RequestData = {

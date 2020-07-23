@@ -18,14 +18,10 @@ import { PublicKeyModel, Operation, Recovery } from './models/verification-metho
 import * as fs from 'fs';
 import LogColors from '../bin/log-colors';
 import DidCreate from './did-operations/did-create';
-//import DidUpdate from '../lib/did-operations/did-update';
 import DidRecover from '../lib/did-operations/did-recover';
-//import DidDeactivate from '../lib/did-operations/did-deactivate';
-//import { TyronZILUrlScheme } from './tyronZIL-schemes/did-url-scheme';
-import TyronZILScheme from './tyronZIL-schemes/did-scheme';
 
 export interface DidStateModel {
-    did_tyronZIL: TyronZILScheme;
+    did_tyronZIL: string;
     publicKey: PublicKeyModel[];
     operation?: Operation;      // operation & recovery are undefined after deactivation - idem commitments
     recovery?: Recovery;
@@ -36,8 +32,8 @@ export interface DidStateModel {
 }
 
 export default class DidState {
-    public readonly did_tyronZIL: TyronZILScheme;
-    public readonly publicKeys: PublicKeyModel[];
+    public readonly did_tyronZIL: string;
+    public readonly publicKey: PublicKeyModel[];
     public readonly operation?: Operation;
     public readonly recovery?: Recovery;
     public readonly updateCommitment?: string;
@@ -49,7 +45,7 @@ export default class DidState {
         input: DidStateModel
     ) {
         this.did_tyronZIL = input.did_tyronZIL;
-        this.publicKeys = input.publicKey;
+        this.publicKey = input.publicKey;
         this.operation = input.operation;
         this.recovery = input.recovery;
         this.updateCommitment = input.updateCommitment;
@@ -104,7 +100,7 @@ export default class DidState {
     public static async build(input: DidCreate | DidRecover): Promise<DidState> {
         // Builds the DID-state:
         const DID_STATE_MODEL: DidStateModel = {
-            did_tyronZIL: input.did_tyronZIL,
+            did_tyronZIL: input.did_tyronZIL.did_tyronZIL,
             publicKey: input.publicKey,
             operation: input.operation,
             recovery: input.recovery,

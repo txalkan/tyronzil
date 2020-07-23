@@ -175,7 +175,7 @@ export default class DidUpdate{
             delta_hash: DELTA_HASH,
             update_key: input.updateKey
         };
-        const SIGNED_DATA_JWS = await Cryptography.signUsingEs256k(input.didTyronZIL, SIGNED_DATA, input.updatePrivateKey);
+        const SIGNED_DATA_JWS = await Cryptography.signUsingEs256k(SIGNED_DATA, input.updatePrivateKey);
 
         /** DID data to generate a Sidetree-based `DID-update` operation */
         const SIDETREE_REQUEST: RequestData = {

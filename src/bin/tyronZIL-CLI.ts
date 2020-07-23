@@ -108,20 +108,19 @@ export default class TyronCLI {
         try{
             await DidState.write(DID_STATE);
         } catch {
-            throw new SidetreeError(ErrorCode.CouldNotSaveState);
+            throw new SidetreeError(ErrorCode.CouldNotSave);
         }
         
         /***            ****            ***/
 
         // Creates the corresponding DID-document and saves it
-        const DID_RESOLVED = await DidDoc.resolve(DID_EXECUTED, NETWORK);
-        const DOC_STRING = await DidDoc.stringify(DID_RESOLVED);
-        const DID_DOC = await JsonAsync.parse(DOC_STRING);
-        const PRINT_DOC = JSON.stringify(DID_DOC, null, 2);
-
-        const DOC_NAME = `${DID_tyronZIL}-DID_DOCUMENT.json`;
-        fs.writeFileSync(DOC_NAME, PRINT_DOC);
-        console.info(LogColors.yellow(`DID-document saved as: ${LogColors.brightYellow(DOC_NAME)}`));
+        
+        const DID_RESOLVED = await DidDoc.resolve(DID_STATE);
+        try{
+            await DidDoc.write(DID_RESOLVED);
+        } catch {
+            throw new SidetreeError(ErrorCode.CouldNotSave);
+        }
 
         /***            ****            ***/
 
@@ -134,6 +133,33 @@ export default class TyronCLI {
         const KEY_FILE_NAME = `${DID_tyronZIL}-PRIVATE_KEYS.json`;
         fs.writeFileSync(KEY_FILE_NAME, JSON.stringify(PRIVATE_KEYS, null, 2));
         console.info(LogColors.yellow(`Private keys saved as: ${LogColors.brightYellow(KEY_FILE_NAME)}`));
+    }
+
+    /** Handles the `resolve` subcommand */
+    public static async handleResolve(): Promise<void> {
+        // Gets the DID to resolve from the user:
+        const DID = readline.question(`Which DID would you like to resolve? ` + LogColors.lightBlue(`Your answer: `));
+        
+        // Validates the DID-scheme
+        try {
+            await TyronZILUrlScheme.validate(DID);
+        } catch (error) {
+            throw new SidetreeError(error);
+        }
+
+        // Fetches the requested DID-state:
+        console.log(LogColors.green(`Fetching the requested DID-state...`));
+        const DID_STATE = await DidState.fetch(DID);
+
+        /***            ****            ***/
+
+        // Creates the requested DID-document and saves it:
+        const DID_RESOLVED = await DidDoc.resolve(DID_STATE);
+        try{
+            await DidDoc.write(DID_RESOLVED);
+        } catch {
+            throw new SidetreeError(ErrorCode.CouldNotSave);
+        }
     }
 
     /** Handles the recover subcommand */
@@ -152,6 +178,8 @@ export default class TyronCLI {
         // Fetches the requested DID:
         console.log(LogColors.green(`Fetching the requested DID-state...`));
         const DID_STATE = await DidState.fetch(DID);
+        
+        //Validates the recovery commitment:
         const RECOVERY_COMMITMENT = DID_STATE.recoveryCommitment;
         
         let RECOVERY_PRIVATE_KEY;
@@ -168,6 +196,7 @@ export default class TyronCLI {
         }
 
         /***            ****            ***/
+
         // Resets the public keys and services:
         const PUBLIC_KEYS = await this.InputKeys();
         const SERVICE = await this.InputService();
@@ -188,57 +217,28 @@ export default class TyronCLI {
         
         /***            ****            ***/
 
-        // Builds the DID-state:
+        // Builds the new DID-state:
         const DID_NEW_STATE = await DidState.build(DID_EXECUTED);
         
         try{
             await DidState.write(DID_NEW_STATE);
         } catch {
-            throw new SidetreeError(ErrorCode.CouldNotSaveState);
+            throw new SidetreeError(ErrorCode.CouldNotSave);
         }
 
-    }
-
-    /** Handles the `resolve` subcommand */
-    public static async handleResolve(): Promise<void> {
-        // Gets the DID to resolve from the user:
-        const DID = readline.question(`Which DID would you like to resolve? ` + LogColors.lightBlue(`Your answer: `));
-        
-        
-        //let PROPER_DID = undefined;
-        try {
-            //PROPER_DID = 
-            await TyronZILUrlScheme.validate(DID);
-        } catch {
-            throw new SidetreeError(ErrorCode.DidInvalidUrl);
-        }
-    }
-        // Resolve the DID into its DID-document
-    
-    
-
-
-        
-        /* 
-        const SERVICE = JSON.stringify(DID_EXECUTED.serviceEndpoints);
-        console.log(`& your service endpoints are: ${SERVICE}`);
-        
-        const TYRONZIL_DOCUMENT = await DidDoc.make(DID_EXECUTED);
-        const DOC_STRING = JSON.stringify(TYRONZIL_DOCUMENT);
-        console.log(`& youR DID-document is: ${DOC_STRING}`);
-
-        const THIS_TRANSACTION_NUMBER = 1; // to-do fetch from blockchain
-
-        const DID_STATE_INPUT: DidStateModel = {
-            document: TYRONZIL_DOCUMENT,
-            nextRecoveryCommitmentHash: DID_EXECUTED.recoveryCommitment,
-            nextUpdateCommitmentHash: DID_EXECUTED.updateRevealValue,
-            lastOperationTransactionNumber: THIS_TRANSACTION_NUMBER,
+        // Saves private keys:
+        const PRIVATE_KEYS: PrivateKeys = {
+            privateKeys: DID_EXECUTED.privateKey,
+            updatePrivateKey: Encoder.encode(Buffer.from(JSON.stringify(DID_EXECUTED.updatePrivateKey))),
+            recoveryPrivateKey: Encoder.encode(Buffer.from(JSON.stringify(DID_EXECUTED.recoveryPrivateKey))),
         };
-        /*
-        const DID_STATE = await DID_STATE.applyCreate(DID_STATE_INPUT);
+        const KEY_FILE_NAME = `${DID_STATE.did_tyronZIL}-PRIVATE_KEYS.json`;
+        fs.writeFileSync(KEY_FILE_NAME, JSON.stringify(PRIVATE_KEYS, null, 2));
+        console.info(LogColors.yellow(`Private keys saved as: ${LogColors.brightYellow(KEY_FILE_NAME)}`));
 
-        */
+    }
+
+    /** Generates the keys input */
     public static async InputKeys(): Promise<PublicKeyInput[]> {
         
         // Creates the first verification method used with a general purpose as the primary public key and for authentication as verification relationship:
