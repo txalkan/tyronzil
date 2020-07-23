@@ -25,3 +25,15 @@ On macOS ```xcode-select --install``` as well
 Create your brand new tyronZIL DID and resolve it into its corresponding DID-document:
 
 ```tyronzil did create``` and follow the instructions :zap:
+
+### DID-resolve
+
+Resolve any DID into its corresponding DID-document with:
+
+```tyronzil resolve```
+
+### DID-recover
+
+In case you want to reset your DID-state while keeping the same identifier. You only need your recovery private key, and the DID itself:
+
+```tyronzil did recover``` and follow the instructions
