@@ -24,5 +24,8 @@ export default {
     DidInvalidUrl: 'The_given_DID_is_not_a_URL',
     IncorrectDidPrefix: 'The_given_DID_does_not_have_the_right_prefix',
     IncorrectNetwork: 'The_network_namespace_is_invalid',
+    CouldNotSaveState: 'Could_not_save_DID_state',
+    CouldNotVerifyKey: 'The given key is wrong',
+    InvalidDID: 'The client has rejected the input - invalid DID'
 };
   

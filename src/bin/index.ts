@@ -33,6 +33,9 @@ yargs
       .command('resolve', '(resolves the given DID into its DID-document)', async () => {
         await tyronCLI.handleResolve();
       })
+      .command('recover', '(recovers the DID and creates new keys)', async () => {
+        await tyronCLI.handleRecover();
+      })
 
       /*
       .command('update', 'Generates an tyronZIL DID update operation.', () => {

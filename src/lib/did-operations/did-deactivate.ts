@@ -25,7 +25,7 @@ import { DeactivateSignedDataModel } from '../models/signed-data-models';
 /** Defines input data for a Sidetree-based `DID-deactivate` operation */
 interface DeactivateOperationInput {
     type: OperationType.Deactivate;
-    didTyronZIL: TyronZILScheme;
+    did_tyronZIL: TyronZILScheme;
     recoveryPrivateKey: JwkEs256k;
 }
 
@@ -72,14 +72,14 @@ export default class DidDeactivate {
         
         /** To create the Deactivate Operation Signed Data Object */
         const SIGNED_DATA: DeactivateSignedDataModel = {
-            did_suffix: input.didTyronZIL.didUniqueSuffix,
+            did_suffix: input.did_tyronZIL.didUniqueSuffix,
             recovery_key: Jwk.getEs256kPublicKey(input.recoveryPrivateKey),
         };
-        const SIGNED_DATA_JWS = await Cryptography.signUsingEs256k(input.didTyronZIL, SIGNED_DATA, input.recoveryPrivateKey);
+        const SIGNED_DATA_JWS = await Cryptography.signUsingEs256k(input.did_tyronZIL, SIGNED_DATA, input.recoveryPrivateKey);
         
         /** DID data to generate a Sidetree deactivate operation */
         const OPERATION_REQUEST: RequestData = {
-            did_suffix: input.didTyronZIL.didUniqueSuffix,
+            did_suffix: input.did_tyronZIL.didUniqueSuffix,
             signed_data: SIGNED_DATA_JWS
         };
 

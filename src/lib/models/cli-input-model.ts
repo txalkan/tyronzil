@@ -14,10 +14,10 @@
 */
 
 import { NetworkNamespace } from '../tyronZIL-schemes/did-scheme';
-import { PublicKeyPurpose } from '../models/verification-method-models';
+import { PublicKeyPurpose } from './verification-method-models';
 import ServiceEndpointModel from '@decentralized-identity/sidetree/dist/lib/core/versions/latest/models/ServiceEndpointModel';
 
-export interface CLICreateInput {
+export interface CliInputModel {
     network: NetworkNamespace;
     publicKeyInput: PublicKeyInput[];
     service: ServiceEndpointModel[];

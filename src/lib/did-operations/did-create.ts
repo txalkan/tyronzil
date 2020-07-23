@@ -18,7 +18,7 @@ import CreateOperation from '@decentralized-identity/sidetree/dist/lib/core/vers
 
 import { Cryptography, OperationKeyPairInput, JwkEs256k } from '../did-keys';
 import { PublicKeyModel, Operation, Recovery, SidetreeVerificationRelationship } from '../models/verification-method-models';
-import { CLICreateInput } from '../models/cli-create-input-model';
+import { CliInputModel } from '../models/cli-input-model';
 import TyronZILScheme from '../tyronZIL-schemes/did-scheme';
 import { SchemeInputData } from '../tyronZIL-schemes/did-scheme';
 import Multihash from '@decentralized-identity/sidetree/dist/lib/core/versions/latest/Multihash';
@@ -30,16 +30,17 @@ import SuffixDataModel from '../models/suffix-data-model';
 
 /** Defines output data for a Sidetree-based `DID-create` operation */
 interface CreateOperationOutput {
+    did_tyronZIL: TyronZILScheme;
     sidetreeRequest: RequestData;
     operationBuffer: Buffer;
     createOperation: CreateOperation;
     publicKey: PublicKeyModel[];
-    privateKey: JwkEs256k[];
+    privateKey: string[];
     operation: Operation;   // verification method
     recovery: Recovery;     // verification method
     updateKey: JwkEs256k;
     updatePrivateKey: JwkEs256k;
-    updateRevealValue: string;
+    updateCommitment: string;
     recoveryKey: JwkEs256k;
     recoveryPrivateKey: JwkEs256k;
     recoveryCommitment: string;
@@ -63,6 +64,7 @@ interface RequestData {
 
 /** Generates a Sidetree-based `DID-create` operation */
 export default class DidCreate {
+    public readonly did_tyronZIL: TyronZILScheme;
     public readonly sidetreeRequest: RequestData;
     public readonly operationBuffer: Buffer;
     public readonly createOperation: CreateOperation;
@@ -73,12 +75,12 @@ export default class DidCreate {
     public readonly encodedDelta: string | undefined;
     public readonly delta: DeltaModel | undefined; // undefined when Anchor file mode is ON
     public readonly publicKey: PublicKeyModel[];
-    public readonly privateKey: JwkEs256k[];
+    public readonly privateKey: string[];
     public readonly operation: Operation;
     public readonly recovery: Recovery;
     public readonly updateKey: JwkEs256k;
     public readonly updatePrivateKey: JwkEs256k;
-    public readonly updateRevealValue: string;
+    public readonly updateCommitment: string;
     public readonly recoveryKey: JwkEs256k;
     public readonly recoveryPrivateKey: JwkEs256k;
     public readonly recoveryCommitment: string;
@@ -87,6 +89,7 @@ export default class DidCreate {
     private constructor (
         operationOutput: CreateOperationOutput
     ) {
+        this.did_tyronZIL = operationOutput.did_tyronZIL;
         this.sidetreeRequest = operationOutput.sidetreeRequest;
         this.operationBuffer = operationOutput.operationBuffer;
         this.createOperation = operationOutput.createOperation;
@@ -105,7 +108,7 @@ export default class DidCreate {
         this.recovery = operationOutput.recovery;
         this.updateKey = operationOutput.updateKey;
         this.updatePrivateKey = operationOutput.updatePrivateKey;
-        this.updateRevealValue = operationOutput.updateRevealValue;
+        this.updateCommitment = operationOutput.updateCommitment;
         this.recoveryKey = operationOutput.recoveryKey;
         this.recoveryPrivateKey = operationOutput.recoveryPrivateKey;
         this.recoveryCommitment = operationOutput.recoveryCommitment;
@@ -113,7 +116,7 @@ export default class DidCreate {
     }
 
     /** Generates a Sidetree-based `DID-create` operation with input from the CLI */
-    public static async executeCli(input: CLICreateInput): Promise<DidCreate> {
+    public static async executeCli(input: CliInputModel): Promise<DidCreate> {
         
         const PUBLIC_KEYS = [];
         const PRIVATE_KEYS = [];
@@ -130,7 +133,7 @@ export default class DidCreate {
         // Creates DID primary key-pair:
         const [PRIMARY_KEY, PRIMARY_PRIVATE_KEY] = await Cryptography.operationKeyPair(KEY_PAIR_INPUT);
         PUBLIC_KEYS.push(PRIMARY_KEY);
-        PRIVATE_KEYS.push(PRIMARY_PRIVATE_KEY);
+        PRIVATE_KEYS.push(Encoder.encode(Buffer.from(JSON.stringify(PRIMARY_PRIVATE_KEY))));
 
         if (PUBLIC_KEY_INPUT.length === 2) {
             const SECONDARY_KEY_INPUT = PUBLIC_KEY_INPUT[1];
@@ -143,7 +146,7 @@ export default class DidCreate {
             // Creates DID secondary key-pair:
             const [SECONDARY_KEY, SECONDARY_PRIVATE_KEY] = await Cryptography.operationKeyPair(KEY_PAIR_INPUT);
             PUBLIC_KEYS.push(SECONDARY_KEY);
-            PRIVATE_KEYS.push(SECONDARY_PRIVATE_KEY);
+            PRIVATE_KEYS.push(Encoder.encode(Buffer.from(JSON.stringify(SECONDARY_PRIVATE_KEY))));
         }
 
         // Creates key-pair for the updateCommitment (save private key for next update operation)
@@ -189,6 +192,7 @@ export default class DidCreate {
 
         /** Output data from a new Sidetree-based `DID-create` operation */
         const OPERATION_OUTPUT: CreateOperationOutput = {
+            did_tyronZIL: DID_tyronZIL,
             sidetreeRequest: SIDETREE_REQUEST,
             operationBuffer: OPERATION_BUFFER,
             createOperation: CREATE_OPERATION,
@@ -198,7 +202,7 @@ export default class DidCreate {
             recovery: VM_RECOVERY,
             updateKey: UPDATE_KEY,
             updatePrivateKey: UPDATE_PRIVATE_KEY,
-            updateRevealValue: UPDATE_COMMITMENT,
+            updateCommitment: UPDATE_COMMITMENT,
             recoveryKey: RECOVERY_KEY,
             recoveryPrivateKey: RECOVERY_PRIVATE_KEY,
             recoveryCommitment: RECOVERY_COMMITMENT,

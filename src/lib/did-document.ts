@@ -17,7 +17,7 @@
 import DidCreate from './did-operations/did-create';
 import { PublicKeyModel, PublicKeyPurpose, Operation, Recovery, VerificationMethodModel } from './models/verification-method-models';
 import ServiceEndpointModel from '@decentralized-identity/sidetree/dist/lib/core/versions/latest/models/ServiceEndpointModel';
-import { CLICreateInput } from './models/cli-create-input-model';
+import { CliInputModel } from './models/cli-input-model';
 import TyronZILScheme, { SchemeInputData, NetworkNamespace } from './tyronZIL-schemes/did-scheme';
 
 interface DidDocOutput {
@@ -55,7 +55,7 @@ export default class DidDoc {
     }
 
     /** Creates a brand new DID and its document */
-    public static async new(input: CLICreateInput): Promise<DidDoc> {
+    public static async new(input: CliInputModel): Promise<DidDoc> {
         const DID_CREATED: DidCreate = await DidCreate.executeCli(input);
         const DID_SUFFIX = DID_CREATED.didUniqueSuffix;
 

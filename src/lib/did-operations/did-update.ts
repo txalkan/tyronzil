@@ -42,11 +42,11 @@ interface UpdateOperationOutput {
     sidetreeRequest: RequestData;
     operationBuffer: Buffer;
     updateOperation: UpdateOperation;
-    newSigningKeys: PublicKeyModel[];
-    newSigningPrivateKeys: JwkEs256k[];
-    nextUpdateKey: JwkEs256k;
-    nextUpdatePrivateKey: JwkEs256k;
-    nextUpdateRevealValue: string;
+    publicKey: PublicKeyModel[];
+    privateKey: JwkEs256k[];
+    updateKey: JwkEs256k;
+    updatePrivateKey: JwkEs256k;
+    updateCommitment: string;
 }
 
 /** Defines input data for a Sidetree-based `DID-update` operation REQUEST*/
@@ -54,7 +54,7 @@ interface RequestInput {
     didTyronZIL: TyronZILScheme;
     updateKey: JwkEs256k;
     updatePrivateKey: JwkEs256k;
-    nextUpdateRevealValue: string;
+    updateCommitment: string;
     patches: PatchModel[];
 }
 
@@ -77,11 +77,11 @@ export default class DidUpdate{
     public readonly signedData: UpdateSignedDataModel;
     public readonly encodedDelta: string | undefined;
     public readonly delta: DeltaModel | undefined; // undefined when Map file mode is ON
-    public readonly newSigningKeys: PublicKeyModel[];
-    public readonly newSigningPrivateKeys: JwkEs256k[];
-    public readonly nextUpdateKey: JwkEs256k;
-    public readonly nextUpdatePrivateKey: JwkEs256k;
-    public readonly nextUpdateRevealValue: string;
+    public readonly publicKey: PublicKeyModel[];
+    public readonly privateKey: JwkEs256k[];
+    public readonly updateKey: JwkEs256k;
+    public readonly updatePrivateKey: JwkEs256k;
+    public readonly updateCommitment: string;
     
     private constructor (
         operationOutput: UpdateOperationOutput
@@ -98,11 +98,11 @@ export default class DidUpdate{
         };
         this.encodedDelta = operationOutput.updateOperation.encodedDelta;
         this.delta = operationOutput.updateOperation.delta;
-        this.newSigningKeys = operationOutput.newSigningKeys;
-        this.newSigningPrivateKeys = operationOutput.newSigningPrivateKeys;
-        this.nextUpdateKey = operationOutput.nextUpdateKey;
-        this.nextUpdatePrivateKey = operationOutput.nextUpdatePrivateKey;
-        this.nextUpdateRevealValue = operationOutput.nextUpdateRevealValue;
+        this.publicKey = operationOutput.publicKey;
+        this.privateKey = operationOutput.privateKey;
+        this.updateKey = operationOutput.updateKey;
+        this.updatePrivateKey = operationOutput.updatePrivateKey;
+        this.updateCommitment = operationOutput.updateCommitment;
     }
 
     /** Generates a Sidetree-based `DID-update` operation that adds a new key pair for the DID */
@@ -131,7 +131,7 @@ export default class DidUpdate{
             didTyronZIL: input.didTyronZIL,
             updateKey: input.updateKey,
             updatePrivateKey: input.updatePrivateKey,
-            nextUpdateRevealValue: NEXT_UPDATE_COMMITMENT,
+            updateCommitment: NEXT_UPDATE_COMMITMENT,
             patches: [PATCH]
         };
 
@@ -148,11 +148,11 @@ export default class DidUpdate{
             sidetreeRequest: SIDETREE_REQUEST,
             operationBuffer: OPERATION_BUFFER,
             updateOperation: UPDATE_OPERATION,
-            newSigningKeys: [NEW_SIGNING_KEY],
-            newSigningPrivateKeys: [NEW_SIGNING_PRIVATE_KEY],
-            nextUpdateKey: NEXT_UPDATE_KEY,
-            nextUpdatePrivateKey: NEXT_UPDATE_PRIVATE_KEY,
-            nextUpdateRevealValue: NEXT_UPDATE_COMMITMENT
+            publicKey: [NEW_SIGNING_KEY],
+            privateKey: [NEW_SIGNING_PRIVATE_KEY],
+            updateKey: NEXT_UPDATE_KEY,
+            updatePrivateKey: NEXT_UPDATE_PRIVATE_KEY,
+            updateCommitment: NEXT_UPDATE_COMMITMENT
         };
         return new DidUpdate(OPERATION_OUTPUT);
     }
@@ -163,7 +163,7 @@ export default class DidUpdate{
         /** The Update Operation Delta Object */
         const DELTA: DeltaModel = {
             patches: input.patches,
-            updateCommitment: input.nextUpdateRevealValue,
+            updateCommitment: input.updateCommitment,
             // The value that MUST be revealed for the next update-operation
         };
         const DELTA_BUFFER = Buffer.from(JSON.stringify(DELTA));

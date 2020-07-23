@@ -21,7 +21,6 @@ import ErrorCode from '../ErrorCode';
 
 export interface UrlInput {
     schemeInput: SchemeInputData;
-    shortDid: string;
     path?: string;
     query?: string;
     fragment?: string;
@@ -44,19 +43,15 @@ export class TyronZILUrlScheme extends TyronZILScheme {
         input: UrlInput
     ) {
         super(input.schemeInput);
-        this.didUrl = input.shortDid + this.path + this.query + this.fragment;
+        this.didUrl = this.did_tyronZIL + this.path + this.query + this.fragment;
         this.path = '/' + input.path;
         this.query = '?' + input.query;
         this.fragment = '#' + input.fragment;
-        this.longFormDid = input.shortDid + this.query;
+        this.longFormDid = this.did_tyronZIL + this.query;
     }
 
     /** Generates the Sidetree Long-Form DID URI with the initial-state URL parameter */
     public static async longFormDid(input: LongFormDidInput): Promise<TyronZILUrlScheme> {
-        const DID_SCHEME = await TyronZILScheme.newDID(input.schemeInput);
-
-        const SHORT_DID = DID_SCHEME.did_tyronZIL
-
         const INITIAL_STATE_VALUE = input.encodedSuffixData + '.' + input.encodedDelta;
         
         const QUERY: Query = {
@@ -66,7 +61,6 @@ export class TyronZILUrlScheme extends TyronZILScheme {
 
         const URL_INPUT: UrlInput = {
             schemeInput: input.schemeInput,
-            shortDid: SHORT_DID,
             query: QUERY.urlParameter + '=' + QUERY.value
         }
 
@@ -74,7 +68,7 @@ export class TyronZILUrlScheme extends TyronZILScheme {
     }
 
     /** Validates if the given DID is a proper tyronZIL DID */
-    public static async validate(did: string): Promise<void> {
+    public static async validate(did: string): Promise<TyronZILUrlScheme> {
         
         /*
         let IS_URL = undefined;
@@ -90,11 +84,21 @@ export class TyronZILUrlScheme extends TyronZILScheme {
             throw new SidetreeError(ErrorCode.IncorrectDidPrefix);
         }
 
-        const NETWORK = did.substring(15, 18);
+        const NETWORK = did.substring(14, 19);
         
         if (NETWORK !== NetworkNamespace.Mainnet && NETWORK !== NetworkNamespace.Testnet) {
             throw new SidetreeError(ErrorCode.IncorrectNetwork)
         }
+        const DID_SUFFIX = did.substring(19);
+
+        const SCHEME_INPUT_DATA: SchemeInputData = {
+            network: NETWORK,
+            didUniqueSuffix: DID_SUFFIX
+        };
+        const DID: UrlInput = {
+            schemeInput: SCHEME_INPUT_DATA
+        };
+        return new TyronZILUrlScheme(DID);
     }
 }
 

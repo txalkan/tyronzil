@@ -37,6 +37,12 @@ export interface JwkEs256k {
     d?: string;       // For the privateKey ONLY
 }
 
+export interface PrivateKeys {
+  privateKeys: string[],    // encoded strings
+  updatePrivateKey?: string,
+  recoveryPrivateKey?: string,
+}
+
 /** Generates cryptographic operations */
 export class Cryptography {
 
@@ -85,11 +91,12 @@ export class Cryptography {
         const PRIVATE_KEY = Object.assign({ d: KEY_PAIR.d }, PUBLIC_KEY);
         return [PUBLIC_KEY, PRIVATE_KEY];
     }
-
+  
   /**
    * Validates if the given key is a secp256k1 public key in JWK format allowed by Sidetree
    * @throws SidetreeError
    */
+  // eslint-disable-next-line
   public static validateKey(jwk: any) {
     if (jwk === undefined) {
       throw new SidetreeError(ErrorCode.JwkEs256kUndefined);

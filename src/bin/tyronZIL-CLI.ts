@@ -15,19 +15,23 @@
 
 import LogColors from './log-colors';
 import DidCreate from '../lib/did-operations/did-create';
-import { CLICreateInput, PublicKeyInput } from '../lib/models/cli-create-input-model';
+import DidRecover, { RecoverOperationInput } from '../lib/did-operations/did-recover';
+import { CliInputModel, PublicKeyInput } from '../lib/models/cli-input-model';
 import TyronZILScheme from '../lib/tyronZIL-schemes/did-scheme';
 import { NetworkNamespace, SchemeInputData } from '../lib/tyronZIL-schemes/did-scheme';
 import * as readline from 'readline-sync';
 import { PublicKeyPurpose } from '../lib/models/verification-method-models';
 import { LongFormDidInput, TyronZILUrlScheme } from '../lib/tyronZIL-schemes/did-url-scheme';
-import DidState, { DidStateModel } from '../lib/did-state';
+import DidState from '../lib/did-state';
 import * as fs from 'fs';
 import SidetreeError from '@decentralized-identity/sidetree/dist/lib/common/SidetreeError';
 import ErrorCode from '../lib/ErrorCode';
 import DidDoc from '../lib/did-document';
 import JsonAsync from '@decentralized-identity/sidetree/dist/lib/core/versions/latest/util/JsonAsync';
 import ServiceEndpointModel from '@decentralized-identity/sidetree/dist/lib/core/versions/latest/models/ServiceEndpointModel';
+import { PrivateKeys, Cryptography} from '../lib/did-keys';
+import Multihash from '@decentralized-identity/sidetree/dist/lib/core/versions/latest/Multihash';
+import Encoder from '@decentralized-identity/sidetree/dist/lib/core/versions/latest/Encoder';
 
 /** Handles the command-line interface DID operations */
 export default class TyronCLI {
@@ -53,6 +57,189 @@ export default class TyronCLI {
         }
 
         /***            ****            ***/
+        
+        // Adds public keys and service endpoints:
+        const PUBLIC_KEYS = await this.InputKeys();
+        const SERVICE = await this.InputService();
+
+        const CLI_INPUT: CliInputModel = {
+            network: NETWORK,
+            publicKeyInput: PUBLIC_KEYS,
+            service: SERVICE
+        }
+
+        /***            ****            ***/
+
+        // Executes the DID-create operation:
+        const DID_EXECUTED = await DidCreate.executeCli(CLI_INPUT);
+        const DID_SUFFIX = DID_EXECUTED.didUniqueSuffix;
+        
+        const SCHEME_DATA: SchemeInputData = {
+            network: NETWORK,
+            didUniqueSuffix: DID_SUFFIX
+        };
+        
+        // Generates the DID-scheme:
+        const TYRON_SCHEME = await TyronZILScheme.newDID(SCHEME_DATA);
+        const DID_tyronZIL = TYRON_SCHEME.did_tyronZIL;
+        
+        console.log(LogColors.green(`Your decentralized identity on Zilliqa is: `) + LogColors.brightGreen(`${TYRON_SCHEME.did_tyronZIL}`));     
+        
+        // Generates the Sidetree Long-Form DID
+        if (DID_EXECUTED.encodedDelta !== undefined) {
+            const LONG_DID_INPUT: LongFormDidInput = {
+                schemeInput: SCHEME_DATA,
+                encodedSuffixData: DID_EXECUTED.encodedSuffixData,
+                encodedDelta: DID_EXECUTED.encodedDelta
+            }
+
+            const LONG_FORM_DID = await TyronZILUrlScheme.longFormDid(LONG_DID_INPUT);
+
+            const LONG_DID_tyronZIL = LONG_FORM_DID.longFormDid;
+
+            console.log(LogColors.green(`The corresponding Sidetree Long-Form DID is: `) + `${LONG_DID_tyronZIL}`);
+        }
+
+        /***            ****            ***/
+
+        // Builds the DID-state:
+        const DID_STATE = await DidState.build(DID_EXECUTED);
+        
+        try{
+            await DidState.write(DID_STATE);
+        } catch {
+            throw new SidetreeError(ErrorCode.CouldNotSaveState);
+        }
+        
+        /***            ****            ***/
+
+        // Creates the corresponding DID-document and saves it
+        const DID_RESOLVED = await DidDoc.resolve(DID_EXECUTED, NETWORK);
+        const DOC_STRING = await DidDoc.stringify(DID_RESOLVED);
+        const DID_DOC = await JsonAsync.parse(DOC_STRING);
+        const PRINT_DOC = JSON.stringify(DID_DOC, null, 2);
+
+        const DOC_NAME = `${DID_tyronZIL}-DID_DOCUMENT.json`;
+        fs.writeFileSync(DOC_NAME, PRINT_DOC);
+        console.info(LogColors.yellow(`DID-document saved as: ${LogColors.brightYellow(DOC_NAME)}`));
+
+        /***            ****            ***/
+
+        // Saves private keys:
+        const PRIVATE_KEYS: PrivateKeys = {
+            privateKeys: DID_EXECUTED.privateKey,
+            updatePrivateKey: Encoder.encode(Buffer.from(JSON.stringify(DID_EXECUTED.updatePrivateKey))),
+            recoveryPrivateKey: Encoder.encode(Buffer.from(JSON.stringify(DID_EXECUTED.recoveryPrivateKey))),
+        };
+        const KEY_FILE_NAME = `${DID_tyronZIL}-PRIVATE_KEYS.json`;
+        fs.writeFileSync(KEY_FILE_NAME, JSON.stringify(PRIVATE_KEYS, null, 2));
+        console.info(LogColors.yellow(`Private keys saved as: ${LogColors.brightYellow(KEY_FILE_NAME)}`));
+    }
+
+    /** Handles the recover subcommand */
+    public static async handleRecover(): Promise<void> {
+        // Asks for the DID to recover:
+        const DID = readline.question(`Which tyronZIL DID would you like to recover? [TyronZILScheme] - ` + LogColors.lightBlue(`Your answer: `));
+        
+        // Validates the DID-scheme
+        let DID_SCHEME;
+        try {
+            DID_SCHEME = await TyronZILUrlScheme.validate(DID);
+        } catch (error) {
+            throw new SidetreeError(error);
+        }
+
+        // Fetches the requested DID:
+        console.log(LogColors.green(`Fetching the requested DID-state...`));
+        const DID_STATE = await DidState.fetch(DID);
+        const RECOVERY_COMMITMENT = DID_STATE.recoveryCommitment;
+        
+        let RECOVERY_PRIVATE_KEY;
+        try {
+            const INPUT_PRIVATE_KEY = readline.question(`Request accepted - Provide your recovery private key - ` + LogColors.lightBlue(`Your answer: `));
+            RECOVERY_PRIVATE_KEY = await JsonAsync.parse(Encoder.decodeAsBuffer(INPUT_PRIVATE_KEY));
+            const RECOVERY_KEY = Cryptography.getPublicKey(RECOVERY_PRIVATE_KEY);
+            const COMMITMENT = Multihash.canonicalizeThenHashThenEncode(RECOVERY_KEY);
+            if (RECOVERY_COMMITMENT === COMMITMENT) {
+                console.log(LogColors.green(`Success! You will be able to recover your tyronZIL DID`));
+            }
+        } catch {
+            console.log(LogColors.red(`The client has rejected the given key`));
+        }
+
+        /***            ****            ***/
+        // Resets the public keys and services:
+        const PUBLIC_KEYS = await this.InputKeys();
+        const SERVICE = await this.InputService();
+
+        const CLI_INPUT: CliInputModel = {
+            network: DID_SCHEME.network,
+            publicKeyInput: PUBLIC_KEYS,
+            service: SERVICE
+        }
+
+        const RECOVERY_INPUT: RecoverOperationInput = {
+            did_tyronZIL: DID_SCHEME,
+            recoveryPrivateKey: RECOVERY_PRIVATE_KEY,
+            cliInput: CLI_INPUT 
+        };
+
+        const DID_EXECUTED = await DidRecover.execute(RECOVERY_INPUT);
+        
+        /***            ****            ***/
+
+        // Builds the DID-state:
+        const DID_NEW_STATE = await DidState.build(DID_EXECUTED);
+        
+        try{
+            await DidState.write(DID_NEW_STATE);
+        } catch {
+            throw new SidetreeError(ErrorCode.CouldNotSaveState);
+        }
+
+    }
+
+    /** Handles the `resolve` subcommand */
+    public static async handleResolve(): Promise<void> {
+        // Gets the DID to resolve from the user:
+        const DID = readline.question(`Which DID would you like to resolve? ` + LogColors.lightBlue(`Your answer: `));
+        
+        
+        //let PROPER_DID = undefined;
+        try {
+            //PROPER_DID = 
+            await TyronZILUrlScheme.validate(DID);
+        } catch {
+            throw new SidetreeError(ErrorCode.DidInvalidUrl);
+        }
+    }
+        // Resolve the DID into its DID-document
+    
+    
+
+
+        
+        /* 
+        const SERVICE = JSON.stringify(DID_EXECUTED.serviceEndpoints);
+        console.log(`& your service endpoints are: ${SERVICE}`);
+        
+        const TYRONZIL_DOCUMENT = await DidDoc.make(DID_EXECUTED);
+        const DOC_STRING = JSON.stringify(TYRONZIL_DOCUMENT);
+        console.log(`& youR DID-document is: ${DOC_STRING}`);
+
+        const THIS_TRANSACTION_NUMBER = 1; // to-do fetch from blockchain
+
+        const DID_STATE_INPUT: DidStateModel = {
+            document: TYRONZIL_DOCUMENT,
+            nextRecoveryCommitmentHash: DID_EXECUTED.recoveryCommitment,
+            nextUpdateCommitmentHash: DID_EXECUTED.updateRevealValue,
+            lastOperationTransactionNumber: THIS_TRANSACTION_NUMBER,
+        };
+        /*
+        const DID_STATE = await DID_STATE.applyCreate(DID_STATE_INPUT);
+
+        */
+    public static async InputKeys(): Promise<PublicKeyInput[]> {
         
         // Creates the first verification method used with a general purpose as the primary public key and for authentication as verification relationship:
         console.log(LogColors.green(`Let's create your primary public key! It's a general-purpose verification method, also used for authentication as the verification relationship.`));
@@ -92,10 +279,11 @@ export default class TyronCLI {
             };
             PUBLIC_KEYS.push(SECONDARY_PUBLIC_KEY);
         }
+        
+        return PUBLIC_KEYS;
+    }
 
-        /***            ****            ***/
-
-        // Adds service endpoints:
+    public static async InputService(): Promise<ServiceEndpointModel[]> {
         console.log(LogColors.green(`Now, let's create your service endpoints!`));
         
         const SERVICE = [];
@@ -129,110 +317,6 @@ export default class TyronCLI {
             }
             SERVICE.push(SERVICE_ADDRESS);
         }
-
-
-        const INPUT: CLICreateInput = {
-            network: NETWORK,
-            publicKeyInput: PUBLIC_KEYS,
-            service: SERVICE
-        }
-
-        /***            ****            ***/
-
-        // Executes the DID-create operation:
-        const DID_CREATED = await DidCreate.executeCli(INPUT);
-        const DID_SUFFIX = DID_CREATED.didUniqueSuffix;
-        
-        const SCHEME_DATA: SchemeInputData = {
-            network: NETWORK,
-            didUniqueSuffix: DID_SUFFIX
-        };
-        
-        const TYRON_SCHEME = await TyronZILScheme.newDID(SCHEME_DATA);
-        const DID_tyronZIL = TYRON_SCHEME.did_tyronZIL;
-        
-        console.log(LogColors.green(`Your decentralized identity on Zilliqa is: `) + LogColors.brightGreen(`${TYRON_SCHEME.did_tyronZIL}`));     
-        
-        // Generates the Sidetree Long-Form DID
-        if (DID_CREATED.encodedDelta !== undefined) {
-            const LONG_DID_INPUT: LongFormDidInput = {
-                schemeInput: SCHEME_DATA,
-                encodedSuffixData: DID_CREATED.encodedSuffixData,
-                encodedDelta: DID_CREATED.encodedDelta
-            }
-
-            const LONG_FORM_DID = await TyronZILUrlScheme.longFormDid(LONG_DID_INPUT);
-
-            const LONG_DID_tyronZIL = LONG_FORM_DID.longFormDid;
-
-            console.log(LogColors.green(`The corresponding Sidetree Long-Form DID is: `) + `${LONG_DID_tyronZIL}`);
-        }
-
-        // Writes the DID-state:
-        const DID_STATE_MODEL: DidStateModel = {
-            did_tyronZIL: DID_tyronZIL,
-            publicKey: DID_CREATED.publicKey,
-            operation: DID_CREATED.operation,
-            recovery: DID_CREATED.recovery,
-            service: DID_CREATED.service,
-        }
-
-        const DID_STATE = await DidState.write(DID_STATE_MODEL);
-        const PRINT_STATE = JSON.stringify(DID_STATE, null, 2);
-
-        // Saves the DID-state:
-        const FILE_NAME = `${DID_tyronZIL}-DID_STATE.json`;
-        fs.writeFileSync(FILE_NAME, PRINT_STATE);
-        console.info(LogColors.yellow(`DID-state saved as: ${LogColors.brightYellow(FILE_NAME)}`));
-
-        // Creates the corresponding DID-document and saves it
-        const DID_RESOLVED = await DidDoc.resolve(DID_CREATED, NETWORK);
-        const DOC_STRING = await DidDoc.stringify(DID_RESOLVED);
-        const DID_DOC = await await JsonAsync.parse(DOC_STRING);
-        const PRINT_DOC = JSON.stringify(DID_DOC, null, 2);
-
-        const DOC_NAME = `${DID_tyronZIL}-DID_DOCUMENT.json`;
-        fs.writeFileSync(DOC_NAME, PRINT_DOC);
-        console.info(LogColors.yellow(`DID-document saved as: ${LogColors.brightYellow(DOC_NAME)}`));
+        return SERVICE;
     }
-
-    /** Handles the `resolve` subcommand */
-    public static async handleResolve(): Promise<void> {
-        // Gets the DID to resolve from the user:
-        const DID = readline.question(`Which DID would you like to resolve? ` + LogColors.lightBlue(`Your answer: `));
-        
-        
-        //let PROPER_DID = undefined;
-        try {
-            //PROPER_DID = 
-            await TyronZILUrlScheme.validate(DID);
-        } catch {
-            throw new SidetreeError(ErrorCode.DidInvalidUrl);
-        }
-    }
-        // Resolve the DID into its DID-document
-    
-    
-
-
-        
-        /* 
-        const SERVICE = JSON.stringify(DID_CREATED.serviceEndpoints);
-        console.log(`& your service endpoints are: ${SERVICE}`);
-        
-        const TYRONZIL_DOCUMENT = await DidDoc.make(DID_CREATED);
-        const DOC_STRING = JSON.stringify(TYRONZIL_DOCUMENT);
-        console.log(`& youR DID-document is: ${DOC_STRING}`);
-
-        const THIS_TRANSACTION_NUMBER = 1; // to-do fetch from blockchain
-
-        const DID_STATE_INPUT: DidStateModel = {
-            document: TYRONZIL_DOCUMENT,
-            nextRecoveryCommitmentHash: DID_CREATED.recoveryCommitment,
-            nextUpdateCommitmentHash: DID_CREATED.updateRevealValue,
-            lastOperationTransactionNumber: THIS_TRANSACTION_NUMBER,
-        };
-        /*
-        const DID_STATE = await DID_STATE.applyCreate(DID_STATE_INPUT);
-        */
-    }
+}
