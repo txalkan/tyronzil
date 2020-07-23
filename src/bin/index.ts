@@ -22,8 +22,8 @@ import tyronCLI from './tyronZIL-CLI';
 yargs
   .scriptName('tyronzil')
   .usage('Usage: $0 <command> [options]')
-  .demandCommand(1, 'Try: tyronzil <command>, with command= did')
-  .command('did', '(to execute a tyronZIL DID-operation, try: $tyronzil did <subcommand>, with subcommand= create|resolve|update|recover|deactivate)', (yargs) => {
+  .demandCommand(1, 'Try: tyronzil <command>, with command = did OR resolve')
+  .command('did', ' -> to execute a tyronZIL DID-operation, try: $tyronzil did <subcommand>, with subcommand = create|resolve|update|recover|deactivate', (yargs) => {
     yargs
       .usage('Usage: $0 did <subcommand> [options]')
       .demandCommand(1, 'Specify a subcommand: create|resolve|update|recover|deactivate')
@@ -44,10 +44,10 @@ yargs
       .wrap(null)
       .strict(); // the sub-command must be one of the explicitly defined sub-commands
   })
-  .command('resolve', 'Resolves the given tyronZIL DID into its DID-document (read operation)', async () => {
+  .command('resolve', ' -> resolves the given tyronZIL DID into its DID-document (read operation)', async () => {
     await tyronCLI.handleResolve();
   })
-  .strict() // the command must be one of the explicitly defined commands
+  .strict()       // the command must be one of the explicitly defined commands
   .help(false)    // disabling --help option
   .version(false) // disabling --version option
   .argv;
