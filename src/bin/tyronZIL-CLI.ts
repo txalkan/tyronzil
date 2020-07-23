@@ -24,14 +24,15 @@ import { PublicKeyPurpose } from '../lib/models/verification-method-models';
 import { LongFormDidInput, TyronZILUrlScheme } from '../lib/tyronZIL-schemes/did-url-scheme';
 import DidState from '../lib/did-state';
 import * as fs from 'fs';
-import SidetreeError from '@decentralized-identity/sidetree/dist/lib/common/SidetreeError';
-import ErrorCode from '../lib/ErrorCode';
 import DidDoc from '../lib/did-document';
 import JsonAsync from '@decentralized-identity/sidetree/dist/lib/core/versions/latest/util/JsonAsync';
 import ServiceEndpointModel from '@decentralized-identity/sidetree/dist/lib/core/versions/latest/models/ServiceEndpointModel';
 import { PrivateKeys, Cryptography} from '../lib/did-keys';
 import Multihash from '@decentralized-identity/sidetree/dist/lib/core/versions/latest/Multihash';
 import Encoder from '@decentralized-identity/sidetree/dist/lib/core/versions/latest/Encoder';
+import SidetreeError from '@decentralized-identity/sidetree/dist/lib/common/SidetreeError';
+import ErrorCode from '../lib/ErrorCode';
+
 
 /** Handles the command-line interface DID operations */
 export default class TyronCLI {

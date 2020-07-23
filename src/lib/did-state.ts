@@ -12,13 +12,13 @@
     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
     GNU General Public License for more details.
 */
-import JsonAsync from '@decentralized-identity/sidetree/dist/lib/core/versions/latest/util/JsonAsync';
 import ServiceEndpointModel from '@decentralized-identity/sidetree/dist/lib/core/versions/latest/models/ServiceEndpointModel';
 import { PublicKeyModel, Operation, Recovery } from './models/verification-method-models';
 import * as fs from 'fs';
 import LogColors from '../bin/log-colors';
 import DidCreate from './did-operations/did-create';
 import DidRecover from '../lib/did-operations/did-recover';
+import JsonAsync from '@decentralized-identity/sidetree/dist/lib/core/versions/latest/util/JsonAsync';
 
 export interface DidStateModel {
     did_tyronZIL: string;

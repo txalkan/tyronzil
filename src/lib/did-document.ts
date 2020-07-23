@@ -67,11 +67,9 @@ export default class DidDoc {
     public static async resolve(input: DidState): Promise<DidDoc> {
         
         const DID_SCHEME = await TyronZILUrlScheme.validate(input.did_tyronZIL)
-
         const ID: string = DID_SCHEME.did_tyronZIL;
 
         const PUBLIC_KEYS: PublicKeyModel[] = input.publicKey;
-
         const PUBLIC_KEY = [];
         const AUTHENTICATION = [];
 

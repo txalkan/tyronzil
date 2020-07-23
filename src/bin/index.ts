@@ -30,10 +30,7 @@ yargs
       .command('create', '(creates a unique digital identity did:tyron:zil)', async () => {
         await tyronCLI.handleCreate();
       })
-      .command('resolve', '(resolves the given DID into its DID-document)', async () => {
-        await tyronCLI.handleResolve();
-      })
-      .command('recover', '(recovers the DID and creates new keys)', async () => {
+      .command('recover', '(recovers the DID and creates a new DID-state)', async () => {
         await tyronCLI.handleRecover();
       })
 
@@ -41,23 +38,16 @@ yargs
       .command('update', 'Generates an tyronZIL DID update operation.', () => {
         console.log('To be implemented.');
       })
-      .command('recover', 'Generates a tyronZIL DID recover operation.', () => {
-        console.log('To be implemented.');
-      })
       .command('deactivate', 'Generates a tyronZIL DID deactivate operation.', () => {
         console.log('To be implemented.');
-      })
-      .updateStrings({
-        'Commands:': 'Operation type:'
-      })
+      })*/
       .wrap(null)
-      .strict(); // The sub-command must be one of the explicitly defined sub-commands
+      .strict(); // the sub-command must be one of the explicitly defined sub-commands
   })
-  .command('resolve', 'Resolves a tyronZIL DID (read operation).', () => {
-    console.log('To be implemented.');
-    */
+  .command('resolve', 'Resolves the given tyronZIL DID into its DID-document (read operation)', async () => {
+    await tyronCLI.handleResolve();
   })
-  .strict() // The command must be one of the explicitly defined commands
-  .help(false) // Disabling --help option.
-  .version(false) // Disabling --version option.
+  .strict() // the command must be one of the explicitly defined commands
+  .help(false)    // disabling --help option
+  .version(false) // disabling --version option
   .argv;
