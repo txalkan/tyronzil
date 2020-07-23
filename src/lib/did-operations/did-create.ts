@@ -24,7 +24,6 @@ import { SchemeInputData } from '../tyronZIL-schemes/did-scheme';
 import Multihash from '@decentralized-identity/sidetree/dist/lib/core/versions/latest/Multihash';
 import Encoder from '@decentralized-identity/sidetree/dist/lib/core/versions/latest/Encoder';
 import ServiceEndpointModel from '@decentralized-identity/sidetree/dist/lib/core/versions/latest/models/ServiceEndpointModel';
-import serviceEndpoints from '../service-endpoints';
 import { DocumentModel, PatchModel, PatchAction } from '../models/patch-model';
 import DeltaModel from '@decentralized-identity/sidetree/dist/lib/core/versions/latest/models/DeltaModel';
 import SuffixDataModel from '../models/suffix-data-model';
@@ -157,24 +156,15 @@ export default class DidCreate {
         /** Utilizes the RECOVERY_KEY to make the next recovery commitment hash */
         const RECOVERY_COMMITMENT = Multihash.canonicalizeThenHashThenEncode(RECOVERY_KEY);
 
+        /***            ****            ****/
 
-        // create service endpoints:
-        const SERVICE1: ServiceEndpointModel = {
-            id: 'tyronZIL-website',
-            type: 'method-specification',
-            endpoint: 'https://tyronZIL.com'
-        }
-        const SERVICE2: ServiceEndpointModel = {
-            id: 'ZIL-address',
-            type: 'cryptocurrency-address',
-            endpoint: 'zil1egvj6ketfydy48uqzu8qphhj5w4xrkratv85ht'
-        }
-        const SERVICE_ENDPOINTS = await serviceEndpoints.new([SERVICE1, SERVICE2]);
-
+        // Add service endpoints:
+        const SERVICE = input.service;
+        
         /** Input data for the Sidetree request */
         const SIDETREE_REQUEST_INPUT: RequestInput = {
             publicKey: PUBLIC_KEYS,
-            service: SERVICE_ENDPOINTS,
+            service: SERVICE,
             updateCommitment: UPDATE_COMMITMENT,
             recoveryCommitment: RECOVERY_COMMITMENT
         };
@@ -212,7 +202,7 @@ export default class DidCreate {
             recoveryKey: RECOVERY_KEY,
             recoveryPrivateKey: RECOVERY_PRIVATE_KEY,
             recoveryCommitment: RECOVERY_COMMITMENT,
-            service: SERVICE_ENDPOINTS       
+            service: SERVICE      
         };
         return new DidCreate(OPERATION_OUTPUT);
 

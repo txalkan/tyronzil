@@ -15,10 +15,12 @@
 
 import { NetworkNamespace } from '../tyronZIL-schemes/did-scheme';
 import { PublicKeyPurpose } from '../models/verification-method-models';
+import ServiceEndpointModel from '@decentralized-identity/sidetree/dist/lib/core/versions/latest/models/ServiceEndpointModel';
 
 export interface CLICreateInput {
     network: NetworkNamespace;
     publicKeyInput: PublicKeyInput[];
+    service: ServiceEndpointModel[];
 }
 
 export interface PublicKeyInput {

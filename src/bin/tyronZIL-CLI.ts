@@ -25,6 +25,7 @@ import DidState, { DidStateModel } from '../lib/did-state';
 import * as fs from 'fs';
 import DidDoc from '../lib/did-document';
 import JsonAsync from '@decentralized-identity/sidetree/dist/lib/core/versions/latest/util/JsonAsync';
+import ServiceEndpointModel from '@decentralized-identity/sidetree/dist/lib/core/versions/latest/models/ServiceEndpointModel';
 
 /** Handles the command-line interface DID operations */
 export default class TyronCLI {
@@ -48,6 +49,8 @@ export default class TyronCLI {
                 NETWORK = NetworkNamespace.Testnet;
                 break;
         }
+
+        /***            ****            ***/
         
         // Creates the first verification method used with a general purpose as the primary public key and for authentication as verification relationship:
         console.log(LogColors.green(`Let's create your primary public key! It's a general-purpose verification method, also used for authentication as the verification relationship.`));
@@ -88,11 +91,53 @@ export default class TyronCLI {
             PUBLIC_KEYS.push(SECONDARY_PUBLIC_KEY);
         }
 
-        const INPUT: CLICreateInput = {
-            network: NETWORK,
-            publicKeyInput: PUBLIC_KEYS
+        /***            ****            ***/
+
+        // Adds service endpoints:
+        console.log(LogColors.green(`Now, let's create your service endpoints!`));
+        
+        const SERVICE = [];
+        
+        let WEBSITE_ENDPOINT = readline.question(`Write down your website [https://yourwebsite.com] - Defaults to 'https://tyronZIL.com' - ` + LogColors.lightBlue(`Your answer: `));
+        if (WEBSITE_ENDPOINT === "") {
+            WEBSITE_ENDPOINT = 'https://tyronZIL.com';
+        }
+        const SERVICE_WEBSITE: ServiceEndpointModel = {
+            id: 'main-website',
+            type: 'website',
+            endpoint: WEBSITE_ENDPOINT
+        }
+        SERVICE.push(SERVICE_WEBSITE);
+
+        // Asks the user for their ZIL address:
+        const ADD_ADDRESS = readline.question(`Would you like to add your Zilliqa cryptocurrency address (ZIL)? [y] - Defaults to 'no' - ` + LogColors.lightBlue(`Your answer: `));
+
+        if (ADD_ADDRESS.toLowerCase() === 'y') {
+            let ADDRESS_ID = readline.question(`Choose a name for your address ID - Defaults to 'ZIL-address' - ` + LogColors.lightBlue(`Your answer: `));
+            if (ADDRESS_ID === "") {
+                ADDRESS_ID = 'ZIL-address';
+            }
+
+            const ZIL_ADDRESS = readline.question(`What is your ZIL-address? [as bech32 type] - ` + LogColors.lightBlue(`Your answer: `));
+            
+            const SERVICE_ADDRESS: ServiceEndpointModel = {
+                id: ADDRESS_ID,
+                type: 'ZIL-crypto-address',
+                endpoint: ZIL_ADDRESS
+            }
+            SERVICE.push(SERVICE_ADDRESS);
         }
 
+
+        const INPUT: CLICreateInput = {
+            network: NETWORK,
+            publicKeyInput: PUBLIC_KEYS,
+            service: SERVICE
+        }
+
+        /***            ****            ***/
+
+        // Executes the DID-create operation:
         const DID_CREATED = await DidCreate.executeCli(INPUT);
         const DID_SUFFIX = DID_CREATED.didUniqueSuffix;
         
