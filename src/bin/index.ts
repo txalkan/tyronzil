@@ -30,15 +30,13 @@ yargs
       .command('create', ' -> creates a unique digital identity did:tyron:zil)', async () => {
         await tyronCLI.handleCreate();
       })
-      .command('recover', ' -> recovers the DID and creates a new DID-state)', async () => {
+      .command('update', ' -> updates the given tyronZIL DID and its DID-state', async () => {
+        await tyronCLI.handleUpdate();
+      })
+      .command('recover', ' -> recovers the given tyronZIL DID and creates a new DID-state)', async () => {
         await tyronCLI.handleRecover();
       })
-
-      /*
-      .command('update', 'Generates an tyronZIL DID update operation.', () => {
-        console.log('To be implemented.');
-      }) */
-      .command('deactivate', ' -> deactivates the given DID and its DID-state', async () => {
+      .command('deactivate', ' -> deactivates the given tyronZIL DID and its DID-state', async () => {
         await tyronCLI.handleDeactivate();
       })
       .wrap(null)

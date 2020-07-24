@@ -172,6 +172,8 @@ export default class DidCreate {
             recoveryCommitment: RECOVERY_COMMITMENT
         };
         
+        /***            ****            ***/
+        
         /** Sidetree data to generate a `DID-create` operation */
         const SIDETREE_REQUEST = await DidCreate.sidetreeRequest(SIDETREE_REQUEST_INPUT);
             const OPERATION_BUFFER = Buffer.from(JSON.stringify(SIDETREE_REQUEST));

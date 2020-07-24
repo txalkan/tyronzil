@@ -37,7 +37,7 @@ export interface JwkEs256k {
 }
 
 export interface PrivateKeys {
-  privateKeys: string[],    // encoded strings
+  privateKeys?: string[],    // encoded strings
   updatePrivateKey?: string,
   recoveryPrivateKey?: string,
 }

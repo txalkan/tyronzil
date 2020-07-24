@@ -43,7 +43,7 @@ export default class DidState {
     public readonly recoveryCommitment?: string;
     public readonly service?: ServiceEndpointModel[];
     public readonly lastTransaction?: number;
-    public readonly status: OperationType
+    public status: OperationType
 
     private constructor(
         input: DidStateModel

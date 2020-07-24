@@ -33,6 +33,8 @@ import Encoder from '@decentralized-identity/sidetree/dist/lib/core/versions/lat
 import SidetreeError from '@decentralized-identity/sidetree/dist/lib/common/SidetreeError';
 import ErrorCode from '../lib/ErrorCode';
 import DidDeactivate, { DeactivateOperationInput } from '../lib/did-operations/did-deactivate';
+import { PatchAction, PatchModel } from '../lib/models/patch-model';
+import DidUpdate, { UpdateOperationInput } from '../lib/did-operations/did-update';
 
 /** Handles the command-line interface DID operations */
 export default class TyronCLI {
@@ -136,6 +138,116 @@ export default class TyronCLI {
         console.info(LogColors.yellow(`Private keys saved as: ${LogColors.brightYellow(KEY_FILE_NAME)}`));
     }
 
+    /** Handles the update subcommand */
+    public static async handleUpdate(): Promise<void> {
+        // Asks for the DID to update:
+        const DID = readline.question(`Which tyronZIL DID would you like to update? [TyronZILScheme] - ` + LogColors.lightBlue(`Your answer: `));
+        
+        // Validates the DID-scheme
+        let DID_SCHEME;
+        try {
+            DID_SCHEME = await TyronZILUrlScheme.validate(DID);
+        } catch (error) {
+            throw new SidetreeError(error);
+        }
+
+        // Fetches the requested DID:
+        console.log(LogColors.green(`Fetching the requested DID-state...`));
+        const DID_STATE = await DidState.fetch(DID);
+        
+        //Validates the update commitment:
+        const UPDATE_COMMITMENT = DID_STATE.updateCommitment;
+        
+        let UPDATE_PRIVATE_KEY;
+        try {
+            const INPUT_PRIVATE_KEY = readline.question(`Request accepted - Provide your update private key - ` + LogColors.lightBlue(`Your answer: `));
+            UPDATE_PRIVATE_KEY = await JsonAsync.parse(Encoder.decodeAsBuffer(INPUT_PRIVATE_KEY));
+            const UPDATE_KEY = Cryptography.getPublicKey(UPDATE_PRIVATE_KEY);
+            const COMMITMENT = Multihash.canonicalizeThenHashThenEncode(UPDATE_KEY);
+            if (UPDATE_COMMITMENT === COMMITMENT) {
+                console.log(LogColors.green(`Success! You will be able to update your tyronZIL DID`));
+            }
+        } catch {
+            console.log(LogColors.red(`The client has rejected the given key`));
+        }
+
+        /***            ****            ***/
+
+        // Asks for the specific patch action to update the DID:
+        const ACTION = readline.question(`You may choose one of the following actions to update your DID:
+         'add-keys'(1),
+         'remove-keys'(2),
+         'add-services'(3),
+         'remove-services'(4) -
+         [1/2/3/4] - ` + LogColors.lightBlue(`Your answer: `));
+        
+        let PATCH_ACTION;
+        switch (ACTION) {
+            case '1':
+                PATCH_ACTION = PatchAction.AddKeys;
+                break;
+            case '2':
+                PATCH_ACTION = PatchAction.RemoveKeys;
+                break;
+            case '3':
+                PATCH_ACTION = PatchAction.AddServices;
+                break;
+            case '4':
+                PATCH_ACTION = PatchAction.RemoveServices;
+                break;
+            default:
+                throw new SidetreeError(ErrorCode.IncorrectPatchAction);
+        }
+
+        const ID = [];
+        let PUBLIC_KEYS;
+        let SERVICE;
+        if (PATCH_ACTION === PatchAction.AddKeys) {
+            PUBLIC_KEYS = await this.InputKeys();
+        } else if (PATCH_ACTION === PatchAction.AddServices) {
+            SERVICE = await this.InputService();
+        } else if (PATCH_ACTION === PatchAction.RemoveServices) {
+            const SERVICE_ID = readline.question(`Provide the ID of the service that you would like to remove - ` + LogColors.lightBlue(`Your answer: `));
+            ID.push(SERVICE_ID)
+        } else if (PATCH_ACTION === PatchAction.RemoveKeys) {
+            const KEY_ID = readline.question(`Provide the ID of the service that you would like to remove - ` + LogColors.lightBlue(`Your answer: `));
+            ID.push(KEY_ID)
+        }
+        const PATCH: PatchModel = {
+            action: PATCH_ACTION,
+            keyInput: PUBLIC_KEYS,
+            service_endpoints: SERVICE,
+            ids: ID,
+            public_keys: ID
+        }
+
+        const UPDATE_INPUT: UpdateOperationInput = {
+            did_tyronZIL: DID_SCHEME,
+            updatePrivateKey: UPDATE_PRIVATE_KEY,
+            patch: PATCH,
+            didState: DID_STATE
+        };
+
+        const DID_EXECUTED = await DidUpdate.execute(UPDATE_INPUT);
+        
+        /***            ****            ***/
+
+        try{
+            await DidState.write(DID_EXECUTED.didState);
+        } catch {
+            throw new SidetreeError(ErrorCode.CouldNotSave);
+        }
+
+        // Saves private keys:
+        const PRIVATE_KEYS: PrivateKeys = {
+            privateKeys: DID_EXECUTED.privateKey,
+            updatePrivateKey: Encoder.encode(Buffer.from(JSON.stringify(DID_EXECUTED.updatePrivateKey))),
+        };
+        const KEY_FILE_NAME = `${DID_STATE.did_tyronZIL}-PRIVATE_KEYS.json`;
+        fs.writeFileSync(KEY_FILE_NAME, JSON.stringify(PRIVATE_KEYS, null, 2));
+        console.info(LogColors.yellow(`Private keys saved as: ${LogColors.brightYellow(KEY_FILE_NAME)}`));
+    }
+
     /** Handles the recover subcommand */
     public static async handleRecover(): Promise<void> {
         // Asks for the DID to recover:
@@ -209,7 +321,6 @@ export default class TyronCLI {
         const KEY_FILE_NAME = `${DID_STATE.did_tyronZIL}-PRIVATE_KEYS.json`;
         fs.writeFileSync(KEY_FILE_NAME, JSON.stringify(PRIVATE_KEYS, null, 2));
         console.info(LogColors.yellow(`Private keys saved as: ${LogColors.brightYellow(KEY_FILE_NAME)}`));
-
     }
 
     /** Handles the deactivate subcommand */
@@ -299,7 +410,7 @@ export default class TyronCLI {
         }
     }
 
-    /** Generates the keys input */
+    /** Generates the keys' input */
     public static async InputKeys(): Promise<PublicKeyInput[]> {
         
         // Creates the first verification method used with a general purpose as the primary public key and for authentication as verification relationship:
@@ -344,8 +455,9 @@ export default class TyronCLI {
         return PUBLIC_KEYS;
     }
 
+    /** Generates the services' input */
     public static async InputService(): Promise<ServiceEndpointModel[]> {
-        console.log(LogColors.green(`Now, let's create your service endpoints!`));
+        console.log(LogColors.green(`Let's create your service endpoints!`));
         
         const SERVICE = [];
         
@@ -363,21 +475,24 @@ export default class TyronCLI {
         // Asks the user for their ZIL address:
         const ADD_ADDRESS = readline.question(`Would you like to add your Zilliqa cryptocurrency address (ZIL)? [y] - Defaults to 'no' - ` + LogColors.lightBlue(`Your answer: `));
 
-        if (ADD_ADDRESS.toLowerCase() === 'y') {
-            let ADDRESS_ID = readline.question(`Choose a name for your address ID - Defaults to 'ZIL-address' - ` + LogColors.lightBlue(`Your answer: `));
-            if (ADDRESS_ID === "") {
-                ADDRESS_ID = 'ZIL-address';
-            }
-
-            const ZIL_ADDRESS = readline.question(`What is your ZIL-address? [as bech32 type] - ` + LogColors.lightBlue(`Your answer: `));
+        switch (ADD_ADDRESS.toLowerCase()) {
+            case 'y': {
+                let ADDRESS_ID = readline.question(`Choose a name for your address ID - Defaults to 'ZIL-address' - ` + LogColors.lightBlue(`Your answer: `));
+                if (ADDRESS_ID === "") {
+                    ADDRESS_ID = 'ZIL-address';
+                }
+                const ZIL_ADDRESS = readline.question(`What is your ZIL-address? [as bech32 type] - ` + LogColors.lightBlue(`Your answer: `));
             
-            const SERVICE_ADDRESS: ServiceEndpointModel = {
-                id: ADDRESS_ID,
-                type: 'ZIL-crypto-address',
-                endpoint: ZIL_ADDRESS
+                const SERVICE_ADDRESS: ServiceEndpointModel = {
+                    id: ADDRESS_ID,
+                    type: 'ZIL-crypto-address',
+                    endpoint: ZIL_ADDRESS
+                }
+                SERVICE.push(SERVICE_ADDRESS);
+                return SERVICE 
             }
-            SERVICE.push(SERVICE_ADDRESS);
+            default:
+                return SERVICE
         }
-        return SERVICE;
     }
 }

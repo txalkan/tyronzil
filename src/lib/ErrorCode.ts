@@ -27,6 +27,7 @@ export default {
     CouldNotSave: 'Could not save the DID file',
     CouldNotVerifyKey: 'The given key is wrong',
     InvalidDID: 'The client has rejected the input - invalid DID',
-    CouldNotResolve: 'The client has rejected your resolve request'
+    CouldNotResolve: 'The client has rejected your resolve request',
+    IncorrectPatchAction: 'The chosen action is not valid'
 };
   
