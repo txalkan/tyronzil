@@ -176,7 +176,7 @@ export default class DidCreate {
         const SIDETREE_REQUEST = await DidCreate.sidetreeRequest(SIDETREE_REQUEST_INPUT);
             const OPERATION_BUFFER = Buffer.from(JSON.stringify(SIDETREE_REQUEST));
         
-        /** Executes the Sidetree create operation */
+        /** Executes the Sidetree CreateOperation */
         const CREATE_OPERATION = await CreateOperation.parse(OPERATION_BUFFER);
         const DID_SUFFIX = CREATE_OPERATION.didUniqueSuffix;
 
@@ -270,7 +270,7 @@ export default class DidCreate {
         };
         const ENCODED_SUFFIX_DATA = Encoder.encode(JSON.stringify(SUFFIX_DATA));
         
-        /** DID data to generate a new Sidetree-based `DID-create` operation */
+        /** DID data to generate a new Sidetree CreateOperation */
         const SIDETREE_REQUEST: RequestData = {
             suffix_data: ENCODED_SUFFIX_DATA,
             type: OperationType.Create,

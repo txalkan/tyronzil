@@ -37,3 +37,11 @@ Resolve any DID into its corresponding DID-document with:
 In case you want to reset your DID-state while keeping the same identifier. You only need your recovery private key, and the DID itself:
 
 ```tyronzil did recover``` and follow the instructions
+
+### DID-deactivate
+
+To fully deactivate your DID:
+
+```tyronzil did deactivate``` and follow the instructions
+
+> After deactivation, the DID will not be useful anymore, nor able to be resolved

@@ -190,7 +190,7 @@ export default class DidRecover {
         const SIDETREE_REQUEST = await DidRecover.sidetreeRequest(SIDETREE_REQUEST_INPUT);
             const OPERATION_BUFFER = Buffer.from(JSON.stringify(SIDETREE_REQUEST));
         
-        /** Executes the Sidetree recover operation */
+        /** Executes the Sidetree RecoverOperation */
         const RECOVER_OPERATION = await RecoverOperation.parse(OPERATION_BUFFER);
         
         const VM_OPERATION = await DidCreate.generateVMOperation(UPDATE_KEY, input.did_tyronZIL);
@@ -244,10 +244,10 @@ export default class DidRecover {
             recovery_key: Cryptography.getPublicKeyNoKid(input.recoveryPrivateKey),
             recovery_commitment: input.recoveryCommitment
         };
-        const recoveryNoKid = Cryptography.removeKid(input.recoveryPrivateKey)
+        const recoveryNoKid = Cryptography.removeKid(input.recoveryPrivateKey);
         const SIGNED_DATA_JWS = await Cryptography.signUsingEs256k(SIGNED_DATA, recoveryNoKid);
         
-        /** DID data to generate a Sidetree-based `DID-recover` operation */
+        /** DID data to generate a Sidetree RecoverOperation */
         const SIDETREE_REQUEST: RequestData = {
             did_suffix: input.did_tyronZIL.didUniqueSuffix,
             signed_data: SIGNED_DATA_JWS,

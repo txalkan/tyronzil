@@ -27,20 +27,20 @@ yargs
     yargs
       .usage('Usage: $0 did <subcommand> [options]')
       .demandCommand(1, 'Specify a subcommand: create|resolve|update|recover|deactivate')
-      .command('create', '(creates a unique digital identity did:tyron:zil)', async () => {
+      .command('create', ' -> creates a unique digital identity did:tyron:zil)', async () => {
         await tyronCLI.handleCreate();
       })
-      .command('recover', '(recovers the DID and creates a new DID-state)', async () => {
+      .command('recover', ' -> recovers the DID and creates a new DID-state)', async () => {
         await tyronCLI.handleRecover();
       })
 
       /*
       .command('update', 'Generates an tyronZIL DID update operation.', () => {
         console.log('To be implemented.');
+      }) */
+      .command('deactivate', ' -> deactivates the given DID and its DID-state', async () => {
+        await tyronCLI.handleDeactivate();
       })
-      .command('deactivate', 'Generates a tyronZIL DID deactivate operation.', () => {
-        console.log('To be implemented.');
-      })*/
       .wrap(null)
       .strict(); // the sub-command must be one of the explicitly defined sub-commands
   })

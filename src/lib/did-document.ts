@@ -14,7 +14,7 @@
 */
 
 import DidState from './did-state';
-import { PublicKeyModel, PublicKeyPurpose, Operation, Recovery, VerificationMethodModel } from './models/verification-method-models';
+import { PublicKeyPurpose, Operation, Recovery, VerificationMethodModel } from './models/verification-method-models';
 import ServiceEndpointModel from '@decentralized-identity/sidetree/dist/lib/core/versions/latest/models/ServiceEndpointModel';
 import { TyronZILUrlScheme } from './tyronZIL-schemes/did-url-scheme';
 import * as fs from 'fs';
@@ -23,8 +23,8 @@ import LogColors from '../bin/log-colors';
 interface DidDocOutput {
     id: string;
     publicKey: VerificationMethodModel[];
-    operation?: VerificationMethodModel;
-    recovery?: VerificationMethodModel;
+    operation: VerificationMethodModel;
+    recovery: VerificationMethodModel;
     authentication: (string | VerificationMethodModel)[];
     controller?: string;
     service?: ServiceEndpointModel[];
@@ -69,7 +69,7 @@ export default class DidDoc {
         const DID_SCHEME = await TyronZILUrlScheme.validate(input.did_tyronZIL)
         const ID: string = DID_SCHEME.did_tyronZIL;
 
-        const PUBLIC_KEYS: PublicKeyModel[] = input.publicKey;
+        const PUBLIC_KEYS = input.publicKey;
         const PUBLIC_KEY = [];
         const AUTHENTICATION = [];
 

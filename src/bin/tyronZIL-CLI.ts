@@ -32,7 +32,7 @@ import Multihash from '@decentralized-identity/sidetree/dist/lib/core/versions/l
 import Encoder from '@decentralized-identity/sidetree/dist/lib/core/versions/latest/Encoder';
 import SidetreeError from '@decentralized-identity/sidetree/dist/lib/common/SidetreeError';
 import ErrorCode from '../lib/ErrorCode';
-
+import DidDeactivate, { DeactivateOperationInput } from '../lib/did-operations/did-deactivate';
 
 /** Handles the command-line interface DID operations */
 export default class TyronCLI {
@@ -136,33 +136,6 @@ export default class TyronCLI {
         console.info(LogColors.yellow(`Private keys saved as: ${LogColors.brightYellow(KEY_FILE_NAME)}`));
     }
 
-    /** Handles the `resolve` subcommand */
-    public static async handleResolve(): Promise<void> {
-        // Gets the DID to resolve from the user:
-        const DID = readline.question(`Which DID would you like to resolve? ` + LogColors.lightBlue(`Your answer: `));
-        
-        // Validates the DID-scheme
-        try {
-            await TyronZILUrlScheme.validate(DID);
-        } catch (error) {
-            throw new SidetreeError(error);
-        }
-
-        // Fetches the requested DID-state:
-        console.log(LogColors.green(`Fetching the requested DID-state...`));
-        const DID_STATE = await DidState.fetch(DID);
-
-        /***            ****            ***/
-
-        // Creates the requested DID-document and saves it:
-        const DID_RESOLVED = await DidDoc.resolve(DID_STATE);
-        try{
-            await DidDoc.write(DID_RESOLVED);
-        } catch {
-            throw new SidetreeError(ErrorCode.CouldNotSave);
-        }
-    }
-
     /** Handles the recover subcommand */
     public static async handleRecover(): Promise<void> {
         // Asks for the DID to recover:
@@ -237,6 +210,93 @@ export default class TyronCLI {
         fs.writeFileSync(KEY_FILE_NAME, JSON.stringify(PRIVATE_KEYS, null, 2));
         console.info(LogColors.yellow(`Private keys saved as: ${LogColors.brightYellow(KEY_FILE_NAME)}`));
 
+    }
+
+    /** Handles the deactivate subcommand */
+    public static async handleDeactivate(): Promise<void> {
+        // Asks for the DID to deactivate:
+        const DID = readline.question(`Which tyronZIL DID would you like to deactivate? [TyronZILScheme] - ` + LogColors.lightBlue(`Your answer: `));
+        
+        // Validates the DID-scheme
+        let DID_SCHEME;
+        try {
+            DID_SCHEME = await TyronZILUrlScheme.validate(DID);
+        } catch (error) {
+            throw new SidetreeError(error);
+        }
+
+        // Fetches the requested DID:
+        console.log(LogColors.green(`Fetching the requested DID-state...`));
+        const DID_STATE = await DidState.fetch(DID);
+        
+        //Validates the recovery commitment:
+        const RECOVERY_COMMITMENT = DID_STATE.recoveryCommitment;
+        
+        let RECOVERY_PRIVATE_KEY;
+        try {
+            const INPUT_PRIVATE_KEY = readline.question(`Request accepted - To deactivate your DID, provide its recovery private key - ` + LogColors.lightBlue(`Your answer: `));
+            RECOVERY_PRIVATE_KEY = await JsonAsync.parse(Encoder.decodeAsBuffer(INPUT_PRIVATE_KEY));
+            const RECOVERY_KEY = Cryptography.getPublicKey(RECOVERY_PRIVATE_KEY);
+            const COMMITMENT = Multihash.canonicalizeThenHashThenEncode(RECOVERY_KEY);
+            if (RECOVERY_COMMITMENT === COMMITMENT) {
+                console.log(LogColors.green(`Success! Your tyronZIL DID will be deactivated`));
+            }
+        } catch {
+            console.log(LogColors.red(`The client has rejected the given key`));
+        }
+
+        /***            ****            ***/
+
+        const DEACTIVATE_INPUT: DeactivateOperationInput = {
+            did_tyronZIL: DID_SCHEME,
+            recoveryPrivateKey: RECOVERY_PRIVATE_KEY,
+        };
+
+        const DID_EXECUTED = await DidDeactivate.execute(DEACTIVATE_INPUT);
+        
+        /***            ****            ***/
+
+        // Deactivates the DID-state:
+        const DID_STATE_OFF = await DidState.deactivate(DID_EXECUTED);
+        
+        try{
+            await DidState.write(DID_STATE_OFF);
+        } catch {
+            throw new SidetreeError(ErrorCode.CouldNotSave);
+        }
+    }
+
+    /** Handles the `resolve` subcommand */
+    public static async handleResolve(): Promise<void> {
+        // Gets the DID to resolve from the user:
+        const DID = readline.question(`Which DID would you like to resolve? ` + LogColors.lightBlue(`Your answer: `));
+        
+        // Validates the DID-scheme
+        try {
+            await TyronZILUrlScheme.validate(DID);
+        } catch (error) {
+            throw new SidetreeError(error);
+        }
+
+        // Fetches the requested DID-state:
+        console.log(LogColors.green(`Fetching the requested DID-state...`));
+        const DID_STATE = await DidState.fetch(DID);
+
+        try {
+            if (DID_STATE.status === 'deactivate') {
+                throw console.log(LogColors.red(`The given DID is deactivated and therefore will not be resolved`)); 
+            } else {
+                // Creates the requested DID-document and saves it:
+                const DID_RESOLVED = await DidDoc.resolve(DID_STATE);
+                try{
+                    await DidDoc.write(DID_RESOLVED);
+                } catch {
+                    throw new SidetreeError(ErrorCode.CouldNotSave);
+                }
+            }
+        } catch (error) {
+            throw new SidetreeError(ErrorCode.CouldNotResolve)
+        }
     }
 
     /** Generates the keys input */
