@@ -122,6 +122,8 @@ export default class DidUpdate{
         const DID_STATE = input.didState;
         DID_STATE.status = OperationType.Update;
 
+        const PUBLIC_KEYS = DID_STATE.publicKey;
+
         /** Maps the public keys to their IDs */
         const KEY_MAP = new Map((DID_STATE.publicKey || []).map(publicKey => [publicKey.id, publicKey]));
 
@@ -129,17 +131,22 @@ export default class DidUpdate{
         const ACTION = input.patch.action;
         const PATCHES = [];
         let PRIVATE_KEYS;
+        const PUBLIC_KEY = [];
         switch (ACTION) {
-            case PatchAction.AddKeys:
-                if (input.patch.keyInput !== undefined) {
-                    const ADD_KEYS = await DidUpdate.addKeys(input.patch.keyInput);
+            case PatchAction.AddKeys: {
+                const KEYS = input.patch.keyInput;
+                if ( KEYS !== undefined) {
+                    const ADD_KEYS = await DidUpdate.addKeys(KEYS);
                     PATCHES.push(ADD_KEYS.patch);
                     PRIVATE_KEYS = ADD_KEYS.privateKey
-
-                    for (const key of ADD_KEYS.publicKey) {
-                        DID_STATE.publicKey?.push(key);
+                    
+                    if (Array.isArray(ADD_KEYS.publicKey)) {
+                        for (const key of ADD_KEYS.publicKey) {
+                            PUBLIC_KEYS?.push(key)
+                        }
                     }
                 }
+            }
                 break;
             case PatchAction.AddServices:
             {
@@ -182,12 +189,17 @@ export default class DidUpdate{
                                 KEY_MAP.delete(id)
                             }
                         }
-                    } 
+                    }
+                    for (const value of KEY_MAP.values()){
+                        PUBLIC_KEY.push(value)
+                    }
+                    DID_STATE.publicKey = PUBLIC_KEY;
                 }
                 break;
             default:
                 throw new SidetreeError(ErrorCode.IncorrectPatchAction);
         }
+        
         
         /***            ****            ***/
 
@@ -234,6 +246,8 @@ export default class DidUpdate{
         };
         return new DidUpdate(OPERATION_OUTPUT);
     }
+
+    /***            ****            ***/
 
     /** Generates the Sidetree data for the `DID-update` operation */
     public static async sidetreeRequest(input: RequestInput): Promise<RequestData> {

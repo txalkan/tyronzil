@@ -42,7 +42,7 @@ export default class DidState {
     public status: OperationType
 
     // W3C and Sidetree verification methods
-    public readonly publicKey?: PublicKeyModel[];
+    public publicKey?: PublicKeyModel[];
     public readonly operation?: Operation;
     public readonly recovery?: Recovery;
 
@@ -84,7 +84,7 @@ export default class DidState {
 
     /** Fetches the current DID-state for the given tyronZIL DID */
     public static async fetch(did_tyronZIL: string): Promise<DidState> {
-        const FILE_NAME = `${did_tyronZIL}-DID_STATE.json`;
+        const FILE_NAME = `DID_STATE_${did_tyronZIL}.json`;
         let DID_STATE_FILE;
         try {
             DID_STATE_FILE = fs.readFileSync(FILE_NAME);

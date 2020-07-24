@@ -143,7 +143,7 @@ export default class TyronCLI {
             updatePrivateKey: Encoder.encode(Buffer.from(JSON.stringify(DID_EXECUTED.updatePrivateKey))),
             recoveryPrivateKey: Encoder.encode(Buffer.from(JSON.stringify(DID_EXECUTED.recoveryPrivateKey))),
         };
-        const KEY_FILE_NAME = `${DID_tyronZIL}-PRIVATE_KEYS.json`;
+        const KEY_FILE_NAME = `DID_PRIVATE_KEYS_${DID_tyronZIL}.json`;
         fs.writeFileSync(KEY_FILE_NAME, JSON.stringify(PRIVATE_KEYS, null, 2));
         console.info(LogColors.yellow(`Private keys saved as: ${LogColors.brightYellow(KEY_FILE_NAME)}`));
     }
@@ -154,7 +154,7 @@ export default class TyronCLI {
         /** Gets DID to update from the user */
         const DID = readline.question(`Which tyronZIL DID would you like to update? [TyronZILScheme] - ` + LogColors.lightBlue(`Your answer: `));
         
-        /** Validates the tyronZIL DID-scheme */
+        // Validates the DID-scheme
         let DID_SCHEME;
         try {
             DID_SCHEME = await TyronZILUrlScheme.validate(DID);
@@ -162,35 +162,30 @@ export default class TyronCLI {
             throw new SidetreeError(error);
         }
 
-        // Fetches the DID-state
+        // Fetches the requested DID:
         console.log(LogColors.green(`Fetching the requested DID-state...`));
-         /** The tyronZIL DID-state*/
         const DID_STATE = await DidState.fetch(DID);
         
-        /***            ****            ***/
-
-        /** The correct update commitment */
+        //Validates the update commitment:
         const UPDATE_COMMITMENT = DID_STATE.updateCommitment;
         
-        /** Gets the update private key from the user */
         let UPDATE_PRIVATE_KEY;
         try {
             const INPUT_PRIVATE_KEY = readline.question(`Request accepted - Provide your update private key - ` + LogColors.lightBlue(`Your answer: `));
             UPDATE_PRIVATE_KEY = await JsonAsync.parse(Encoder.decodeAsBuffer(INPUT_PRIVATE_KEY));
             const UPDATE_KEY = Cryptography.getPublicKey(UPDATE_PRIVATE_KEY);
             const COMMITMENT = Multihash.canonicalizeThenHashThenEncode(UPDATE_KEY);
-            
-            // Verifies that the given commitment matches
-            if (COMMITMENT === UPDATE_COMMITMENT) {
+            if (UPDATE_COMMITMENT === COMMITMENT) {
                 console.log(LogColors.green(`Success! You will be able to update your tyronZIL DID`));
             }
         } catch {
             console.log(LogColors.red(`The client has rejected the given key`));
+            return undefined;
         }
 
         /***            ****            ***/
 
-        /** Asks for the specific patch action to update the tyronZIL DID */
+        // Asks for the specific patch action to update the DID:
         const ACTION = readline.question(`You may choose one of the following actions to update your DID:
          'add-keys'(1),
          'remove-keys'(2),
@@ -227,21 +222,14 @@ export default class TyronCLI {
             const SERVICE_ID = readline.question(`Provide the ID of the service that you would like to remove - ` + LogColors.lightBlue(`Your answer: `));
             ID.push(SERVICE_ID)
         } else if (PATCH_ACTION === PatchAction.RemoveKeys) {
-            const KEY_ID = readline.question(`Provide the ID of the key that you would like to remove - ` + LogColors.lightBlue(`Your answer: `));
+            const KEY_ID = readline.question(`Provide the ID of the service that you would like to remove - ` + LogColors.lightBlue(`Your answer: `));
             ID.push(KEY_ID)
         }
-        /** The DID-state patch */
         const PATCH: PatchModel = {
             action: PATCH_ACTION,
-
-            // New keys
             keyInput: PUBLIC_KEYS,
-
-            // New services
             service_endpoints: SERVICE,
-
-            //Remove key by ID
-            ids: ID,    
+            ids: ID,
             public_keys: ID
         }
 
@@ -253,11 +241,23 @@ export default class TyronCLI {
         };
 
         const DID_EXECUTED = await DidUpdate.execute(UPDATE_INPUT);
-        
+        console.log(LogColors.green(`Success! You have updated your tyronZIL DID`));
         /***            ****            ***/
 
         try{
             await DidState.write(DID_EXECUTED.didState);
+        } catch {
+            throw new SidetreeError(ErrorCode.CouldNotSave);
+        }
+
+        /***            ****            ***/
+
+        /** Resolves the tyronZIL DID into its DID-document */        
+        const DID_RESOLVED = await DidDoc.resolve(DID_EXECUTED.didState);
+        
+        // Saves the DID-document
+        try{
+            await DidDoc.write(DID_RESOLVED);
         } catch {
             throw new SidetreeError(ErrorCode.CouldNotSave);
         }
@@ -267,7 +267,7 @@ export default class TyronCLI {
             privateKeys: DID_EXECUTED.privateKey,
             updatePrivateKey: Encoder.encode(Buffer.from(JSON.stringify(DID_EXECUTED.updatePrivateKey))),
         };
-        const KEY_FILE_NAME = `${DID_STATE.did_tyronZIL}-PRIVATE_KEYS.json`;
+        const KEY_FILE_NAME = `NEW_PRIVATE_KEYS_${DID_STATE.did_tyronZIL}.json`;
         fs.writeFileSync(KEY_FILE_NAME, JSON.stringify(PRIVATE_KEYS, null, 2));
         console.info(LogColors.yellow(`Private keys saved as: ${LogColors.brightYellow(KEY_FILE_NAME)}`));
     }
@@ -291,60 +291,71 @@ export default class TyronCLI {
         
         //Validates the recovery commitment:
         const RECOVERY_COMMITMENT = DID_STATE.recoveryCommitment;
-    
+        
         const INPUT_PRIVATE_KEY = readline.question(`Request accepted - Provide your recovery private key - ` + LogColors.lightBlue(`Your answer: `));
         const RECOVERY_PRIVATE_KEY = await JsonAsync.parse(Encoder.decodeAsBuffer(INPUT_PRIVATE_KEY));
         const RECOVERY_KEY = Cryptography.getPublicKey(RECOVERY_PRIVATE_KEY);
         const COMMITMENT = Multihash.canonicalizeThenHashThenEncode(RECOVERY_KEY);
-        if (RECOVERY_COMMITMENT === COMMITMENT) {
-            console.log(LogColors.green(`Success! You will be able to recover your tyronZIL DID`));
-        } else {
+        if (RECOVERY_COMMITMENT !== COMMITMENT) {
             console.log(LogColors.red(`The client has rejected the given key`));
-            throw new SidetreeError(ErrorCode.CouldNotVerifyKey)
+            return undefined;
+        } else {
+            console.log(LogColors.green(`Success! You will be able to recover your tyronZIL DID`));
+
+            // Resets the public keys and services:
+            const PUBLIC_KEYS = await this.InputKeys();
+            const SERVICE = await this.InputService();
+
+            const CLI_INPUT: CliInputModel = {
+                network: DID_SCHEME.network,
+                publicKeyInput: PUBLIC_KEYS,
+                service: SERVICE
+            }
+
+            const RECOVERY_INPUT: RecoverOperationInput = {
+                did_tyronZIL: DID_SCHEME,
+                recoveryPrivateKey: RECOVERY_PRIVATE_KEY,
+                cliInput: CLI_INPUT 
+            };
+
+            const DID_EXECUTED = await DidRecover.execute(RECOVERY_INPUT);
+            
+            /***            ****            ***/
+
+            // Builds the new DID-state:
+            const DID_NEW_STATE = await DidState.build(DID_EXECUTED);
+            
+            try{
+                await DidState.write(DID_NEW_STATE);
+            } catch {
+                throw new SidetreeError(ErrorCode.CouldNotSave);
+            }
+
+            /***            ****            ***/
+
+            /** Resolves the tyronZIL DID into its DID-document */        
+            const DID_RESOLVED = await DidDoc.resolve(DID_NEW_STATE);
+            
+            // Saves the DID-document
+            try{
+                await DidDoc.write(DID_RESOLVED);
+            } catch {
+                throw new SidetreeError(ErrorCode.CouldNotSave);
+            }
+
+            /***            ****            ***/
+
+            // Saves private keys:
+            const PRIVATE_KEYS: PrivateKeys = {
+                privateKeys: DID_EXECUTED.privateKey,
+                updatePrivateKey: Encoder.encode(Buffer.from(JSON.stringify(DID_EXECUTED.updatePrivateKey))),
+                recoveryPrivateKey: Encoder.encode(Buffer.from(JSON.stringify(DID_EXECUTED.recoveryPrivateKey))),
+            };
+            const KEY_FILE_NAME = `DID_PRIVATE_KEYS_${DID_STATE.did_tyronZIL}.json`;
+            fs.writeFileSync(KEY_FILE_NAME, JSON.stringify(PRIVATE_KEYS, null, 2));
+            console.info(LogColors.yellow(`Private keys saved as: ${LogColors.brightYellow(KEY_FILE_NAME)}`));
         }
-
-        /***            ****            ***/
-
-        // Resets the public keys and services:
-        const PUBLIC_KEYS = await this.InputKeys();
-        const SERVICE = await this.InputService();
-
-        const CLI_INPUT: CliInputModel = {
-            network: DID_SCHEME.network,
-            publicKeyInput: PUBLIC_KEYS,
-            service: SERVICE
-        }
-
-        const RECOVERY_INPUT: RecoverOperationInput = {
-            did_tyronZIL: DID_SCHEME,
-            recoveryPrivateKey: RECOVERY_PRIVATE_KEY,
-            cliInput: CLI_INPUT 
-        };
-
-        const DID_EXECUTED = await DidRecover.execute(RECOVERY_INPUT);
-        
-        /***            ****            ***/
-
-        // Builds the new DID-state:
-        const DID_NEW_STATE = await DidState.build(DID_EXECUTED);
-        
-        try{
-            await DidState.write(DID_NEW_STATE);
-        } catch {
-            throw new SidetreeError(ErrorCode.CouldNotSave);
-        }
-
-        // Saves private keys:
-        const PRIVATE_KEYS: PrivateKeys = {
-            privateKeys: DID_EXECUTED.privateKey,
-            updatePrivateKey: Encoder.encode(Buffer.from(JSON.stringify(DID_EXECUTED.updatePrivateKey))),
-            recoveryPrivateKey: Encoder.encode(Buffer.from(JSON.stringify(DID_EXECUTED.recoveryPrivateKey))),
-        };
-        const KEY_FILE_NAME = `PRIVATE_KEYS_${DID_STATE.did_tyronZIL}.json`;
-        fs.writeFileSync(KEY_FILE_NAME, JSON.stringify(PRIVATE_KEYS, null, 2));
-        console.info(LogColors.yellow(`Private keys saved as: ${LogColors.brightYellow(KEY_FILE_NAME)}`));
     }
-
     /** Handles the deactivate subcommand */
     public static async handleDeactivate(): Promise<void> {
         // Asks for the DID to deactivate:
