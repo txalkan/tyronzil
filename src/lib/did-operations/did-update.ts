@@ -69,6 +69,8 @@ interface RequestData {
     delta?: string;
 }
 
+/***            ****            ***/
+
 /** Generates a Sidetree-based `DID-update` operation */
 export default class DidUpdate{
     public readonly did_tyronZIL: TyronZILScheme;
@@ -111,12 +113,19 @@ export default class DidUpdate{
         this.updatePrivateKey = operationOutput.updatePrivateKey;
         this.updateCommitment = operationOutput.updateCommitment;
     }
+
+    /***            ****            ***/
     
     /** Generates a Sidetree-based `DID-update` operation with input from the CLI */
     public static async execute(input: UpdateOperationInput): Promise<DidUpdate> {
-        const NEW_STATE = input.didState;
-        NEW_STATE.status = OperationType.Update;
+        /** The tyronZIL DID-state that updates */
+        const DID_STATE = input.didState;
+        DID_STATE.status = OperationType.Update;
 
+        /** Maps the public keys to their IDs */
+        const KEY_MAP = new Map((DID_STATE.publicKey || []).map(publicKey => [publicKey.id, publicKey]));
+
+        /** The requested update patch by the user*/
         const ACTION = input.patch.action;
         const PATCHES = [];
         let PRIVATE_KEYS;
@@ -126,12 +135,13 @@ export default class DidUpdate{
                     const ADD_KEYS = await DidUpdate.addKeys(input.patch.keyInput);
                     PATCHES.push(ADD_KEYS.patch);
                     PRIVATE_KEYS = ADD_KEYS.privateKey
+
                     for (const key of ADD_KEYS.publicKey) {
-                        NEW_STATE.publicKey?.push(key);
+                        DID_STATE.publicKey?.push(key);
                     }
                 }
                 break;
-            case PatchAction.AddServices: 
+            case PatchAction.AddServices:
             {
                 const SERVICES = input.patch.service_endpoints;
                 if (SERVICES !== undefined) {
@@ -140,22 +150,40 @@ export default class DidUpdate{
                         service_endpoints: input.patch.service_endpoints
                     })
                     for (const service of SERVICES) {
-                        NEW_STATE.service?.push(service)
+                        DID_STATE.service?.push(service)
                     }
                 }
             }
                 break;
             case PatchAction.RemoveServices:
-                PATCHES.push({
-                    action: PatchAction.RemoveServices,
-                    ids: input.patch.ids
-                })
+                if (DID_STATE.service !== undefined && input.patch.ids !== undefined) {
+                    PATCHES.push({
+                        action: PatchAction.RemoveServices,
+                        ids: input.patch.ids
+                    })
+                    
+                    /** IDs of the services to remove */
+                    const IDs = new Set(input.patch.ids);
+
+                    DID_STATE.service = DID_STATE.service.filter(service => !IDs.has(service.id))
+                }
                 break;
             case PatchAction.RemoveKeys:
-                PATCHES.push({
-                    action: PatchAction.RemoveKeys,
-                    public_keys: input.patch.public_keys
-                })
+                if (input.patch.public_keys !== undefined && DID_STATE.publicKey !== undefined) {
+                    PATCHES.push({
+                        action: PatchAction.RemoveKeys,
+                        public_keys: input.patch.public_keys
+                    });
+                    const ID = input.patch.public_keys;
+                    for (const id of ID) {
+                        if (typeof id === 'string') {
+                            const KEY = KEY_MAP.get(id);
+                            if (KEY !== undefined) {
+                                KEY_MAP.delete(id)
+                            }
+                        }
+                    } 
+                }
                 break;
             default:
                 throw new SidetreeError(ErrorCode.IncorrectPatchAction);
@@ -198,7 +226,7 @@ export default class DidUpdate{
             operationBuffer: OPERATION_BUFFER,
             updateOperation: UPDATE_OPERATION,
             operation: VM_OPERATION,
-            didState: NEW_STATE,
+            didState: DID_STATE,
             privateKey: PRIVATE_KEYS,
             updateKey: UPDATE_KEY,
             updatePrivateKey: UPDATE_PRIVATE_KEY,

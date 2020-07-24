@@ -20,7 +20,7 @@ import { TyronZILUrlScheme } from './tyronZIL-schemes/did-url-scheme';
 import * as fs from 'fs';
 import LogColors from '../bin/log-colors';
 
-interface DidDocOutput {
+interface DidDocScheme {
     id: string;
     publicKey: VerificationMethodModel[];
     operation: VerificationMethodModel;
@@ -31,6 +31,8 @@ interface DidDocOutput {
     created?: number; // MUST be a valid XML datetime value, as defined in section 3.3.7 of [W3C XML Schema Definition Language (XSD) 1.1 Part 2: Datatypes [XMLSCHEMA1.1-2]]. This datetime value MUST be normalized to UTC 00:00, as indicated by the trailing "Z"
     updated?: number; // timestamp of the most recent change
 }
+
+/***            ****            ***/
 
 /** Generates a tyronZIL DID document */
 export default class DidDoc {
@@ -43,7 +45,7 @@ export default class DidDoc {
     public readonly service?: ServiceEndpointModel[];
 
     private constructor (
-        operationOutput: DidDocOutput
+        operationOutput: DidDocScheme
     ) {
         this.id = operationOutput.id;
         this.publicKey = operationOutput.publicKey;
@@ -53,71 +55,91 @@ export default class DidDoc {
         this.controller = operationOutput.controller;
         this.service = operationOutput.service;
     }
-    
+
+    /***            ****            ***/
+
+    /** Saves the DID-document */
     public static async write(input: DidDoc): Promise<void> {
         const PRINT_STATE = JSON.stringify(input, null, 2);
-
-        // Saves the DID-document:
-        const FILE_NAME = `${input.id}-DID_DOCUMENT.json`;
+        const FILE_NAME = `DID_DOCUMENT_${input.id}.json`;
         fs.writeFileSync(FILE_NAME, PRINT_STATE);
         console.info(LogColors.yellow(`DID-document saved as: ${LogColors.brightYellow(FILE_NAME)}`));
     }
 
-    /** Creates a brand new DID and its document */
+    /** Resolves any tyronZIL DID-state into its DID-document */
     public static async resolve(input: DidState): Promise<DidDoc> {
         
+        /** Validates tyronZIL's DID-scheme */
         const DID_SCHEME = await TyronZILUrlScheme.validate(input.did_tyronZIL)
         const ID: string = DID_SCHEME.did_tyronZIL;
 
+        /***            ****            ***/
+        /** Reads the public keys */
         const PUBLIC_KEYS = input.publicKey;
         const PUBLIC_KEY = [];
         const AUTHENTICATION = [];
 
         if (Array.isArray(PUBLIC_KEYS)) {
             for (const key of PUBLIC_KEYS) {
-                const id: string = ID + '#' + key.id;
+
+                /** The key ID */
+                const DID_URL: string = ID + '#' + key.id;
                 const VERIFICATION_METHOD: VerificationMethodModel = {
-                    id: id,
+                    id: DID_URL,
                     type: key.type,
                     jwk: key.jwk
                 };
+
+                /** The verification relationship for the key */
                 const PURPOSE: Set<string> = new Set(key.purpose);
 
                 if (PURPOSE.has(PublicKeyPurpose.General)) {
                     PUBLIC_KEY.push(VERIFICATION_METHOD);
                     
+                    // The authentication property
+                    // referenced key:
                     if (PURPOSE.has(PublicKeyPurpose.Auth)) {
-                        // referenced key:
-                        AUTHENTICATION.push(id); 
+                        AUTHENTICATION.push(DID_URL); 
                     }
+                
+                // embedded key, when is not a general key
                 } else if (PURPOSE.has(PublicKeyPurpose.Auth)) {
-                    // embedded key:
                     AUTHENTICATION.push(VERIFICATION_METHOD); 
                 }
             }
         }
 
-        const SERVICE_ENDPOINTS = input.service;
-        const SERVICE = [];
+        /***            ****            ***/
+
+        /** Service property */
+        const SERVICE_INTERFACE = input.service;
+        const SERVICES = [];
         
-        if (Array.isArray(SERVICE_ENDPOINTS)) {
-            for (const service of SERVICE_ENDPOINTS) {
-                const serviceEndpoint: ServiceEndpointModel = {
+        if (Array.isArray(SERVICE_INTERFACE)) {
+            for (const service of SERVICE_INTERFACE) {
+                const SERVICE: ServiceEndpointModel = {
                     id: ID + '#' + service.id,
                     type: service.type,
                     endpoint: service.endpoint
                 };
-                SERVICE.push(serviceEndpoint);
+                SERVICES.push(SERVICE);
             }
         }
 
+        /***            ****            ***/
+
+        /** The verification method operation */
         const VM_OPERATION: Operation = Object.assign({}, input.operation);
         delete VM_OPERATION.purpose;
 
+        /** The verification method recovery */
         const VM_RECOVERY: Recovery = Object.assign({}, input.recovery);
         delete VM_RECOVERY.purpose;
 
-        const OPERATION_OUTPUT: DidDocOutput = {
+        /***            ****            ***/
+
+        /** The tyronZIL DID-document */
+        const OPERATION_OUTPUT: DidDocScheme = {
             id: ID,
             publicKey: PUBLIC_KEY,
             operation: VM_OPERATION,
@@ -125,8 +147,8 @@ export default class DidDoc {
             authentication: AUTHENTICATION
         };
          
-        if (SERVICE.length !== 0) {
-            OPERATION_OUTPUT.service = SERVICE;
+        if (SERVICES.length !== 0) {
+            OPERATION_OUTPUT.service = SERVICES;
         }
 
         return new DidDoc(OPERATION_OUTPUT);

@@ -24,31 +24,43 @@ import OperationType from '@decentralized-identity/sidetree/dist/lib/core/enums/
 
 export interface DidStateModel {
     did_tyronZIL: string;
+    status: OperationType
     publicKey?: PublicKeyModel[];       // undefined after deactivation
     operation?: Operation;              // undefined after deactivation
     recovery?: Recovery;                // undefined after deactivation
     updateCommitment?: string;          // undefined after deactivation
     recoveryCommitment?: string;        // undefined after deactivation
     service?: ServiceEndpointModel[];   // undefined after deactivation
-    lastTransaction?: number;
-    status: OperationType
+    lastTransaction?: number;   
 }
 
+/***            ****            ***/
+
+/** tyronZIL's DID-state */
 export default class DidState {
     public readonly did_tyronZIL: string;
+    public status: OperationType
+
+    // W3C and Sidetree verification methods
     public readonly publicKey?: PublicKeyModel[];
     public readonly operation?: Operation;
     public readonly recovery?: Recovery;
+
+    // Sidetree commitments
     public readonly updateCommitment?: string;
     public readonly recoveryCommitment?: string;
-    public readonly service?: ServiceEndpointModel[];
-    public readonly lastTransaction?: number;
-    public status: OperationType
 
+    // Services
+    public service?: ServiceEndpointModel[];
+
+    // Ledger-time of the last transaction that affected the state
+    public readonly lastTransaction?: number;
+    
     private constructor(
         input: DidStateModel
     ) {
         this.did_tyronZIL = input.did_tyronZIL;
+        this.status = input.status
         this.publicKey = input.publicKey;
         this.operation = input.operation;
         this.recovery = input.recovery;
@@ -56,25 +68,23 @@ export default class DidState {
         this.recoveryCommitment = input.recoveryCommitment
         this.service = input.service;
         this.lastTransaction = input.lastTransaction;
-        this.status = input.status
     }
 
-    /** Writes and saves the DID-state asynchronously */
+    /***            ****            ***/
+
+    /** Saves the DID-state asynchronously */
     public static async write(input: DidState): Promise<void> {
-
         const PRINT_STATE = JSON.stringify(input, null, 2);
-
-        // Saves the DID-state:
-        const FILE_NAME = `${input.did_tyronZIL}-DID_STATE.json`;
+        const FILE_NAME = `DID_STATE_${input.did_tyronZIL}.json`;
         fs.writeFileSync(FILE_NAME, PRINT_STATE);
         console.info(LogColors.yellow(`DID-state saved as: ${LogColors.brightYellow(FILE_NAME)}`));
-
     }
 
-    /** Fetches the current state for the given DID */
+    /***            ****            ***/
+
+    /** Fetches the current DID-state for the given tyronZIL DID */
     public static async fetch(did_tyronZIL: string): Promise<DidState> {
         const FILE_NAME = `${did_tyronZIL}-DID_STATE.json`;
-        
         let DID_STATE_FILE;
         try {
             DID_STATE_FILE = fs.readFileSync(FILE_NAME);
@@ -82,41 +92,46 @@ export default class DidState {
             console.log(LogColors.red(`Could not read the DID-state`));
         }
         
-        let DID_STATE;
+        /** Parses the DID-state */
+        let DID_STATE_JSON;
         if (DID_STATE_FILE !== undefined){
-            
-            DID_STATE = await JsonAsync.parse(DID_STATE_FILE.toString());
+            DID_STATE_JSON = await JsonAsync.parse(DID_STATE_FILE.toString());
         }
         
-        const DID_STATE_MODEL: DidStateModel = {
-            did_tyronZIL: DID_STATE.did_tyronZIL,
-            publicKey: DID_STATE.publicKey,
-            operation: DID_STATE.operation,
-            recovery: DID_STATE.recovery,
-            updateCommitment: DID_STATE.updateCommitment,
-            recoveryCommitment: DID_STATE.recoveryCommitment,
-            service: DID_STATE.service,
-            lastTransaction: DID_STATE.lastTransaction,
-            status: DID_STATE.status
+        /** The tyronZIL DID-state */
+        const DID_STATE: DidStateModel = {
+            did_tyronZIL: DID_STATE_JSON.did_tyronZIL,
+            status: DID_STATE_JSON.status,
+            publicKey: DID_STATE_JSON.publicKey,
+            operation: DID_STATE_JSON.operation,
+            recovery: DID_STATE_JSON.recovery,
+            updateCommitment: DID_STATE_JSON.updateCommitment,
+            recoveryCommitment: DID_STATE_JSON.recoveryCommitment,
+            service: DID_STATE_JSON.service,
+            lastTransaction: DID_STATE_JSON.lastTransaction,
         };
 
-        return new DidState(DID_STATE_MODEL);
+        return new DidState(DID_STATE);
     }
 
-    /** Builds the new DID-state */
-    public static async build(input: DidCreate | DidRecover): Promise<DidState> {
-        const DID_STATE_MODEL: DidStateModel = {
-            did_tyronZIL: input.did_tyronZIL.did_tyronZIL,
-            publicKey: input.publicKey,
-            operation: input.operation,
-            recovery: input.recovery,
-            updateCommitment: input.updateCommitment,
-            recoveryCommitment: input.recoveryCommitment,
-            service: input.service,
-            status: input.type
+    /***            ****            ***/
+
+    /** Serializes the create and recover operation output into its DID-state */
+    public static async build(operation: DidCreate | DidRecover): Promise<DidState> {
+        const DID_STATE: DidStateModel = {
+            did_tyronZIL: operation.did_tyronZIL.did_tyronZIL,
+            publicKey: operation.publicKey,
+            operation: operation.operation,
+            recovery: operation.recovery,
+            updateCommitment: operation.updateCommitment,
+            recoveryCommitment: operation.recoveryCommitment,
+            service: operation.service,
+            status: operation.type
         }
-        return new DidState(DID_STATE_MODEL);
+        return new DidState(DID_STATE);
     }
+
+    /***            ****            ***/
 
     /** Deactivates the DID-state */
     public static async deactivate(operation: DidDeactivate): Promise<DidState> {

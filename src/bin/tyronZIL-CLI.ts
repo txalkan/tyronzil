@@ -41,7 +41,7 @@ export default class TyronCLI {
 
     /** Handles the `create` subcommand */
     public static async handleCreate(): Promise<void> {
-        // Gets network choice from the user:
+        /** Gets network choice from the user */
         const network = readline.question(`On which Zilliqa network do you want to create your tyronZIL DID, mainnet(m) or testnet(t)? [m/t] - Defaults to testnet - ` + LogColors.lightBlue(`Your answer: `));
         
         if (network.toLowerCase() !== 'm' && network.toLowerCase() !== 't') {
@@ -75,23 +75,31 @@ export default class TyronCLI {
 
         // Executes the DID-create operation:
         const DID_EXECUTED = await DidCreate.executeCli(CLI_INPUT);
+
+        /** The globally unique part of the DID */
         const DID_SUFFIX = DID_EXECUTED.didUniqueSuffix;
         
-        const SCHEME_DATA: SchemeInputData = {
+        /***            ****            ***/
+
+        const DID_DATA: SchemeInputData = {
             network: NETWORK,
             didUniqueSuffix: DID_SUFFIX
         };
         
-        // Generates the DID-scheme:
-        const TYRON_SCHEME = await TyronZILScheme.newDID(SCHEME_DATA);
-        const DID_tyronZIL = TYRON_SCHEME.did_tyronZIL;
+        /** The tyronZIL DID-scheme */
+        const DID_SCHEME = await TyronZILScheme.newDID(DID_DATA);
+
+        /** tyronZIL DID instance with the proper DID-scheme */
+        const DID_tyronZIL = DID_SCHEME.did_tyronZIL;
         
-        console.log(LogColors.green(`Your decentralized identity on Zilliqa is: `) + LogColors.brightGreen(`${TYRON_SCHEME.did_tyronZIL}`));     
+        console.log(LogColors.green(`Your decentralized identity on Zilliqa is: `) + LogColors.brightGreen(`${DID_tyronZIL}`));     
         
+        /***            ****            ***/
+
         // Generates the Sidetree Long-Form DID
         if (DID_EXECUTED.encodedDelta !== undefined) {
             const LONG_DID_INPUT: LongFormDidInput = {
-                schemeInput: SCHEME_DATA,
+                schemeInput: DID_DATA,
                 encodedSuffixData: DID_EXECUTED.encodedSuffixData,
                 encodedDelta: DID_EXECUTED.encodedDelta
             }
@@ -105,9 +113,10 @@ export default class TyronCLI {
 
         /***            ****            ***/
 
-        // Builds the DID-state:
+        /** The tyronZIL DID-state */
         const DID_STATE = await DidState.build(DID_EXECUTED);
         
+        // Saves the DID-state
         try{
             await DidState.write(DID_STATE);
         } catch {
@@ -116,9 +125,10 @@ export default class TyronCLI {
         
         /***            ****            ***/
 
-        // Creates the corresponding DID-document and saves it
-        
+        /** Resolves the created tyronZIL DID into its DID-document */        
         const DID_RESOLVED = await DidDoc.resolve(DID_STATE);
+        
+        // Saves the DID-document
         try{
             await DidDoc.write(DID_RESOLVED);
         } catch {
@@ -127,7 +137,7 @@ export default class TyronCLI {
 
         /***            ****            ***/
 
-        // Saves private keys:
+        // Saves the private keys:
         const PRIVATE_KEYS: PrivateKeys = {
             privateKeys: DID_EXECUTED.privateKey,
             updatePrivateKey: Encoder.encode(Buffer.from(JSON.stringify(DID_EXECUTED.updatePrivateKey))),
@@ -138,12 +148,13 @@ export default class TyronCLI {
         console.info(LogColors.yellow(`Private keys saved as: ${LogColors.brightYellow(KEY_FILE_NAME)}`));
     }
 
+
     /** Handles the update subcommand */
     public static async handleUpdate(): Promise<void> {
-        // Asks for the DID to update:
+        /** Gets DID to update from the user */
         const DID = readline.question(`Which tyronZIL DID would you like to update? [TyronZILScheme] - ` + LogColors.lightBlue(`Your answer: `));
         
-        // Validates the DID-scheme
+        /** Validates the tyronZIL DID-scheme */
         let DID_SCHEME;
         try {
             DID_SCHEME = await TyronZILUrlScheme.validate(DID);
@@ -151,20 +162,26 @@ export default class TyronCLI {
             throw new SidetreeError(error);
         }
 
-        // Fetches the requested DID:
+        // Fetches the DID-state
         console.log(LogColors.green(`Fetching the requested DID-state...`));
+         /** The tyronZIL DID-state*/
         const DID_STATE = await DidState.fetch(DID);
         
-        //Validates the update commitment:
+        /***            ****            ***/
+
+        /** The correct update commitment */
         const UPDATE_COMMITMENT = DID_STATE.updateCommitment;
         
+        /** Gets the update private key from the user */
         let UPDATE_PRIVATE_KEY;
         try {
             const INPUT_PRIVATE_KEY = readline.question(`Request accepted - Provide your update private key - ` + LogColors.lightBlue(`Your answer: `));
             UPDATE_PRIVATE_KEY = await JsonAsync.parse(Encoder.decodeAsBuffer(INPUT_PRIVATE_KEY));
             const UPDATE_KEY = Cryptography.getPublicKey(UPDATE_PRIVATE_KEY);
             const COMMITMENT = Multihash.canonicalizeThenHashThenEncode(UPDATE_KEY);
-            if (UPDATE_COMMITMENT === COMMITMENT) {
+            
+            // Verifies that the given commitment matches
+            if (COMMITMENT === UPDATE_COMMITMENT) {
                 console.log(LogColors.green(`Success! You will be able to update your tyronZIL DID`));
             }
         } catch {
@@ -173,7 +190,7 @@ export default class TyronCLI {
 
         /***            ****            ***/
 
-        // Asks for the specific patch action to update the DID:
+        /** Asks for the specific patch action to update the tyronZIL DID */
         const ACTION = readline.question(`You may choose one of the following actions to update your DID:
          'add-keys'(1),
          'remove-keys'(2),
@@ -210,14 +227,21 @@ export default class TyronCLI {
             const SERVICE_ID = readline.question(`Provide the ID of the service that you would like to remove - ` + LogColors.lightBlue(`Your answer: `));
             ID.push(SERVICE_ID)
         } else if (PATCH_ACTION === PatchAction.RemoveKeys) {
-            const KEY_ID = readline.question(`Provide the ID of the service that you would like to remove - ` + LogColors.lightBlue(`Your answer: `));
+            const KEY_ID = readline.question(`Provide the ID of the key that you would like to remove - ` + LogColors.lightBlue(`Your answer: `));
             ID.push(KEY_ID)
         }
+        /** The DID-state patch */
         const PATCH: PatchModel = {
             action: PATCH_ACTION,
+
+            // New keys
             keyInput: PUBLIC_KEYS,
+
+            // New services
             service_endpoints: SERVICE,
-            ids: ID,
+
+            //Remove key by ID
+            ids: ID,    
             public_keys: ID
         }
 
@@ -267,18 +291,16 @@ export default class TyronCLI {
         
         //Validates the recovery commitment:
         const RECOVERY_COMMITMENT = DID_STATE.recoveryCommitment;
-        
-        let RECOVERY_PRIVATE_KEY;
-        try {
-            const INPUT_PRIVATE_KEY = readline.question(`Request accepted - Provide your recovery private key - ` + LogColors.lightBlue(`Your answer: `));
-            RECOVERY_PRIVATE_KEY = await JsonAsync.parse(Encoder.decodeAsBuffer(INPUT_PRIVATE_KEY));
-            const RECOVERY_KEY = Cryptography.getPublicKey(RECOVERY_PRIVATE_KEY);
-            const COMMITMENT = Multihash.canonicalizeThenHashThenEncode(RECOVERY_KEY);
-            if (RECOVERY_COMMITMENT === COMMITMENT) {
-                console.log(LogColors.green(`Success! You will be able to recover your tyronZIL DID`));
-            }
-        } catch {
+    
+        const INPUT_PRIVATE_KEY = readline.question(`Request accepted - Provide your recovery private key - ` + LogColors.lightBlue(`Your answer: `));
+        const RECOVERY_PRIVATE_KEY = await JsonAsync.parse(Encoder.decodeAsBuffer(INPUT_PRIVATE_KEY));
+        const RECOVERY_KEY = Cryptography.getPublicKey(RECOVERY_PRIVATE_KEY);
+        const COMMITMENT = Multihash.canonicalizeThenHashThenEncode(RECOVERY_KEY);
+        if (RECOVERY_COMMITMENT === COMMITMENT) {
+            console.log(LogColors.green(`Success! You will be able to recover your tyronZIL DID`));
+        } else {
             console.log(LogColors.red(`The client has rejected the given key`));
+            throw new SidetreeError(ErrorCode.CouldNotVerifyKey)
         }
 
         /***            ****            ***/
@@ -318,7 +340,7 @@ export default class TyronCLI {
             updatePrivateKey: Encoder.encode(Buffer.from(JSON.stringify(DID_EXECUTED.updatePrivateKey))),
             recoveryPrivateKey: Encoder.encode(Buffer.from(JSON.stringify(DID_EXECUTED.recoveryPrivateKey))),
         };
-        const KEY_FILE_NAME = `${DID_STATE.did_tyronZIL}-PRIVATE_KEYS.json`;
+        const KEY_FILE_NAME = `PRIVATE_KEYS_${DID_STATE.did_tyronZIL}.json`;
         fs.writeFileSync(KEY_FILE_NAME, JSON.stringify(PRIVATE_KEYS, null, 2));
         console.info(LogColors.yellow(`Private keys saved as: ${LogColors.brightYellow(KEY_FILE_NAME)}`));
     }
