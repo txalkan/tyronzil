@@ -26,6 +26,8 @@ Create your brand new tyronZIL DID and resolve it into its corresponding DID-doc
 
 ```tyronzil did create``` and follow the instructions :zap:
 
+> More info [here](https://www.tyronzil.com/operations/CRUD/did-create/)
+
 ### DID-resolve
 
 Resolve any DID into its corresponding DID-document with:
@@ -34,21 +36,23 @@ Resolve any DID into its corresponding DID-document with:
 
 You have to provide the DID that you want to resolve.
 
+> More info [here](https://www.tyronzil.com/operations/CRUD/did-resolve/)
+
 ### DID-recover
 
 In case you want to reset your DID-state while keeping the same identifier. You only need your recovery private key, and the DID itself:
 
 ```tyronzil did recover``` and follow the instructions
 
-To get your recovered DID-doc, you have to [resolve it](#did-resolve).
-
-> tyronZIL DIDs resolve themselves automatically only at [creation](#did-create). After executing other DID-operations, the user has to request it to the client explicitly with ```tyronzil resolve```
+> More info [here](https://www.tyronzil.com/operations/CRUD/did-recover/)
 
 ### DID-update
 
 To update your tyronZIL DID you need your update private key, and the DID itself:
 
 ```tyronzil did update``` and follow the instructions
+
+> More info [here](https://www.tyronzil.com/operations/CRUD/did-update/)
 
 ### DID-deactivate
 
@@ -57,3 +61,5 @@ To fully deactivate your DID:
 ```tyronzil did deactivate``` and follow the instructions
 
 > After deactivation, the DID will not be useful anymore, nor able to be resolved
+
+> More info [here](https://www.tyronzil.com/operations/CRUD/did-deactivate/)
