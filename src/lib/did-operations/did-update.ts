@@ -208,6 +208,7 @@ export default class DidUpdate{
         /** Utilizes the UPDATE_KEY to make the `update reveal value` for the next update operation */
         const NEW_UPDATE_COMMITMENT = Multihash.canonicalizeThenHashThenEncode(Cryptography.removeKid(UPDATE_KEY));
         const VM_OPERATION = await DidCreate.generateVMOperation(UPDATE_KEY, input.did_tyronZIL);
+        DID_STATE.operation = VM_OPERATION;
         
         /***            ****            ***/
 

@@ -43,7 +43,7 @@ export default class DidState {
 
     // W3C and Sidetree verification methods
     public publicKey?: PublicKeyModel[];
-    public readonly operation?: Operation;
+    public operation?: Operation;
     public readonly recovery?: Recovery;
 
     // Sidetree commitments
