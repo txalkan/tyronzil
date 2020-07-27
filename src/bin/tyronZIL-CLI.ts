@@ -152,7 +152,7 @@ export default class TyronCLI {
     /** Handles the update subcommand */
     public static async handleUpdate(): Promise<void> {
         /** Gets DID to update from the user */
-        const DID = readline.question(`Which tyronZIL DID would you like to update? [TyronZILScheme] - ` + LogColors.lightBlue(`Your answer: `));
+        const DID = readline.question(`Which tyronZIL DID would you like to update? [tyronZIL DID-scheme] - ` + LogColors.lightBlue(`Your answer: `));
         
         // Validates the DID-scheme
         let DID_SCHEME;
@@ -275,7 +275,7 @@ export default class TyronCLI {
     /** Handles the recover subcommand */
     public static async handleRecover(): Promise<void> {
         // Asks for the DID to recover:
-        const DID = readline.question(`Which tyronZIL DID would you like to recover? [TyronZILScheme] - ` + LogColors.lightBlue(`Your answer: `));
+        const DID = readline.question(`Which tyronZIL DID would you like to recover? [tyronZIL DID-scheme] - ` + LogColors.lightBlue(`Your answer: `));
         
         // Validates the DID-scheme
         let DID_SCHEME;
@@ -359,7 +359,7 @@ export default class TyronCLI {
     /** Handles the deactivate subcommand */
     public static async handleDeactivate(): Promise<void> {
         // Asks for the DID to deactivate:
-        const DID = readline.question(`Which tyronZIL DID would you like to deactivate? [TyronZILScheme] - ` + LogColors.lightBlue(`Your answer: `));
+        const DID = readline.question(`Which tyronZIL DID would you like to deactivate? [tyronZIL DID-scheme] - ` + LogColors.lightBlue(`Your answer: `));
         
         // Validates the DID-scheme
         let DID_SCHEME;
@@ -443,11 +443,13 @@ export default class TyronCLI {
         }
     }
 
+    /***            ****            ***/
+
     /** Generates the keys' input */
     public static async InputKeys(): Promise<PublicKeyInput[]> {
         
         // Creates the first verification method used with a general purpose as the primary public key and for authentication as verification relationship:
-        console.log(LogColors.green(`Let's create your primary public key! It's a general-purpose verification method, also used for authentication as the verification relationship.`));
+        console.log(LogColors.green(`Let's create a primary signing key for your DID. It's a general-purpose verification method, also used for authentication as the verification relationship.`));
         
         let PRIMARY_KEY_ID = readline.question(`Choose a name for your key - Defaults to 'primarySigningKey' - ` + LogColors.lightBlue(`Your answer: `));
         if (PRIMARY_KEY_ID === "") {
@@ -488,9 +490,11 @@ export default class TyronCLI {
         return PUBLIC_KEYS;
     }
 
+    /***            ****            ***/
+
     /** Generates the services' input */
     public static async InputService(): Promise<ServiceEndpointModel[]> {
-        console.log(LogColors.green(`Let's create your service endpoints!`));
+        console.log(LogColors.green(`Let's create service endpoints for your DID!`));
         
         const SERVICE = [];
         
@@ -505,7 +509,7 @@ export default class TyronCLI {
         }
         SERVICE.push(SERVICE_WEBSITE);
 
-        // Asks the user for their ZIL address:
+        /** Asks the user for their ZIL address */
         const ADD_ADDRESS = readline.question(`Would you like to add your Zilliqa cryptocurrency address (ZIL)? [y] - Defaults to 'no' - ` + LogColors.lightBlue(`Your answer: `));
 
         switch (ADD_ADDRESS.toLowerCase()) {
