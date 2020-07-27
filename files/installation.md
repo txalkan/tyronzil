@@ -63,3 +63,9 @@ To fully deactivate your DID:
 > After deactivation, the DID will not be useful anymore, nor able to be resolved
 
 > More info [here](https://www.tyronzil.com/operations/CRUD/did-deactivate/)
+
+## Documentation
+
+Build the project documentation with:
+
+```typedoc --out```
