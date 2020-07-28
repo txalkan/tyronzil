@@ -223,7 +223,7 @@ export default class DidCreate {
         const VM_OPERATION: Operation = {
             id: ID,
             type: TYPE,
-            jwk: JWK,
+            publicKeyJwk: JWK,
             purpose: SidetreeVerificationRelationship.Operation
         }
         return VM_OPERATION;
@@ -238,7 +238,7 @@ export default class DidCreate {
         const VM_RECOVERY: Recovery = {
             id: ID,
             type: TYPE,
-            jwk: JWK,
+            publicKeyJwk: JWK,
             purpose: SidetreeVerificationRelationship.Recovery
         }
         return VM_RECOVERY;

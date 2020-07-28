@@ -53,7 +53,7 @@ export class Cryptography {
     const publicKeyModel: PublicKeyModel = {
       id: input.id,
       type: 'EcdsaSecp256k1VerificationKey2019',
-      jwk: publicKey,
+      publicKeyJwk: publicKey,
       purpose: input.purpose || Object.values(PublicKeyPurpose)
     };
     return [publicKeyModel, privateKey];

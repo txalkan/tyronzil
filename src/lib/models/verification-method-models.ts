@@ -19,7 +19,7 @@ export interface VerificationMethodModel {
     id: string;
     type: string;
     controller?: string;
-    jwk: JwkEs256k;
+    publicKeyJwk: JwkEs256k;
 }
 
 export interface PublicKeyModel extends VerificationMethodModel {

@@ -87,7 +87,7 @@ export default class DidDoc {
                 const VERIFICATION_METHOD: VerificationMethodModel = {
                     id: DID_URL,
                     type: key.type,
-                    jwk: key.jwk
+                    publicKeyJwk: key.publicKeyJwk
                 };
 
                 /** The verification relationship for the key */
