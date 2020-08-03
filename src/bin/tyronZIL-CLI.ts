@@ -24,7 +24,7 @@ import { PublicKeyPurpose } from '../lib/models/verification-method-models';
 import { LongFormDidInput, TyronZILUrlScheme } from '../lib/tyronZIL-schemes/did-url-scheme';
 import DidState from '../lib/did-state';
 import * as fs from 'fs';
-import DidDoc from '../lib/did-document';
+import DidDoc, {ResolutionInput, Accept} from '../lib/did-document';
 import JsonAsync from '@decentralized-identity/sidetree/dist/lib/core/versions/latest/util/JsonAsync';
 import ServiceEndpointModel from '@decentralized-identity/sidetree/dist/lib/core/versions/latest/models/ServiceEndpointModel';
 import { PrivateKeys, Cryptography} from '../lib/did-keys';
@@ -125,16 +125,9 @@ export default class TyronCLI {
         
         /***            ****            ***/
 
-        /** Resolves the created tyronZIL DID into its DID-document */        
-        const DID_RESOLVED = await DidDoc.resolve(DID_STATE);
+        /** Resolves the tyronZIL DID */        
+        await this.resolve(DID_tyronZIL);
         
-        // Saves the DID-document
-        try{
-            await DidDoc.write(DID_RESOLVED);
-        } catch {
-            throw new SidetreeError(ErrorCode.CouldNotSave);
-        }
-
         /***            ****            ***/
 
         // Saves the private keys:
@@ -148,6 +141,45 @@ export default class TyronCLI {
         console.info(LogColors.yellow(`Private keys saved as: ${LogColors.brightYellow(KEY_FILE_NAME)}`));
     }
 
+    /***            ****            ****/
+
+    /** Resolves the tyronZIL DID and saves it */
+    public static async resolve(did: string): Promise<void> {
+        /** User choice to whether to resolve the DID as a document or resolution result */
+        const RESOLUTION_CHOICE = readline.question(`Would you like to resolve your DID as a document(1) or as a resolution result(2)? [1/2] - Defaults to document - ` + LogColors.lightBlue(`Your answer: `));
+        
+        let ACCEPT;
+        switch (RESOLUTION_CHOICE) {
+            case "1":
+                ACCEPT = Accept.contentType                
+                break;
+            case "2":
+                ACCEPT = Accept.Result
+                break;
+            default:
+                ACCEPT = Accept.contentType
+                break;
+        }
+
+        const RESOLUTION_INPUT: ResolutionInput = {
+            did: did,
+            metadata : {
+                accept: ACCEPT
+            }
+        }
+
+        /** Resolves the created tyronZIL DID into its DID-document */        
+        const DID_RESOLVED = await DidDoc.resolution(RESOLUTION_INPUT);
+        
+        // Saves the DID-document
+        try{
+            await DidDoc.write(did, DID_RESOLVED);
+        } catch {
+            throw new SidetreeError(ErrorCode.CouldNotSave);
+        }
+    }
+
+    /***            ****            ****/
 
     /** Handles the update subcommand */
     public static async handleUpdate(): Promise<void> {
@@ -252,15 +284,10 @@ export default class TyronCLI {
 
         /***            ****            ***/
 
-        /** Resolves the tyronZIL DID into its DID-document */        
-        const DID_RESOLVED = await DidDoc.resolve(DID_EXECUTED.didState);
+        /** Resolves the tyronZIL DID */        
+        await this.resolve(DID);
         
-        // Saves the DID-document
-        try{
-            await DidDoc.write(DID_RESOLVED);
-        } catch {
-            throw new SidetreeError(ErrorCode.CouldNotSave);
-        }
+        /***            ****            ***/
 
         // Saves private keys:
         const PRIVATE_KEYS: PrivateKeys = {
@@ -271,6 +298,8 @@ export default class TyronCLI {
         fs.writeFileSync(KEY_FILE_NAME, JSON.stringify(PRIVATE_KEYS, null, 2));
         console.info(LogColors.yellow(`Private keys saved as: ${LogColors.brightYellow(KEY_FILE_NAME)}`));
     }
+
+    /***            ****            ***/
 
     /** Handles the recover subcommand */
     public static async handleRecover(): Promise<void> {
@@ -333,16 +362,9 @@ export default class TyronCLI {
 
             /***            ****            ***/
 
-            /** Resolves the tyronZIL DID into its DID-document */        
-            const DID_RESOLVED = await DidDoc.resolve(DID_NEW_STATE);
-            
-            // Saves the DID-document
-            try{
-                await DidDoc.write(DID_RESOLVED);
-            } catch {
-                throw new SidetreeError(ErrorCode.CouldNotSave);
-            }
-
+            /** Resolves the tyronZIL DID */        
+            await this.resolve(DID);
+        
             /***            ****            ***/
 
             // Saves private keys:
@@ -356,6 +378,9 @@ export default class TyronCLI {
             console.info(LogColors.yellow(`Private keys saved as: ${LogColors.brightYellow(KEY_FILE_NAME)}`));
         }
     }
+
+    /***            ****            ***/
+
     /** Handles the deactivate subcommand */
     public static async handleDeactivate(): Promise<void> {
         // Asks for the DID to deactivate:
@@ -430,13 +455,7 @@ export default class TyronCLI {
             if (DID_STATE.status === 'deactivate') {
                 throw console.log(LogColors.red(`The given DID is deactivated and therefore will not be resolved`)); 
             } else {
-                // Creates the requested DID-document and saves it:
-                const DID_RESOLVED = await DidDoc.resolve(DID_STATE);
-                try{
-                    await DidDoc.write(DID_RESOLVED);
-                } catch {
-                    throw new SidetreeError(ErrorCode.CouldNotSave);
-                }
+                await this.resolve(DID);
             }
         } catch (error) {
             throw new SidetreeError(ErrorCode.CouldNotResolve)

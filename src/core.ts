@@ -13,12 +13,7 @@
     GNU General Public License for more details.
 */
 
-import {
-  SidetreeConfig,
-  SidetreeCore,
-  SidetreeResponse,
-  SidetreeResponseModel
- } from '@decentralized-identity/sidetree';
+import { SidetreeConfig, SidetreeCore, SidetreeResponse, SidetreeResponseModel } from '@decentralized-identity/sidetree';
 import { ProtocolVersionModel } from '@decentralized-identity/sidetree/dist/lib/core/VersionManager';
 import * as Koa from 'koa';
 import * as getRawBody from 'raw-body';

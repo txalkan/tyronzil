@@ -14,22 +14,56 @@
 */
 
 import DidState from './did-state';
-import { PublicKeyPurpose, Operation, Recovery, VerificationMethodModel } from './models/verification-method-models';
+import { PublicKeyPurpose, VerificationMethodModel } from './models/verification-method-models';
 import ServiceEndpointModel from '@decentralized-identity/sidetree/dist/lib/core/versions/latest/models/ServiceEndpointModel';
 import { TyronZILUrlScheme } from './tyronZIL-schemes/did-url-scheme';
 import * as fs from 'fs';
 import LogColors from '../bin/log-colors';
+import SidetreeError from '@decentralized-identity/sidetree/dist/lib/common/SidetreeError';
+import Error from './ErrorCode';
 
 interface DidDocScheme {
     id: string;
     publicKey: VerificationMethodModel[];
-    operation: VerificationMethodModel;
-    recovery: VerificationMethodModel;
     authentication: (string | VerificationMethodModel)[];
     controller?: string;
     service?: ServiceEndpointModel[];
     created?: number; // MUST be a valid XML datetime value, as defined in section 3.3.7 of [W3C XML Schema Definition Language (XSD) 1.1 Part 2: Datatypes [XMLSCHEMA1.1-2]]. This datetime value MUST be normalized to UTC 00:00, as indicated by the trailing "Z"
     updated?: number; // timestamp of the most recent change
+}
+
+export interface ResolutionInput {
+    did: string;
+    metadata: ResolutionInputMetadata;
+}
+
+export interface ResolutionInputMetadata {
+    accept: Accept;        // to request a certain type of result
+    versionId?: string;     // to request a specific version of the DID-document - mutually exclusive with versionTime
+    versionTime?: string;       // idem versionId - an RFC3339 combined date and time representing when the DID-doc was current for the input DID
+    noCache?: boolean;      // to request a certain kind of caching behavior - 'true': caching is disabled and a fresh DID-doc is retrieved from the registry
+    dereferencingInput?: DereferencingInputMetadata;
+}
+
+interface DereferencingInputMetadata {
+    serviceType?: string;       // to select a specific service from the DID-document
+    followRedirect?: boolean;       // to instruct whether redirects should be followed
+}
+
+export enum Accept {
+    contentType = "application/did+json",      // requests a DId-document as output
+    Result = "application/did+json;profile='https://w3c-ccg.github.io/did-resolution'",     // requests a DID resolution result as output
+}
+
+interface ResolutionResult {
+    resolutionMetadata?: unknown;
+    document: DidDoc;
+    metadata: DocumentMetadata;
+}
+
+interface DocumentMetadata {
+    updateCommitment?: string;      // both commitments are undefined after deactivation
+    recoveryCommitment?: string;
 }
 
 /***            ****            ***/
@@ -38,8 +72,6 @@ interface DidDocScheme {
 export default class DidDoc {
     public readonly id: string;
     public readonly publicKey: VerificationMethodModel[];
-    public readonly operation?: VerificationMethodModel;
-    public readonly recovery?: VerificationMethodModel;
     public readonly authentication: (string | VerificationMethodModel)[];
     public readonly controller?: string;
     public readonly service?: ServiceEndpointModel[];
@@ -49,8 +81,6 @@ export default class DidDoc {
     ) {
         this.id = operationOutput.id;
         this.publicKey = operationOutput.publicKey;
-        this.operation = operationOutput.operation;
-        this.recovery = operationOutput.recovery;
         this.authentication = operationOutput.authentication;
         this.controller = operationOutput.controller;
         this.service = operationOutput.service;
@@ -59,21 +89,27 @@ export default class DidDoc {
     /***            ****            ***/
 
     /** Saves the DID-document */
-    public static async write(input: DidDoc): Promise<void> {
+    public static async write(did: string, input: DidDoc | ResolutionResult): Promise<void> {
         const PRINT_STATE = JSON.stringify(input, null, 2);
-        const FILE_NAME = `DID_DOCUMENT_${input.id}.json`;
+        const FILE_NAME = `DID_RESOLVED_${did}.json`;
         fs.writeFileSync(FILE_NAME, PRINT_STATE);
-        console.info(LogColors.yellow(`DID-document saved as: ${LogColors.brightYellow(FILE_NAME)}`));
+        console.info(LogColors.yellow(`DID resolved as: ${LogColors.brightYellow(FILE_NAME)}`));
     }
 
-    /** Resolves any tyronZIL DID-state into its DID-document */
-    public static async resolve(input: DidState): Promise<DidDoc> {
+    /** Generates a 'DID-read' operation, resolving any tyronZIL DID-state into its DID-document */
+    public static async read(input: DidState): Promise<DidDoc> {
         
         /** Validates tyronZIL's DID-scheme */
-        const DID_SCHEME = await TyronZILUrlScheme.validate(input.did_tyronZIL)
-        const ID: string = DID_SCHEME.did_tyronZIL;
+        let ID;
+        try {
+            const DID_SCHEME = await TyronZILUrlScheme.validate(input.did_tyronZIL);
+            ID = DID_SCHEME.did_tyronZIL;
+        } catch (error) {
+            throw new SidetreeError(Error.InvalidDID);
+        }
 
         /***            ****            ***/
+
         /** Reads the public keys */
         const PUBLIC_KEYS = input.publicKey;
         const PUBLIC_KEY = [];
@@ -126,24 +162,10 @@ export default class DidDoc {
             }
         }
 
-        /***            ****            ***/
-
-        /** The verification method operation */
-        const VM_OPERATION: Operation = Object.assign({}, input.operation);
-        delete VM_OPERATION.purpose;
-
-        /** The verification method recovery */
-        const VM_RECOVERY: Recovery = Object.assign({}, input.recovery);
-        delete VM_RECOVERY.purpose;
-
-        /***            ****            ***/
-
         /** The tyronZIL DID-document */
         const OPERATION_OUTPUT: DidDocScheme = {
             id: ID,
             publicKey: PUBLIC_KEY,
-            operation: VM_OPERATION,
-            recovery: VM_RECOVERY,
             authentication: AUTHENTICATION
         };
          
@@ -152,5 +174,30 @@ export default class DidDoc {
         }
 
         return new DidDoc(OPERATION_OUTPUT);
+    }
+
+    /***            ****            ***/
+
+    /** The tyronZIL DID resolution function */
+    public static async resolution(input: ResolutionInput): Promise<ResolutionResult | DidDoc> {
+        const ACCEPT = input.metadata.accept;
+        const DID_tyronZIL = input.did;
+        const DID_STATE = await DidState.fetch(DID_tyronZIL);
+        const DID_DOC = await DidDoc.read(DID_STATE);
+        
+        switch (ACCEPT) {
+            case Accept.contentType:
+                return DID_DOC;
+            case Accept.Result: {
+                const RESOLUTION_RESULT: ResolutionResult = {
+                    document: DID_DOC,
+                    metadata: {
+                        updateCommitment: DID_STATE.updateCommitment,
+                        recoveryCommitment: DID_STATE.recoveryCommitment,
+                    }
+                }
+                return RESOLUTION_RESULT;
+            }
+        }
     }
 }

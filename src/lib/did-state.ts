@@ -41,13 +41,11 @@ export default class DidState {
     public readonly did_tyronZIL: string;
     public status: OperationType
 
-    // W3C and Sidetree verification methods
+    // Verification methods
     public publicKey?: PublicKeyModel[];
-    public operation?: Operation;
-    public readonly recovery?: Recovery;
-
+    
     // Sidetree commitments
-    public readonly updateCommitment?: string;
+    public updateCommitment?: string;
     public readonly recoveryCommitment?: string;
 
     // Services
@@ -62,8 +60,6 @@ export default class DidState {
         this.did_tyronZIL = input.did_tyronZIL;
         this.status = input.status
         this.publicKey = input.publicKey;
-        this.operation = input.operation;
-        this.recovery = input.recovery;
         this.updateCommitment = input.updateCommitment;
         this.recoveryCommitment = input.recoveryCommitment
         this.service = input.service;

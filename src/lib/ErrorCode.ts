@@ -26,8 +26,8 @@ export default {
     IncorrectNetwork: 'The_network_namespace_is_invalid',
     CouldNotSave: 'Could not save the DID file',
     CouldNotVerifyKey: 'The given key is wrong',
-    InvalidDID: 'The client has rejected the input - invalid DID',
+    InvalidDID: 'The client has rejected the input - invalid tyronZIL DID',
     CouldNotResolve: 'The client has rejected your resolve request',
-    IncorrectPatchAction: 'The chosen action is not valid'
+    IncorrectPatchAction: 'The chosen action is not valid',
 };
   

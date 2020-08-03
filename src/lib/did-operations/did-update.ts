@@ -15,7 +15,7 @@
 
 import TyronZILScheme from '../tyronZIL-schemes/did-scheme';
 import { Cryptography, OperationKeyPairInput, JwkEs256k } from '../did-keys';
-import { PublicKeyModel, Operation } from '../models/verification-method-models';
+import { PublicKeyModel } from '../models/verification-method-models';
 import Jws from '@decentralized-identity/sidetree/dist/lib/core/versions/latest/util/Jws';
 import Multihash from '@decentralized-identity/sidetree/dist/lib/core/versions/latest/Multihash';
 import Encoder from '@decentralized-identity/sidetree/dist/lib/core/versions/latest/Encoder';
@@ -27,7 +27,6 @@ import { UpdateSignedDataModel } from '../models/signed-data-models';
 import SidetreeError from '@decentralized-identity/sidetree/dist/lib/common/SidetreeError';
 import ErrorCode from '../ErrorCode';
 import { PublicKeyInput } from '../models/cli-input-model';
-import DidCreate from './did-create';
 import DidState from '../did-state';
 
 /** Defines input data for a Sidetree-based `DID-update` operation*/
@@ -44,7 +43,6 @@ interface UpdateOperationOutput {
     sidetreeRequest: RequestData;
     operationBuffer: Buffer;
     updateOperation: UpdateOperation;
-    operation: Operation;       // verification method
     didState: DidState;
     privateKey?: string[];
     updateKey: JwkEs256k;
@@ -83,7 +81,6 @@ export default class DidUpdate{
     public readonly signedData: UpdateSignedDataModel;
     public readonly encodedDelta: string | undefined;
     public readonly delta: DeltaModel | undefined; // undefined when Map file mode is ON
-    public readonly operation: Operation;
     public readonly didState: DidState;
     public readonly privateKey?: string[];
     public readonly updateKey: JwkEs256k;
@@ -106,7 +103,6 @@ export default class DidUpdate{
         };
         this.encodedDelta = operationOutput.updateOperation.encodedDelta;
         this.delta = operationOutput.updateOperation.delta;
-        this.operation = operationOutput.operation;
         this.didState = operationOutput.didState;
         this.privateKey = operationOutput.privateKey;
         this.updateKey = operationOutput.updateKey;
@@ -207,8 +203,7 @@ export default class DidUpdate{
         const [UPDATE_KEY, UPDATE_PRIVATE_KEY] = await Cryptography.jwkPair();
         /** Utilizes the UPDATE_KEY to make the `update reveal value` for the next update operation */
         const NEW_UPDATE_COMMITMENT = Multihash.canonicalizeThenHashThenEncode(Cryptography.removeKid(UPDATE_KEY));
-        const VM_OPERATION = await DidCreate.generateVMOperation(UPDATE_KEY, input.did_tyronZIL);
-        DID_STATE.operation = VM_OPERATION;
+        DID_STATE.updateCommitment = NEW_UPDATE_COMMITMENT;
         
         /***            ****            ***/
 
@@ -238,7 +233,6 @@ export default class DidUpdate{
             sidetreeRequest: SIDETREE_REQUEST,
             operationBuffer: OPERATION_BUFFER,
             updateOperation: UPDATE_OPERATION,
-            operation: VM_OPERATION,
             didState: DID_STATE,
             privateKey: PRIVATE_KEYS,
             updateKey: UPDATE_KEY,
