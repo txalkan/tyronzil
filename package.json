@@ -34,6 +34,7 @@
   "dependencies": {
     "@decentralized-identity/sidetree": "^0.9.1",
     "chalk": "^4.1.0",
+    "elliptic": "^6.5.3",
     "koa": "^2.13.0",
     "koa-router": "^9.1.0",
     "markdown-it": "^9.1.0",
