@@ -15,9 +15,9 @@
 import ServiceEndpointModel from '@decentralized-identity/sidetree/dist/lib/core/versions/latest/models/ServiceEndpointModel';
 import { PublicKeyModel, Operation, Recovery } from './models/verification-method-models';
 import * as fs from 'fs';
-import LogColors from '../bin/log-colors';
+import LogColors from '../../bin/log-colors';
 import DidCreate from './did-operations/did-create';
-import DidRecover from '../lib/did-operations/did-recover';
+import DidRecover from './did-operations/did-recover';
 import JsonAsync from '@decentralized-identity/sidetree/dist/lib/core/versions/latest/util/JsonAsync';
 import DidDeactivate from './did-operations/did-deactivate';
 import OperationType from '@decentralized-identity/sidetree/dist/lib/core/enums/OperationType';
