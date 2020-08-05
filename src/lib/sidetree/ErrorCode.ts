@@ -29,5 +29,8 @@ export default {
     InvalidDID: 'The client has rejected the input - invalid tyronZIL DID',
     CouldNotResolve: 'The client has rejected your resolve request',
     IncorrectPatchAction: 'The chosen action is not valid',
+    RepeatedDID: 'There cannot be more than one operation per DID per tyronZIL transaction',
+    BeyondCountLimit: 'The number of operations is beyond the maximum limit for a tyronZIL transaction',
+    FileSizeExceedsLimit: 'The file size exceeds the allowed limit',
 };
   

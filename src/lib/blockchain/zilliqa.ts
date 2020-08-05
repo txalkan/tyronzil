@@ -15,24 +15,23 @@
 
 import Multihash from '@decentralized-identity/sidetree/dist/lib/core/versions/latest/Multihash';
 
-
 /** Handles the microservice that interacts with the Zilliqa blockchain platform */
 export default class Zilliqa {
-    /** What to write */
+    /** The hash of the tyronZIL transaction */
     public readonly tyronHash: string;
-        /** Sidetree Anchor file string - max 10.000 operations */
+        /** Sidetree Anchor file string written in the transaction - max 10.000 operations */
         public readonly anchorString: string;
 
     /** When to write it */
-    public ledgerTime: number;
-        //** Sidetree's ledgerTime hash */
-        public ledgerHash: string;
+    public readonly ledgerTime: number;
+        //** The hash of the ledger time when the transaction occurs */
+        public readonly ledgerHash: string;
 
     /** Wallet address for Zilliqa */
-    public ZILwallet: string;
+    public readonly ZILwallet: string;
         /** Wallet verification method - encoded */
-        // The client needs to know it to use its tyronWallet
-        public tyronCommitment: string;
+        // The client needs to know it to change its tyronWallet
+        public readonly tyronCommitment: string;
 
     private constructor (
         zilliqaMicroservice: transactionOutput
@@ -41,12 +40,11 @@ export default class Zilliqa {
         this.anchorString = zilliqaMicroservice.anchorString;
         this.ledgerTime = zilliqaMicroservice.ledgerTime;
         this.ledgerHash = zilliqaMicroservice.ledgerHash;
-        this.tyronHash = zilliqaMicroservice.tyronHash;
         this.ZILwallet = zilliqaMicroservice.ZILwallet;
         this.tyronCommitment = zilliqaMicroservice.tyronCommitment;
     }
 
-    /** Executes the transaction on the Zilliqa blockchain platform and saves its hash */
+    /** Executes a tyronZIL transaction on the Zilliqa blockchain platform and saves its hash */
     public static async execute(input: transactionInput): Promise<Zilliqa> {
         /** Validates that Map file is on CAS */
         let MAP_FILE_OBJECT: MapFileObject = {
@@ -144,7 +142,7 @@ export default class Zilliqa {
 /***            ** interfaces **            ***/
 
 export interface transactionOutput {
-    /** Hash of the Sidetree Anchor string */
+    /** The Sidetree Anchor string - CAS URI of the corresponding Anchor file prefixed with the operation count */
     anchorString: string;
     /** Blockchain block time */
     ledgerTime: number;

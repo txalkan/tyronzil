@@ -29,50 +29,10 @@ import ErrorCode from '../ErrorCode';
 import { PublicKeyInput } from '../models/cli-input-model';
 import DidState from '../did-state';
 
-/** Defines input data for a Sidetree-based `DID-update` operation*/
-export interface UpdateOperationInput {
-    did_tyronZIL: TyronZILScheme;
-    updatePrivateKey: JwkEs256k;
-    patch: PatchModel;
-    didState: DidState;
-}
-
-/** Defines output data of a Sidetree-based `DID-update` operation */
-interface UpdateOperationOutput {
-    did_tyronZIL: TyronZILScheme;
-    sidetreeRequest: RequestData;
-    operationBuffer: Buffer;
-    updateOperation: UpdateOperation;
-    didState: DidState;
-    privateKey?: string[];
-    updateKey: JwkEs256k;
-    updatePrivateKey: JwkEs256k;
-    updateCommitment: string;
-}
-
-/** Defines input data for a Sidetree-based `DID-update` operation REQUEST*/
-interface RequestInput {
-    did_tyronZIL: TyronZILScheme;
-    updateKey: JwkEs256k;
-    updatePrivateKey: JwkEs256k;
-    updateCommitment: string;
-    patches: PatchModel[];
-}
-
-/** Defines data for a Sidetree UpdateOperation REQUEST*/
-interface RequestData {
-    did_suffix: string;
-    signed_data: string;
-    type?: OperationType.Update;
-    delta?: string;
-}
-
-/***            ****            ***/
-
 /** Generates a Sidetree-based `DID-update` operation */
 export default class DidUpdate{
     public readonly did_tyronZIL: TyronZILScheme;
-    public readonly sidetreeRequest: RequestData;
+    public readonly sidetreeRequest: SignedDataRequest;
     public readonly operationBuffer: Buffer;
     public readonly updateOperation: UpdateOperation;
     public readonly type: OperationType.Update;
@@ -245,7 +205,7 @@ export default class DidUpdate{
     /***            ****            ***/
 
     /** Generates the Sidetree data for the `DID-update` operation */
-    public static async sidetreeRequest(input: RequestInput): Promise<RequestData> {
+    public static async sidetreeRequest(input: RequestInput): Promise<SignedDataRequest> {
         
         /** The Update Operation Delta Object */
         const DELTA = {
@@ -264,7 +224,7 @@ export default class DidUpdate{
         const SIGNED_DATA_JWS = await Cryptography.signUsingEs256k(SIGNED_DATA, input.updatePrivateKey);
 
         /** DID data to generate a Sidetree UpdateOperation */
-        const SIDETREE_REQUEST: RequestData = {
+        const SIDETREE_REQUEST: SignedDataRequest = {
             did_suffix: input.did_tyronZIL.didUniqueSuffix,
             signed_data: SIGNED_DATA_JWS,
             type: OperationType.Update,
@@ -274,45 +234,85 @@ export default class DidUpdate{
     }
 
     private static async addKeys(input: PublicKeyInput[]): Promise<NewKeys> {
-    const PUBLIC_KEYS = [];
-    const PRIVATE_KEYS = [];
+        const PUBLIC_KEYS = [];
+        const PRIVATE_KEYS = [];
 
-    const PRIMARY_KEY_INPUT = input[0];
+        const PRIMARY_KEY_INPUT = input[0];
 
-    /** To create the DID primary public key */
-    const KEY_PAIR_INPUT: OperationKeyPairInput = {
-        id: PRIMARY_KEY_INPUT.id,
-        purpose: PRIMARY_KEY_INPUT.purpose
-    }
-    // Creates DID primary key-pair:
-    const [PRIMARY_KEY, PRIMARY_PRIVATE_KEY] = await Cryptography.operationKeyPair(KEY_PAIR_INPUT);
-    PUBLIC_KEYS.push(PRIMARY_KEY);
-    PRIVATE_KEYS.push(Encoder.encode(Buffer.from(JSON.stringify(PRIMARY_PRIVATE_KEY))));
-
-    if (input.length === 2) {
-        const SECONDARY_KEY_INPUT = input[1];
-        
-        /** To create the DID secondary public key */
+        /** To create the DID primary public key */
         const KEY_PAIR_INPUT: OperationKeyPairInput = {
-            id: SECONDARY_KEY_INPUT.id,
-            purpose: SECONDARY_KEY_INPUT.purpose
+            id: PRIMARY_KEY_INPUT.id,
+            purpose: PRIMARY_KEY_INPUT.purpose
         }
-        // Creates DID secondary key-pair:
-        const [SECONDARY_KEY, SECONDARY_PRIVATE_KEY] = await Cryptography.operationKeyPair(KEY_PAIR_INPUT);
-        PUBLIC_KEYS.push(SECONDARY_KEY);
-        PRIVATE_KEYS.push(Encoder.encode(Buffer.from(JSON.stringify(SECONDARY_PRIVATE_KEY))));
-    }
-    const PATCH: PatchModel = {
-        action: PatchAction.AddKeys,
-        public_keys: PUBLIC_KEYS
-    };
-    const NEW_KEYS: NewKeys = {
-        patch: PATCH,
-        publicKey: PUBLIC_KEYS,
-        privateKey: PRIVATE_KEYS
-    }
-    return NEW_KEYS;
-    }
+        // Creates DID primary key-pair:
+        const [PRIMARY_KEY, PRIMARY_PRIVATE_KEY] = await Cryptography.operationKeyPair(KEY_PAIR_INPUT);
+        PUBLIC_KEYS.push(PRIMARY_KEY);
+        PRIVATE_KEYS.push(Encoder.encode(Buffer.from(JSON.stringify(PRIMARY_PRIVATE_KEY))));
+
+        if (input.length === 2) {
+            const SECONDARY_KEY_INPUT = input[1];
+            
+            /** To create the DID secondary public key */
+            const KEY_PAIR_INPUT: OperationKeyPairInput = {
+                id: SECONDARY_KEY_INPUT.id,
+                purpose: SECONDARY_KEY_INPUT.purpose
+            }
+            // Creates DID secondary key-pair:
+            const [SECONDARY_KEY, SECONDARY_PRIVATE_KEY] = await Cryptography.operationKeyPair(KEY_PAIR_INPUT);
+            PUBLIC_KEYS.push(SECONDARY_KEY);
+            PRIVATE_KEYS.push(Encoder.encode(Buffer.from(JSON.stringify(SECONDARY_PRIVATE_KEY))));
+        }
+        const PATCH: PatchModel = {
+            action: PatchAction.AddKeys,
+            public_keys: PUBLIC_KEYS
+        };
+        const NEW_KEYS: NewKeys = {
+            patch: PATCH,
+            publicKey: PUBLIC_KEYS,
+            privateKey: PRIVATE_KEYS
+        }
+        return NEW_KEYS;
+        }
+}
+
+/***            ** interfaces **            ***/
+
+/** Defines input data for a Sidetree-based `DID-update` operation*/
+export interface UpdateOperationInput {
+    did_tyronZIL: TyronZILScheme;
+    updatePrivateKey: JwkEs256k;
+    patch: PatchModel;
+    didState: DidState;
+}
+
+/** Defines output data of a Sidetree-based `DID-update` operation */
+interface UpdateOperationOutput {
+    did_tyronZIL: TyronZILScheme;
+    sidetreeRequest: SignedDataRequest;
+    operationBuffer: Buffer;
+    updateOperation: UpdateOperation;
+    didState: DidState;
+    privateKey?: string[];
+    updateKey: JwkEs256k;
+    updatePrivateKey: JwkEs256k;
+    updateCommitment: string;
+}
+
+/** Defines input data for a Sidetree-based `DID-update` operation REQUEST*/
+interface RequestInput {
+    did_tyronZIL: TyronZILScheme;
+    updateKey: JwkEs256k;
+    updatePrivateKey: JwkEs256k;
+    updateCommitment: string;
+    patches: PatchModel[];
+}
+
+/** Defines data for a Sidetree UpdateOperation REQUEST*/
+interface SignedDataRequest {
+    did_suffix: string;
+    signed_data: string;
+    type: OperationType.Update;
+    delta: string;
 }
 
 interface NewKeys {

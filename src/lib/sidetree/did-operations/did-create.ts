@@ -32,7 +32,7 @@ import SuffixDataModel from '../models/suffix-data-model';
 export default class DidCreate {
     public readonly did_tyronZIL: TyronZILScheme;
         public readonly didUniqueSuffix: string;
-    public readonly sidetreeRequest: RequestData;
+    public readonly sidetreeRequest: CreateDataRequest;
         public readonly operationBuffer: Buffer;
     public readonly createOperation: CreateOperation;
         public readonly type: OperationType.Create;
@@ -51,6 +51,8 @@ export default class DidCreate {
         public readonly recoveryKey: JwkEs256k;
         public readonly recoveryPrivateKey: JwkEs256k;
     public readonly service: ServiceEndpointModel[];
+
+    /***            ****            ***/
 
     private constructor (
         operationOutput: CreateOperationOutput
@@ -81,6 +83,8 @@ export default class DidCreate {
         this.service = operationOutput.service;
     }
 
+    /***            ****            ***/
+   
     /** Generates a Sidetree-based `DID-create` operation with input from the CLI */
     public static async executeCli(input: CliInputModel): Promise<DidCreate> {
         
@@ -211,7 +215,7 @@ export default class DidCreate {
     }
 
     /** Generates the Sidetree data for the `DID-create` operation */
-    public static async sidetreeRequest(input: RequestInput): Promise<RequestData> {
+    public static async sidetreeRequest(input: RequestInput): Promise<CreateDataRequest> {
         
         const DOCUMENT: DocumentModel = {
             public_keys: input.publicKey,
@@ -239,7 +243,7 @@ export default class DidCreate {
         const ENCODED_SUFFIX_DATA = Encoder.encode(JSON.stringify(SUFFIX_DATA));
         
         /** DID data to generate a new Sidetree CreateOperation */
-        const SIDETREE_REQUEST: RequestData = {
+        const SIDETREE_REQUEST: CreateDataRequest = {
             suffix_data: ENCODED_SUFFIX_DATA,
             type: OperationType.Create,
             delta: ENCODED_DELTA
@@ -253,7 +257,7 @@ export default class DidCreate {
 /** Defines output data for a Sidetree-based `DID-create` operation */
 interface CreateOperationOutput {
     did_tyronZIL: TyronZILScheme;
-    sidetreeRequest: RequestData;
+    sidetreeRequest: CreateDataRequest;
     operationBuffer: Buffer;
     createOperation: CreateOperation;
     publicKey: PublicKeyModel[];
@@ -278,9 +282,9 @@ interface RequestInput {
 }
 
 /** Defines data for a Sidetree CreateOperation REQUEST*/
-interface RequestData {
+export interface CreateDataRequest {
     suffix_data: string;
-    type?: OperationType.Create;
-    delta?: string;
+    type: OperationType.Create;
+    delta: string;
 }
 
