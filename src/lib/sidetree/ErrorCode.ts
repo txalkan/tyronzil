@@ -32,5 +32,9 @@ export default {
     RepeatedDID: 'There cannot be more than one operation per DID per tyronZIL transaction',
     BeyondCountLimit: 'The number of operations is beyond the maximum limit for a tyronZIL transaction',
     FileSizeExceedsLimit: 'The file size exceeds the allowed limit',
+    AnchorNotCAS: 'The Anchor file is not in the content-addressable-storage',
+    MapNotCAS: 'The Map file is not in the content-addressable-storage',
+    ChunkNotCAS: 'The Chunk file is not in the content-addressable-storage',
+    CouldNotFetchLedgerTime: 'The Zilliqa ledger time could not be retrieved'
 };
   

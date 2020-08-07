@@ -14,25 +14,35 @@
 */
 
 import Multihash from '@decentralized-identity/sidetree/dist/lib/core/versions/latest/Multihash';
+import Cas from '@decentralized-identity/sidetree/dist/lib/core/Cas';
+import TyronAnchor from '../sidetree/protocol-files/anchor-file';
+import SidetreeError from '@decentralized-identity/sidetree/dist/lib/common/SidetreeError';
+import ErrorCode from '../sidetree/ErrorCode';
 
 /** Handles the microservice that interacts with the Zilliqa blockchain platform */
 export default class Zilliqa {
+
     /** The hash of the tyronZIL transaction */
     public readonly tyronHash: string;
-        /** Sidetree Anchor file string written in the transaction - max 10.000 operations */
+        /** Sidetree Anchor string written in the transaction - max 10.000 operations */
         public readonly anchorString: string;
 
-    /** When to write it */
+    /** When to write the transaction, in which block number */
     public readonly ledgerTime: number;
-        //** The hash of the ledger time when the transaction occurs */
+        /** The hash of the ledger block corresponding to the ledger time */
         public readonly ledgerHash: string;
 
-    /** Wallet address for Zilliqa */
+    /** Zilliqa address that executes the tyronZIL transaction */
     public readonly ZILwallet: string;
-        /** Wallet verification method - encoded */
-        // The client needs to know it to change its tyronWallet
+        /** Wallet verification method - public key commitment */
+        // The client needs to know it to change its ZILwallet
         public readonly tyronCommitment: string;
+    
+    /** The content-addressable storage */
+    public static readonly CAS: Cas;
 
+    /***            ****            ***/
+   
     private constructor (
         zilliqaMicroservice: transactionOutput
     ) {
@@ -44,54 +54,49 @@ export default class Zilliqa {
         this.tyronCommitment = zilliqaMicroservice.tyronCommitment;
     }
 
-    /** Executes a tyronZIL transaction on the Zilliqa blockchain platform and saves its hash */
-    public static async execute(input: transactionInput): Promise<Zilliqa> {
-        /** Validates that Map file is on CAS */
-        let MAP_FILE_OBJECT: MapFileObject = {
-            exists: false,
-        };
-        try {
-            MAP_FILE_OBJECT = await this.fetchMapFile(input.anchorString)
-            if (!MAP_FILE_OBJECT.exists) {
-                throw console.error('The corresponding Map File is not in the content-addressable-storage');
-            }
-        } catch (error) {
-            return new error // ZilliqaError(ErrorCode.MapFileNotInCAS) - todo
-        }
-
-        /** The Anchor object */
-        const ANCHOR_FILE_OBJECT: AnchorFileObject = {
-            exists: true,
-            anchorString: input.anchorString,
-            mapFileUri: MAP_FILE_OBJECT.casUri,
-        }
-
-        /** Turns the Anchor string object into its corresponding hash */
-        const ANCHOR_STRING = Multihash.canonicalizeThenHashThenEncode(ANCHOR_FILE_OBJECT);
+    /** Executes a tyronZIL transaction on the Zilliqa blockchain platform */
+    public static async tyronZIL (input: transactionInput): Promise<Zilliqa> {
         
+        /** Validates which files are in the CAS */
+        const FILES_IN_CAS = await this.fetchFile(        
+            input.anchor.casUri,
+            input.anchor.maxSize,
+            input.anchor.mapFileUri,
+            input.anchor.chunkFileUri,
+            input.anchor.maxSizeChunk
+        );
+
+        if (FILES_IN_CAS.anchor === undefined) {
+            throw new SidetreeError(ErrorCode.AnchorNotCAS)
+        }
+
+        if (input.anchor.mapFile !== undefined && FILES_IN_CAS.map === undefined) {
+            throw new SidetreeError(ErrorCode.MapNotCAS)
+        }
+
+        if (input.anchor.chunkFile !== undefined && FILES_IN_CAS.chunk === undefined) {
+            throw new SidetreeError(ErrorCode.ChunkNotCAS)
+        }
+
+        /***            ****            ***/
+
         /** Fetches the Zilliqa latest time stamp */
         const TIME_STAMP = await this.timeStamp();
-        const LATEST_TIME = TIME_STAMP.ledgerTime!;
+        const LATEST_TIME = TIME_STAMP.ledgerTime;
         const LEDGER_TIME = LATEST_TIME + 1;
 
+        const LEDGER_HASH = "to-do";
 
-        /** Fetches the latest block hash */
-        const LEDGER_HASH = TIME_STAMP.ledgerHash!;
-
-        const TYRON_HASH_OBJECT: TyronHashObject = {
-            exists: true,
-            anchorString: ANCHOR_STRING,
-            mapFileUri: MAP_FILE_OBJECT.casUri,
-        }
-        const TYRON_HASH = Multihash.canonicalizeThenHashThenEncode(TYRON_HASH_OBJECT);
+        const tyronZIL_TRANSACTION = {};
+        const TYRON_HASH = Multihash.canonicalizeThenHashThenEncode(tyronZIL_TRANSACTION);
 
         const TRANSACTION_OUTPUT: transactionOutput = {
-            anchorString: ANCHOR_STRING,
+            anchorString: input.anchor.anchorString,
             ledgerTime: LEDGER_TIME,
             ledgerHash: LEDGER_HASH,
+            ZILwallet: 'to-do',
+            tyronCommitment: 'to-do',
             tyronHash: TYRON_HASH,
-            ZILwallet: 'xxx',
-            tyronCommitment: 'xxx',
         }
 
         return new Zilliqa(TRANSACTION_OUTPUT);
@@ -99,22 +104,46 @@ export default class Zilliqa {
 
     /***            ****            ***/
 
-    /** Validates that Map file is in CAS */
-    public static async fetchMapFile(anchorString: string): Promise<MapFileObject> {
-        try {
-            const MAP_FILE_URI = anchorString // await CAS.mapFile(anchorString); todo
-            const MAP_FILE_OBJECT: MapFileObject = {
-                exists: true,
-                casUri: MAP_FILE_URI,
-            }
-            return MAP_FILE_OBJECT;
-        } catch (error) {
-            const MAP_FILE_OBJECT: MapFileObject = {
-                exists: false,
-                casUri: undefined,
-            }
-            return MAP_FILE_OBJECT;
+    /** Validates which files are in the CAS */
+    private static async fetchFile(
+        anchorFileUri: string,
+        maxSize: number,
+        mapFileUri: string | undefined,
+        chunkFileUri: string | undefined,
+        maxSizeChunk: number
+        ): Promise<FilesInCAS> {
+    
+        const FILES_IN_CAS: FilesInCAS = {
+            anchor: undefined,
+            map: undefined,
+            chunk: undefined,
         }
+        
+        try {
+            await this.CAS.read(anchorFileUri, maxSize);
+            FILES_IN_CAS.anchor = true;
+        } catch (error) {
+            FILES_IN_CAS.anchor = undefined;
+        }
+
+        if (mapFileUri !== undefined) {
+            try {
+                await this.CAS.read(mapFileUri, maxSize);
+                FILES_IN_CAS.map = true;
+            } catch (error) {
+                FILES_IN_CAS.map = undefined;
+            }
+        }
+
+        if (chunkFileUri !== undefined) {
+            try {
+                await this.CAS.read(chunkFileUri, maxSizeChunk);
+                FILES_IN_CAS.chunk = true;
+            } catch (error) {
+                FILES_IN_CAS.chunk = undefined;
+            }
+        }
+        return FILES_IN_CAS;
     }
 
     /** Fetches the latest Zilliqa blockchain time */
@@ -123,17 +152,12 @@ export default class Zilliqa {
             const LEDGER_TIME = 9;  // to-do
             const LEDGER_HASH = 'xxx';
             const TIME_STAMP: BlockTimeStamp = {
-                exists: true,
                 ledgerTime: LEDGER_TIME,
                 ledgerHash: LEDGER_HASH,
             }
             return TIME_STAMP;
         } catch (error) {
-            const TIME_STAMP = {
-                exists: false
-            }
-            return TIME_STAMP;
-            
+            throw new SidetreeError(ErrorCode.CouldNotFetchLedgerTime, error)
         }
         
     }
@@ -141,33 +165,32 @@ export default class Zilliqa {
 
 /***            ** interfaces **            ***/
 
-export interface transactionOutput {
-    /** The Sidetree Anchor string - CAS URI of the corresponding Anchor file prefixed with the operation count */
-    anchorString: string;
-    /** Blockchain block time */
-    ledgerTime: number;
-        /** Blockchain hash for the corresponding time */
-        ledgerHash: string;
+interface transactionOutput {
     tyronHash:string;
-    /** The paying wallet - contract address */
+    anchorString: string;
+    ledgerTime: number;
+    ledgerHash: string;
     ZILwallet: string;
-        /** The verification method commitment to change the wallet address */
-        tyronCommitment: string;
+    tyronCommitment: string;
 }
 
 export interface transactionInput {
-    /** Sidetree Anchor string - encoded */
-    anchorString: string;
-
+    anchor: TyronAnchor;
     /** Payment for the transaction - Identity Global Token */
-    // It corresponds to the amount of operations times the operation cost - in ZIL => IGBT/ZIL exchange rate
+    // It corresponds to the number of operations times the operation cost - in ZIL => IGBT/ZIL exchange rate
     IGBT: number;
         operationCost: number;
         /** The verification method to change the operation cost */
         costCommitment: string;
-        
     /** User addresses to call with tyron-smart-contracts (TSMs) */
     tyronAddresses: string[];
+}
+
+/** Checks if the required files are in the CAS before submitting the transaction */
+interface FilesInCAS {
+    anchor: undefined | true;
+    map: undefined | true;
+    chunk: undefined | true;
 }
 
 export interface TyronHashObject {
@@ -176,19 +199,7 @@ export interface TyronHashObject {
     mapFileUri? : string;
 }
 
-export interface MapFileObject {
-    exists: boolean;
-    casUri?: string;
-}
-
-export interface AnchorFileObject {
-    exists: boolean;
-    anchorString?: string;
-    mapFileUri?: string;
-}
-
 export interface BlockTimeStamp {
-    exists:boolean;
-    ledgerTime?: number;
-    ledgerHash?: string;
+    ledgerTime: number;
+    ledgerHash: string;
 }

@@ -33,6 +33,7 @@
   "homepage": "https://github.com/julio-cabdu/tyronzil-js#readme",
   "dependencies": {
     "@decentralized-identity/sidetree": "^0.9.1",
+    "@zilliqa-js/zilliqa": "^1.0.0-alpha.1",
     "chalk": "^4.1.0",
     "elliptic": "^6.5.3",
     "koa": "^2.13.0",
