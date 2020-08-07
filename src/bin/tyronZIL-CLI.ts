@@ -31,7 +31,7 @@ import { PrivateKeys, Cryptography} from '../lib/sidetree/did-keys';
 import Multihash from '@decentralized-identity/sidetree/dist/lib/core/versions/latest/Multihash';
 import Encoder from '@decentralized-identity/sidetree/dist/lib/core/versions/latest/Encoder';
 import SidetreeError from '@decentralized-identity/sidetree/dist/lib/common/SidetreeError';
-import ErrorCode from '../lib/sidetree/ErrorCode';
+import ErrorCode from '../lib/ErrorCode';
 import DidDeactivate, { DeactivateOperationInput } from '../lib/sidetree/did-operations/did-deactivate';
 import { PatchAction, PatchModel } from '../lib/sidetree/models/patch-model';
 import DidUpdate, { UpdateOperationInput } from '../lib/sidetree/did-operations/did-update';

@@ -22,7 +22,7 @@ import Cas from '@decentralized-identity/sidetree/dist/lib/core/Cas';
 import Compressor from '@decentralized-identity/sidetree/dist/lib/core/versions/latest/util/Compressor';
 import ArrayMethods from '@decentralized-identity/sidetree/dist/lib/core/versions/latest/util/ArrayMethods';
 import SidetreeError from '@decentralized-identity/sidetree/dist/lib/common/SidetreeError';
-import ErrorCode from '../ErrorCode';
+import ErrorCode from '../../ErrorCode';
 import TyronMap, { MapFileInput } from './map-file';
 import { CreateDataRequest } from '../did-operations/did-create';
 import MapFileModel from '@decentralized-identity/sidetree/dist/lib/core/versions/latest/models/MapFileModel';
@@ -65,15 +65,15 @@ export default class TyronAnchor {
         public readonly chunkFileUri: string | undefined    // it is undefined if and only all operations are of type Deactivate
     
     /** The maximum size of the compressed Anchor/Map file = 1MB */
-    public static readonly maxSize = 1000000;
+    public readonly maxSize: ProtocolParameters;
     
     /** The maximum size of the compressed Chunk file = 10MB */
-    public static readonly maxSizeChunk = 10000000;
+    public readonly maxSizeChunk: ProtocolParameters;
     
     /***            ****            ***/
    
     private constructor (
-        anchorData: AnchoreFileData
+        anchorData: AnchoreFileData,
     ) {
         this.network = anchorData.network;
         this.model = anchorData.model;
@@ -86,6 +86,8 @@ export default class TyronAnchor {
         this.mapFileUri = this.mapFile!.casUri;
         this.chunkFile = anchorData.chunkFile;
         this.chunkFileUri = this.chunkFile!.casUri;
+        this.maxSize = ProtocolParameters.MaxSize;
+        this.maxSizeChunk = ProtocolParameters.MaxSizeChunk;
     }
 
     /***            ****            ***/
@@ -203,7 +205,11 @@ export default class TyronAnchor {
 
         /***            ****            ***/
         
-        await this.checkMaxSize(ANCHOR_FILE.model, MAP_FILE!.model, CHUNK_FILE!.model);
+        await this.checkMaxSize(
+            ANCHOR_FILE.model,
+            MAP_FILE!.model,
+            CHUNK_FILE!.model
+        );
 
         /***            ****            ***/
 
@@ -249,28 +255,33 @@ export default class TyronAnchor {
     /***            ****            ***/
 
     /** Verifies that the sizes of the files do not exceed the limit */
-    private static async checkMaxSize(anchorModel: AnchorFileModel, mapModel?: MapFileModel, chunkModel?: ChunkFileModel): Promise<void> {
+    private static async checkMaxSize(
+        anchorModel: AnchorFileModel,
+        mapModel: MapFileModel | undefined,
+        chunkModel: ChunkFileModel | undefined
+    ): Promise<void> {
+
         const ANCHOR_BUFFER = await Compressor.compress(Buffer.from(JSON.stringify(anchorModel)));
-        if (ANCHOR_BUFFER.length > this.maxSize) {
+        if (ANCHOR_BUFFER.length > ProtocolParameters.MaxSize) {
             throw new SidetreeError(
                 ErrorCode.FileSizeExceedsLimit,
-                `The compressed Anchor file size of ${ANCHOR_BUFFER.length} bytes exceeds the allowed limit of ${this.maxSize} bytes`
+                `The compressed Anchor file size of ${ANCHOR_BUFFER.length} bytes exceeds the allowed limit of ${ProtocolParameters.MaxSize} bytes`
             );
         }
 
         const MAP_BUFFER = await Compressor.compress(Buffer.from(JSON.stringify(mapModel)));
-        if (MAP_BUFFER.length > this.maxSize) {
+        if (MAP_BUFFER.length > ProtocolParameters.MaxSize) {
             throw new SidetreeError(
                 ErrorCode.FileSizeExceedsLimit,
-                `The compressed Map file size of ${MAP_BUFFER.length} bytes exceeds the allowed limit of ${this.maxSize} bytes`
+                `The compressed Map file size of ${MAP_BUFFER.length} bytes exceeds the allowed limit of ${ProtocolParameters.MaxSize} bytes`
             );
         }
 
         const CHUNK_BUFFER = await Compressor.compress(Buffer.from(JSON.stringify(chunkModel)));    
-        if (CHUNK_BUFFER.length > this.maxSizeChunk) {
+        if (CHUNK_BUFFER.length > ProtocolParameters.MaxSizeChunk) {
             throw new SidetreeError(
                 ErrorCode.FileSizeExceedsLimit,
-                `The compressed Chunk file size of ${CHUNK_BUFFER.length} bytes exceeds the allowed limit of ${this.maxSizeChunk} bytes`
+                `The compressed Chunk file size of ${CHUNK_BUFFER.length} bytes exceeds the allowed limit of ${ProtocolParameters.MaxSizeChunk} bytes`
             );
         }
     }    
@@ -324,4 +335,9 @@ interface SignedDataRequest {
 interface ChunkFileData {
     casUri: string;
     model: ChunkFileModel
+}
+
+enum ProtocolParameters {
+    MaxSize = 1000000,  //bytes
+    MaxSizeChunk = 10000000
 }

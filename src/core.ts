@@ -15,9 +15,9 @@
 
 import { SidetreeConfig, SidetreeCore, SidetreeResponse, SidetreeResponseModel } from '@decentralized-identity/sidetree';
 import { ProtocolVersionModel } from '@decentralized-identity/sidetree/dist/lib/core/VersionManager';
-import * as Koa from 'koa';
-import * as getRawBody from 'raw-body';
-import * as Router from 'koa-router';
+import Koa from 'koa';
+import getRawBody from 'raw-body';
+import Router from 'koa-router';
 
 /** Configures your tyronZIL-js client to initialize the Sidetree Core service */
 interface tyronZILConfig extends SidetreeConfig {
@@ -45,7 +45,7 @@ const SIDETREE_CORE = new SidetreeCore(CONFIG, PROTOCOL_VERSION);
 const APP = new Koa();
 
 // Raw body parser
-APP.use(async (ctx, next) => {
+APP.use(async (ctx: any, next:any) => {
   ctx.body = await getRawBody(ctx.req);
   await next();
 });
@@ -54,20 +54,20 @@ APP.use(async (ctx, next) => {
 const ROUTER = new Router();
 
 // Version request
-ROUTER.get('/version', async (ctx, _next) => {
+ROUTER.get('/version', async (ctx: any, _next: any) => {
   const RESPONSE = await SIDETREE_CORE.handleGetVersionRequest();
   setKoaResponse(RESPONSE, ctx.response);
 });
 
 // DID operation requests
-ROUTER.post('/operations', async (ctx, _next) => {
+ROUTER.post('/operations', async (ctx: any, _next: any) => {
   const RESPONSE = await SIDETREE_CORE.handleOperationRequest(ctx.body);
   setKoaResponse(RESPONSE, ctx.response);
 });
 
 // DID resolver
 const RESOLUTION_PATH = '/resolve/';
-ROUTER.get(`${RESOLUTION_PATH}:did`, async (ctx, _next) => {
+ROUTER.get(`${RESOLUTION_PATH}:did`, async (ctx: any, _next: any) => {
   // Remove '/identifiers/' from the URL
   const didOrDidDocument = ctx.url.split(RESOLUTION_PATH)[1];
   const RESPONSE = await SIDETREE_CORE.handleResolveRequest(didOrDidDocument);
@@ -78,7 +78,7 @@ APP.use(ROUTER.routes())
    .use(ROUTER.allowedMethods());
 
 // Responds with 400 BadRequest for all unhandled paths
-APP.use((ctx, _next) => {
+APP.use((ctx: any, _next: any) => {
   ctx.response.status = 400;
 });
 

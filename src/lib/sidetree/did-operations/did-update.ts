@@ -25,7 +25,7 @@ import { PatchModel, PatchAction } from '../models/patch-model';
 import DeltaModel from '@decentralized-identity/sidetree/dist/lib/core/versions/latest/models/DeltaModel';
 import { UpdateSignedDataModel } from '../models/signed-data-models';
 import SidetreeError from '@decentralized-identity/sidetree/dist/lib/common/SidetreeError';
-import ErrorCode from '../ErrorCode';
+import ErrorCode from '../../ErrorCode';
 import { PublicKeyInput } from '../models/cli-input-model';
 import DidState from '../did-state';
 
