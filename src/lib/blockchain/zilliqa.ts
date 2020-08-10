@@ -190,6 +190,8 @@ export default class TyronZIL {
         return FILES_IN_CAS;
     }
 
+    /***            ****            ***/
+    
     /** Fetches the latest Zilliqa blockchain time */
     private static async timeStamp(zilliqa: API.Zilliqa): Promise<BlockTimeStamp> {
         try {
@@ -211,6 +213,7 @@ export default class TyronZIL {
     }
 
     /***            ****            ***/
+
     /** Generates a new transaction object and sends it to the Zilliqa network for processing */
     private static async submitTx(input: SubmitTxInput): Promise<TxResponse> {
 
@@ -307,7 +310,6 @@ interface FilesInCAS {
     chunk: undefined | true;
 }
 
-
 interface ZilliqaTxObject {
     version: number;
     nonce: number;
@@ -322,12 +324,9 @@ interface ZilliqaTxObject {
     priority?: boolean;
 }
 
-
 interface TxResponse {
     success: boolean;
     timeStamp: BlockTimeStamp;
     anchorString: string;
     zilHash: string;        // Zilliqa transaction hash
 }
-
-
