@@ -12,6 +12,7 @@
     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
     GNU General Public License for more details.
 */
+
 import ServiceEndpointModel from '@decentralized-identity/sidetree/dist/lib/core/versions/latest/models/ServiceEndpointModel';
 import { PublicKeyModel, Operation, Recovery } from './models/verification-method-models';
 import * as fs from 'fs';
@@ -21,20 +22,6 @@ import DidRecover from './did-operations/did-recover';
 import JsonAsync from '@decentralized-identity/sidetree/dist/lib/core/versions/latest/util/JsonAsync';
 import DidDeactivate from './did-operations/did-deactivate';
 import OperationType from '@decentralized-identity/sidetree/dist/lib/core/enums/OperationType';
-
-export interface DidStateModel {
-    did_tyronZIL: string;
-    status: OperationType
-    publicKey?: PublicKeyModel[];       // undefined after deactivation
-    operation?: Operation;              // undefined after deactivation
-    recovery?: Recovery;                // undefined after deactivation
-    updateCommitment?: string;          // undefined after deactivation
-    recoveryCommitment?: string;        // undefined after deactivation
-    service?: ServiceEndpointModel[];   // undefined after deactivation
-    lastTransaction?: number;   
-}
-
-/***            ****            ***/
 
 /** tyronZIL's DID-state */
 export default class DidState {
@@ -137,4 +124,18 @@ export default class DidState {
         }
         return new DidState(DID_STATE_MODEL);
     }
+}
+
+/***            ** interfaces **            ***/
+
+export interface DidStateModel {
+    did_tyronZIL: string;
+    status: OperationType
+    publicKey?: PublicKeyModel[];       // undefined after deactivation
+    operation?: Operation;              // undefined after deactivation
+    recovery?: Recovery;                // undefined after deactivation
+    updateCommitment?: string;          // undefined after deactivation
+    recoveryCommitment?: string;        // undefined after deactivation
+    service?: ServiceEndpointModel[];   // undefined after deactivation
+    lastTransaction?: number;   
 }

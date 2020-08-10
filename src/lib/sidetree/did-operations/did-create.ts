@@ -15,7 +15,6 @@
 
 import OperationType from '@decentralized-identity/sidetree/dist/lib/core/enums/OperationType';
 import CreateOperation from '@decentralized-identity/sidetree/dist/lib/core/versions/latest/CreateOperation';
-
 import { Cryptography, OperationKeyPairInput, JwkEs256k } from '../did-keys';
 import { PublicKeyModel, Operation, Recovery, SidetreeVerificationRelationship } from '../models/verification-method-models';
 import { CliInputModel } from '../models/cli-input-model';

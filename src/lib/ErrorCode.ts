@@ -35,7 +35,9 @@ export default {
     AnchorNotCAS: 'The Anchor file is not in the content-addressable-storage',
     MapNotCAS: 'The Map file is not in the content-addressable-storage',
     ChunkNotCAS: 'The Chunk file is not in the content-addressable-storage',
-    CouldNotFetchLedgerTime: 'The Zilliqa ledger time could not be retrieved',
+    CouldNotFetchLatestTxBlock: "The Zilliqa's latest transaction block could not be retrieved",
     WrongKey: 'The given private key is wrong',
     NotEnoughBalance: "The current account's balance is not enough",
+    WrongTyronHash: 'The hash does not match the `tyron-smart-contract`',
+    IncorrectLatestState: "The client's latest tyron-state does not match the latest state in the tyron-smart-contract",
 };
