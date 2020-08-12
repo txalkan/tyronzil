@@ -15,36 +15,39 @@
 
 import { BlockTimeStamp } from './zilliqa';
 import JsonAsync from '@decentralized-identity/sidetree/dist/lib/core/versions/latest/util/JsonAsync';
+import Multihash from '@decentralized-identity/sidetree/dist/lib/core/versions/latest/Multihash';
 
 export default class TyronState {
     public readonly previousBlockStamp: BlockTimeStamp;
-    public readonly latestBlockStamp: BlockTimeStamp;
+    public readonly latestLedgerTime: number;
     public readonly previousTxHash: string;
-    public readonly latestTxHash: string;
+    
+    /** The hash of the tyron-state */
+    public readonly tyronHash: string;
 
     private constructor(
-        state: StateModel
+        state: StateModel,
+        hash: string,
     ) {
         this.previousBlockStamp = state.previousBlockStamp;
-        this.latestBlockStamp = state.latestBlockStamp;
+        this.latestLedgerTime = state.latestLedgerTime;
         this.previousTxHash = state.previousTxHash;
-        this.latestTxHash = state.latestTxHash;
+        this.tyronHash = hash;
     }
 
-    /** Validates a state model into a tyron-state */
-    public static async validate(state: string): Promise<TyronState> {
+    /** Generates a new tyron-state */
+    public static async write(state: string): Promise<TyronState> {
         const STATE = await JsonAsync.parse(state);
         
-        // Does the validation to-do
-
-        const TYRON_STATE: StateModel = {
+        const MODEL: StateModel = {
             previousBlockStamp: STATE.previousBlockTimeStamp,
-            latestBlockStamp: STATE.latestBlockTimeStamp,
+            latestLedgerTime: STATE.latestLedgerTime,
             previousTxHash: STATE.previousTxHash,
-            latestTxHash: STATE.latestTxHash,
         }
 
-        return new TyronState(TYRON_STATE);
+        const TYRON_HASH = Multihash.canonicalizeThenHashThenEncode(MODEL);
+
+        return new TyronState(MODEL, TYRON_HASH);
     }
 }
 
@@ -52,7 +55,6 @@ export default class TyronState {
 
 export interface StateModel {
     previousBlockStamp: BlockTimeStamp;
-    latestBlockStamp: BlockTimeStamp;
+    latestLedgerTime: number;
     previousTxHash: string,
-    latestTxHash: string;
 }

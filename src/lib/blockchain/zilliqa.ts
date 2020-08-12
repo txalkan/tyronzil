@@ -13,47 +13,38 @@
     GNU General Public License for more details.
 */
 
+import  TyronContract, { ContractInitialization } from './tyron-contract';
+import TyronAnchor from '../sidetree/protocol-files/anchor-file';
+import { NetworkNamespace } from '../sidetree/tyronZIL-schemes/did-scheme';
+import TyronStore from '../CAS/tyron-store';
 import * as API from '@zilliqa-js/zilliqa';
 import * as Util from '@zilliqa-js/util';
 import * as Crypto from '@zilliqa-js/crypto';
 import Multihash from '@decentralized-identity/sidetree/dist/lib/core/versions/latest/Multihash';
-import TyronAnchor from '../sidetree/protocol-files/anchor-file';
 import SidetreeError from '@decentralized-identity/sidetree/dist/lib/common/SidetreeError';
 import ErrorCode from '../ErrorCode';
-import { NetworkNamespace } from '../sidetree/tyronZIL-schemes/did-scheme';
-import TyronStore from '../CAS/tyron-store';
 import JsonAsync from '@decentralized-identity/sidetree/dist/lib/core/versions/latest/util/JsonAsync';
 
 /** Handles the microservice that interacts with the Zilliqa blockchain platform */
-export default class TyronZIL {
+export default class TyronZIL extends TyronContract {
     
-    /** Sidetree Anchor string written in the transaction - max 10.000 operations */
+    /** Sidetree Anchor string written in the transaction
+     * 
+     * Composed of the CAS URI of an Anchor file prefixed with the declared operation count - max 10.000 operations */
     public readonly anchorString: string;
     
-    /** When to write the transaction, in which block number */
+    /** When the transaction got written, in which block number */
     public readonly ledgerTime: number;
-
-    /** The Zilliqa address where the `tyron-smart-contract` resides */
-    public static readonly tyronAddress = 'to-do';
-
-    /** The hash of the initialization parameter of the `tyron-smart-contract` */
-    public static readonly tyronHash = 'to-do';
 
     /** The hash of the tyronZIL transaction */
     public readonly txHash: string;
     
-    /** Zilliqa address that executes the tyronZIL transaction (ByStr20) */
-    public static readonly address = 'to-do';
-        /** Wallet verification method - public key commitment */
-        // The client needs to know it to change its address
-        public static readonly tyronCommitment = "to-do";
-    
     /***            ****            ***/
    
     private constructor (
-        zilliqaMicroservice: TxOutput
+        zilliqaMicroservice: Tx
     ) {
-        //this.address = zilliqaMicroservice.address;
+        super(zilliqaMicroservice.init);
         this.anchorString = zilliqaMicroservice.anchorString;
         this.ledgerTime = zilliqaMicroservice.ledgerTime;
         this.txHash = zilliqaMicroservice.txHash;
@@ -61,6 +52,8 @@ export default class TyronZIL {
 
     /** Executes a tyronZIL transaction on the Zilliqa blockchain platform */
     public static async transaction (input: TxInput): Promise<TyronZIL> {
+
+        const CONTRACT_INIT = await TyronContract.initialize(input.init);
         
         /** Validates that the necessary files are available in the content-addressable storage */
         const FILES_IN_CAS = await TyronStore.fetchFile(        
@@ -99,32 +92,13 @@ export default class TyronZIL {
 
         /***            ****            ***/
 
-        /** Fetches the initialization immutable parameter from the `tyron-smart-contract` */
-        const SMART_CONTRACT_INIT = await ZILLIQA.blockchain.getSmartContractInit(this.tyronAddress);
-        const INIT_RESULT = SMART_CONTRACT_INIT.result;
-        
-        let TYRON_HASH;
-        if (Array.isArray(INIT_RESULT)) {
-            for (const parameter of INIT_RESULT) {
-                if (parameter.vname === '_tyron_hash') {
-                    TYRON_HASH = parameter.value;
-                }
-            }
-        }
-
-        if (TYRON_HASH !== this.tyronHash) {
-            throw new SidetreeError(ErrorCode.WrongTyronHash);
-        }
-
-        /***            ****            ***/
-
         const LATEST_STAMP = JSON.stringify(input.latestBlockStamp);
         
-        /** Fetches the client's latest `tyron-state` */
+        /** Fetches the client's latest `tyron state` */
         const LATEST_TYRON_STATE = await TyronStore.fetchState(LATEST_STAMP);
 
-        /** Fetches the tyron-state (mutable state variables) fron the `tyron-smart-contract` */
-        const SMART_CONTRACT_STATE = await ZILLIQA.blockchain.getSmartContractState(this.tyronAddress);
+        /** Fetches the `tyron state` (mutable state variable) fron the `tyron-smart-contract` */
+        const SMART_CONTRACT_STATE = await ZILLIQA.blockchain.getSmartContractState(CONTRACT_INIT.tyronAddress);
         const STATE_RESULT = JSON.stringify(SMART_CONTRACT_STATE.result, null, 2);
         console.log(`The state fetched from the contract: ${STATE_RESULT}`);
         
@@ -138,34 +112,52 @@ export default class TyronZIL {
    
         const LATEST_TIME_STAMP = await this.latestTimeStamp(ZILLIQA);
 
-        /** Schedules the transaction for the next block */
-        const LEDGER_TIME = LATEST_TIME_STAMP.ledgerTime + 1;
-        
         /***            ****            ***/
 
         /** Validates that the given private key corresponds to the client's wallet */
-        const ADDRESS = Crypto.getAddressFromPrivateKey(input.privateKey);
-        if (ADDRESS !== this.address) {
+        const CLIENT_ADDRESS = Crypto.getAddressFromPrivateKey(input.privateKey);
+        if (CLIENT_ADDRESS !== CONTRACT_INIT.clientAddress) {
             throw new SidetreeError(ErrorCode.WrongKey);
         }
 
         /** Gets the current balance of the account ( in Qa = 10^-12 ZIL as string)
          * & the current nonce of the account (as number) */
-        const BALANCE = await ZILLIQA.blockchain.getBalance(this.address);
-        const RESULT = BALANCE.result;
+        const GET_BALANCE = await ZILLIQA.blockchain.getBalance(CONTRACT_INIT.clientAddress);
+        const BALANCE_RESULT = GET_BALANCE.result;
 
-        // The account's balance MUST be at least 100 ZIL
-        if (Number(RESULT.balance) < 10**14) {
+        /** Fetches the initialization immutable parameters from the `tyron-smart-contract` */
+        const SMART_CONTRACT_INIT = await ZILLIQA.blockchain.getSmartContractInit(CONTRACT_INIT.tyronAddress);
+        const INIT_RESULT = SMART_CONTRACT_INIT.result;
+        
+        let OPERATION_COST;
+        if (Array.isArray(INIT_RESULT)) {
+            for (const parameter of INIT_RESULT) {
+                if (parameter.vname === 'operation_cost') {
+                    OPERATION_COST = parameter.value;
+                }
+            }
+        }
+
+        /** The number of operations to be processed */
+        const COUNT = input.anchor.count;
+
+        /** The payment to process the tyronZIL transaction */
+        const PAYMENT = Number(OPERATION_COST) * COUNT;
+
+        // The account's balance MUST be enough for the payment
+        if (Number(BALANCE_RESULT.balance) < PAYMENT) {
             throw new SidetreeError(ErrorCode.NotEnoughBalance)
         }
 
         const SUBMIT_TX: SubmitTxInput = {
-            ledgerTime: LEDGER_TIME,
+            contractInit: CONTRACT_INIT,
             privateKey: input.privateKey,
             anchorString: input.anchor.anchorString,
+            count: COUNT,
+            payment: PAYMENT,
             api: ZILLIQA,
             chainID: CHAIN_ID,
-            nonce: RESULT.nonce,
+            nonce: BALANCE_RESULT.nonce,
         }
 
         /** tyronZIL transaction */
@@ -173,7 +165,10 @@ export default class TyronZIL {
 
         const TX_HASH = Multihash.canonicalizeThenHashThenEncode(tyronZIL_TX);
 
-        const TX_OUTPUT: TxOutput = {
+        const LEDGER_TIME = ;
+
+        const TX_OUTPUT: Tx = {
+            init: CONTRACT_INIT,
             anchorString: input.anchor.anchorString,
             ledgerTime: LEDGER_TIME,
             txHash: TX_HASH,
@@ -208,70 +203,73 @@ export default class TyronZIL {
 
     /** Generates a new transaction object and sends it to the Zilliqa network for processing */
     private static async submitTx(input: SubmitTxInput): Promise<TxResponse> {
+        try {
+            const MSG_VERSION = 1;
+            const VERSION = Util.bytes.pack(input.chainID, MSG_VERSION);
+            
+            const AMOUNT = new Util.BN(input.payment);
+            const MIN_GAS_PRICE = await input.api.blockchain.getMinimumGasPrice();
+            const GAS_PRICE = new Util.BN(MIN_GAS_PRICE.result!);
+            const GAS_LIMIT = new Util.Long(100000);
 
-        const MSG_VERSION = 1;
-        const VERSION = Util.bytes.pack(input.chainID, MSG_VERSION);
-        
-        const AMOUNT = new Util.BN('to-do');
-        const GAS_PRICE = new Util.BN('1');
-        const GAS_LIMIT = new Util.Long(100000);
+            const TX_OBJECT: ZilliqaTxObject = {
+                version: VERSION,
+                nonce: input.nonce,
+                toAddr: "tyronAddress",
+                amount: AMOUNT,
+                pubKey: 'string',
+                gasPrice: GAS_PRICE,
+                gasLimit: GAS_LIMIT,
+                code: 'string',
+                data: 'string',
+                signature: 'string',
+                priority: true,
+            }
 
-        const TX_OBJECT: ZilliqaTxObject = {
-            version: VERSION,
-            nonce: input.nonce,
-            toAddr: "tyronAddress",
-            amount: AMOUNT,
-            pubKey: 'string',
-            gasPrice: GAS_PRICE,
-            gasLimit: GAS_LIMIT,
-            code: 'string',
-            data: 'string',
-            signature: 'string',
-            priority: true,
+            //const TX = 
+            input.api.transactions.new(TX_OBJECT);
+
+            const TIME_STAMP: BlockTimeStamp = {
+                ledgerTime: 999,
+                ledgerHash: 'to-do',
+            }
+
+            const TX_RESPONSE: TxResponse = {
+                success: true,
+                timeStamp: TIME_STAMP,
+                anchorString: 'string',
+                zilHash: 'string',
+            }
+
+            return TX_RESPONSE;
+        } catch (error) {
+            console.log(error);            
         }
-
-        //const TX = 
-        input.api.transactions.new(TX_OBJECT);
-
-        const TIME_STAMP: BlockTimeStamp = {
-            ledgerTime: 999,
-            ledgerHash: 'to-do',
-        }
-
-        const TX_RESPONSE: TxResponse = {
-            success: true,
-            timeStamp: TIME_STAMP,
-            anchorString: 'string',
-            zilHash: 'string',
-        }
-
-        return TX_RESPONSE;
     }
 }
 
 /***            ** interfaces **            ***/
 
-interface TxOutput {
+interface Tx {
+    init: ContractInitialization;
     anchorString: string;
     ledgerTime: number;
     txHash:string;
 }
 
 export interface TxInput {
-
+    init: ContractInitialization;
     latestBlockStamp: BlockTimeStamp;
-
-    /** The client's private key to submit a transaction */
+    /** The client's private key to submit a transaction on Zilliqa */
     privateKey: string;
     anchor: TyronAnchor;
     /** Payment for the transaction - Identity Global Token */
     // It corresponds to the number of operations times the operation cost - in ZIL => IGBT/ZIL exchange rate
     IGBT: number;
-        operationCost: number;
-        /** The verification method to change the operation cost */
-        costCommitment: string;
-    /** User addresses to call with tyron-smart-contracts (TSMs) */
-    tyronAddresses?: string[];
+    operationCost: number;
+    // Each payment transaction consumes 1 gas unit = 0.001 ZIL
+    /** The verification method to change the operation cost */
+    costCommitment: string;
 }
 
 enum ZilliqaEndpoint {
@@ -290,9 +288,11 @@ export interface BlockTimeStamp {
 }
 
 interface SubmitTxInput {
-    ledgerTime: number;
+    contractInit: TyronContract;
     privateKey: string;
     anchorString: string;
+    count: number;
+    payment: number;
     api: API.Zilliqa;
     chainID: ZilliqaChainID;
     nonce: number;

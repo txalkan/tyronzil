@@ -13,9 +13,11 @@
     GNU General Public License for more details.
 */
 
+import TyronMap, { MapFileInput } from './map-file';
 import { NetworkNamespace } from '../tyronZIL-schemes/did-scheme';
 import AnchorFile from '@decentralized-identity/sidetree/dist/lib/core/versions/latest/AnchorFile';
 import AnchorFileModel from '@decentralized-identity/sidetree/dist/lib/core/versions/latest/models/AnchorFileModel';
+import MapFileModel from '@decentralized-identity/sidetree/dist/lib/core/versions/latest/models/MapFileModel';
 import ChunkFileModel from '@decentralized-identity/sidetree/dist/lib/core/versions/latest/models/ChunkFileModel';
 import OperationType from '@decentralized-identity/sidetree/dist/lib/core/enums/OperationType';
 import Cas from '@decentralized-identity/sidetree/dist/lib/core/Cas';
@@ -23,9 +25,7 @@ import Compressor from '@decentralized-identity/sidetree/dist/lib/core/versions/
 import ArrayMethods from '@decentralized-identity/sidetree/dist/lib/core/versions/latest/util/ArrayMethods';
 import SidetreeError from '@decentralized-identity/sidetree/dist/lib/common/SidetreeError';
 import ErrorCode from '../../ErrorCode';
-import TyronMap, { MapFileInput } from './map-file';
 import { CreateDataRequest } from '../did-operations/did-create';
-import MapFileModel from '@decentralized-identity/sidetree/dist/lib/core/versions/latest/models/MapFileModel';
 
 /** Handles the creation of an Anchor file */
 export default class TyronAnchor {

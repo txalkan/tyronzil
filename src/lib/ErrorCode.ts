@@ -40,4 +40,5 @@ export default {
     NotEnoughBalance: "The current account's balance is not enough",
     WrongTyronHash: 'The hash does not match the `tyron-smart-contract`',
     IncorrectLatestState: "The client's latest tyron-state does not match the latest state in the tyron-smart-contract",
+    WrongContract: "The given address is not a `tyron-contract`",
 };
