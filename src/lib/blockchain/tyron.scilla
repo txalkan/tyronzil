@@ -1,0 +1,72 @@
+scilla_version 0
+
+(* The tyron library *)
+library Tyron
+  let mensaje =
+    fun(msg: Message) =>
+      let nil_msg = Nil{Message} in
+      Cons{Message} msg nil_msg
+  let payment_is_wrong: String = "The payment is not enough for the number of operations"
+  let zero = Uint128 0
+  let payment_is_right: String = "The payment is correct thus the tyron-smart-contract is being processed"
+
+contract Tyron(
+  (* Immutable fields declaration *)
+  pungtas: ByStr20,
+  tyron_hash: String,
+  operation_cost: Uint128 (* equal to 1 ZIL *)
+  )
+  
+  (* Mutable fields declaration *)
+  field tyron_state: String = ""
+  field anchor_string: String = ""
+  field client_address: ByStr20 = 0xccDdFAD074cd608B6B43e14eb3440240f5bFf087
+  field ledger_time: BNum = BNum 5
+  field state_nonce: Uint32 = Uint32 0
+  
+  (* Updates the mutable state if the transaction is successful *)
+  procedure updateState(state: String, sidetreeAnchor: String, block: BNum)
+    tyron_state := state;
+    anchor_string := sidetreeAnchor;
+    client_address := _sender;
+    ledger_time := block;
+    current_nonce <- state_nonce;
+    incrementor = Uint32 1;
+    new_nonce = builtin add current_nonce incrementor;
+    state_nonce := new_nonce
+  end
+  
+  transition tyronZIL(state: String, sidetreeAnchor: String, count: Uint128)
+    cost = builtin mul count operation_cost;
+    payment_is_accepted = builtin eq _amount cost;
+    
+    match payment_is_accepted with
+      | True =>
+          accept;
+          msg = {
+            _tag: "";
+            _recipient: _sender;
+            _amount: zero;
+            code: payment_is_right
+          };
+          reply = mensaje msg;
+          send reply;
+          block <- & BLOCKNUMBER;
+          updateState state sidetreeAnchor block;
+          success = {
+            _eventname: "tyronZIL transaction successful";
+            time_stamp: block
+          };
+          event success
+          
+      | False => 
+          msg = {
+            _tag: "";
+            _recipient: _sender;
+            _amount: zero;
+            code: payment_is_wrong
+          };
+          reply = mensaje msg;
+          send reply
+      end
+end

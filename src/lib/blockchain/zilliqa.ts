@@ -43,7 +43,7 @@ export default class TyronZIL {
     public readonly txHash: string;
     
     /** Zilliqa address that executes the tyronZIL transaction (ByStr20) */
-    public static readonly address = 'to-do';
+    public static readonly clientAddress = 'to-do';
         /** Wallet verification method - public key commitment */
         // The client needs to know it to change its address
         public static readonly tyronCommitment = "to-do";
@@ -53,7 +53,7 @@ export default class TyronZIL {
     private constructor (
         zilliqaMicroservice: TxOutput
     ) {
-        //this.address = zilliqaMicroservice.address;
+        //this.clientAddress = zilliqaMicroservice.clientAddress;
         this.anchorString = zilliqaMicroservice.anchorString;
         this.ledgerTime = zilliqaMicroservice.ledgerTime;
         this.txHash = zilliqaMicroservice.txHash;
@@ -106,7 +106,7 @@ export default class TyronZIL {
         let TYRON_HASH;
         if (Array.isArray(INIT_RESULT)) {
             for (const parameter of INIT_RESULT) {
-                if (parameter.vname === '_tyron_hash') {
+                if (parameter.vname === 'tyronHash') {
                     TYRON_HASH = parameter.value;
                 }
             }
@@ -120,10 +120,10 @@ export default class TyronZIL {
 
         const LATEST_STAMP = JSON.stringify(input.latestBlockStamp);
         
-        /** Fetches the client's latest `tyron-state` */
+        /** Fetches the client's latest `tyron state` */
         const LATEST_TYRON_STATE = await TyronStore.fetchState(LATEST_STAMP);
 
-        /** Fetches the tyron-state (mutable state variables) fron the `tyron-smart-contract` */
+        /** Fetches the `tyron state` (mutable state variables) fron the `tyron-smart-contract` */
         const SMART_CONTRACT_STATE = await ZILLIQA.blockchain.getSmartContractState(this.tyronAddress);
         const STATE_RESULT = JSON.stringify(SMART_CONTRACT_STATE.result, null, 2);
         console.log(`The state fetched from the contract: ${STATE_RESULT}`);
@@ -144,14 +144,14 @@ export default class TyronZIL {
         /***            ****            ***/
 
         /** Validates that the given private key corresponds to the client's wallet */
-        const ADDRESS = Crypto.getAddressFromPrivateKey(input.privateKey);
-        if (ADDRESS !== this.address) {
+        const CLIENT_ADDRESS = Crypto.getAddressFromPrivateKey(input.privateKey);
+        if (CLIENT_ADDRESS !== this.clientAddress) {
             throw new SidetreeError(ErrorCode.WrongKey);
         }
 
         /** Gets the current balance of the account ( in Qa = 10^-12 ZIL as string)
          * & the current nonce of the account (as number) */
-        const BALANCE = await ZILLIQA.blockchain.getBalance(this.address);
+        const BALANCE = await ZILLIQA.blockchain.getBalance(this.clientAddress);
         const RESULT = BALANCE.result;
 
         // The account's balance MUST be at least 100 ZIL
@@ -258,20 +258,17 @@ interface TxOutput {
 }
 
 export interface TxInput {
-
     latestBlockStamp: BlockTimeStamp;
-
-    /** The client's private key to submit a transaction */
+    /** The client's private key to submit a transaction on Zilliqa */
     privateKey: string;
     anchor: TyronAnchor;
     /** Payment for the transaction - Identity Global Token */
     // It corresponds to the number of operations times the operation cost - in ZIL => IGBT/ZIL exchange rate
     IGBT: number;
-        operationCost: number;
-        /** The verification method to change the operation cost */
-        costCommitment: string;
-    /** User addresses to call with tyron-smart-contracts (TSMs) */
-    tyronAddresses?: string[];
+    operationCost: number;
+    // Each payment transaction consumes 1 gas unit = 0.001 ZIL
+    /** The verification method to change the operation cost */
+    costCommitment: string;
 }
 
 enum ZilliqaEndpoint {
