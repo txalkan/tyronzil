@@ -18,11 +18,16 @@ import * as fs from 'fs';
 import LogColors from '../../bin/log-colors';
 import JsonAsync from '@decentralized-identity/sidetree/dist/lib/core/versions/latest/util/JsonAsync';
 import Cas from '@decentralized-identity/sidetree/dist/lib/core/Cas';
+import { BlockTimeStamp } from '../blockchain/zilliqa';
 
 export default class TyronStore {
 
     /** The content-addressable storage */
     public static readonly CAS: Cas;
+
+    public static readonly storage: Map<TransactionStore, TyronState>;
+
+    /***            ****            ***/
 
     /** Validates which files are in the CAS */
     public static async fetchFile(
@@ -31,7 +36,7 @@ export default class TyronStore {
         mapFileUri: string | undefined,
         chunkFileUri: string | undefined,
         maxSizeChunk: number
-        ): Promise<FilesInCAS> {
+    ): Promise<FilesInCAS> {
     
         const FILES_IN_CAS: FilesInCAS = {
             anchor: undefined,
@@ -86,15 +91,22 @@ export default class TyronStore {
         
         /** The tyron-state */
         const STATE: StateModel = {
-            previousBlockStamp: TYRON_STATE_JSON.previousBlockStamp,
-            latestBlockStamp: TYRON_STATE_JSON.latestBlockStamp,
-            previousTxHash: TYRON_STATE_JSON.previousTxHash,
-            latestTxHash: TYRON_STATE_JSON.latestTxHash,
+            anchorString: TYRON_STATE_JSON.anchorString,
+            previousTransaction: TYRON_STATE_JSON.previousTransaction,
+            previousTyronHash: TYRON_STATE_JSON.previousTyronHash,
         };
 
-        const TYRON_STATE = await TyronState.validate(JSON.stringify(STATE));
+        const TYRON_STATE = await TyronState.write(JSON.stringify(STATE));
 
         return TYRON_STATE;
+    }
+
+    /** Saves storage asynchronously */
+    public static async write(txNumber: number, storage: Map<TransactionStore, TyronState>): Promise<void> {
+        const PRINT_STORAGE = JSON.stringify([...storage], null, 2);
+        const FILE_NAME = `TX_STORAGE_${txNumber}.json`;
+        fs.writeFileSync(FILE_NAME, PRINT_STORAGE);
+        console.info(LogColors.yellow(`TX-storage saved as: ${LogColors.brightYellow(FILE_NAME)}`));
     }
 }
 
@@ -105,4 +117,10 @@ interface FilesInCAS {
     anchor: undefined | true;
     map: undefined | true;
     chunk: undefined | true;
+}
+
+export interface TransactionStore {
+    timeStamp: BlockTimeStamp;
+    /** The hash of the tyronZIL transaction */
+    txHash: string;
 }

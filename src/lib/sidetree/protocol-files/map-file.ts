@@ -87,10 +87,10 @@ export default class TyronMap {
 
         /***            ****            ***/
 
-        const MAP_BUFFER = await Compressor.compress(Buffer.from(JSON.stringify(MAP_FILE.model)));
+        //const MAP_BUFFER = await Compressor.compress(Buffer.from(JSON.stringify(MAP_FILE.model)));
 
         /** Map file CAS URI */
-        const CAS_URI = await this.CAS.write(MAP_BUFFER);
+        const CAS_URI = "EiCzVSv6RI-LJvOvYoPvAfk4YvDgH0Gs2727Ixqgku0B2g"; //await this.CAS.write(MAP_BUFFER);
 
         /***            ****            ***/
         

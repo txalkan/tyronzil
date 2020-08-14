@@ -18,6 +18,7 @@
 
 import * as yargs from 'yargs';
 import tyronCLI from './tyronZIL-CLI';
+import zilliqaMicroservice from './zilliqaMicroservice';
 
 yargs
   .scriptName('tyronzil')
@@ -44,6 +45,9 @@ yargs
   })
   .command('resolve', ' -> resolves the given tyronZIL DID into its DID-document (read operation)', async () => {
     await tyronCLI.handleResolve();
+  })
+  .command('transaction', ' -> submits a tyronZIL transaction to the Zilliqa blockchain platform', async () => {
+    await zilliqaMicroservice.handleTransaction();
   })
   .strict()       // the command must be one of the explicitly defined commands
   .help(false)    // disabling --help option
