@@ -79,7 +79,7 @@ export default class TyronAnchor {
         this.model = anchorData.model;
         this.casUri = anchorData.casUri;
         this.count = anchorData.count;
-        this.anchorString = String(anchorData.count) + "-ANCHOR-" + anchorData.casUri;
+        this.anchorString = String(anchorData.count) + "." + anchorData.casUri;
         this.didUniqueSuffixes = anchorData.didUniqueSuffixes;
         this.operations = anchorData.operations;
         this.mapFile = anchorData.mapFile;
@@ -214,10 +214,10 @@ export default class TyronAnchor {
         /***            ****            ***/
 
         /** To calculate the CAS URI of the Anchor file */
-        const ANCHOR_BUFFER = await Compressor.compress(Buffer.from(JSON.stringify(ANCHOR_FILE.model)));
+        //const ANCHOR_BUFFER = await Compressor.compress(Buffer.from(JSON.stringify(ANCHOR_FILE.model)));
 
         /** Anchor file CAS URI */
-        const CAS_URI = await this.CAS.write(ANCHOR_BUFFER);
+        const CAS_URI = "EiCzVSv6RI-LJvOvYoPvAfk4YvDgH0Gs2727Ixqgku0B2g"; //await this.CAS.write(ANCHOR_BUFFER);
 
         /***            ****            ***/
         
@@ -241,8 +241,8 @@ export default class TyronAnchor {
         const CHUNK_MODEL: ChunkFileModel = {
             deltas: deltas
         }
-        const CHUNK_BUFFER = await Compressor.compress(Buffer.from(JSON.stringify(CHUNK_MODEL)));
-        const CAS_URI = await this.CAS.write(CHUNK_BUFFER);
+        //const CHUNK_BUFFER = await Compressor.compress(Buffer.from(JSON.stringify(CHUNK_MODEL)));
+        const CAS_URI = "EiCzVSv6RI-LJvOvYoPvAfk4YvDgH0Gs2727Ixqgku0B2g"; //await this.CAS.write(CHUNK_BUFFER);
 
         const CHUNK_DATA: ChunkFileData = {
             casUri: CAS_URI,
@@ -312,7 +312,7 @@ export interface AnchorFileInput {
     batch: OperationBatch;
 }
 
-interface OperationBatch {
+export interface OperationBatch {
     network: NetworkNamespace;
     count: number;
     createRequestMap?: Map<string, CreateDataRequest>;
@@ -325,7 +325,7 @@ export interface AnchoredOperations {
     deactivate?: AnchorMode[];
 }
 
-interface SignedDataRequest {
+export interface SignedDataRequest {
     did_suffix: string;
     signed_data: string;
     type: OperationType.Recover | OperationType.Deactivate | OperationType.Update;

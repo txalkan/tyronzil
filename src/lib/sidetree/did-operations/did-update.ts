@@ -230,6 +230,7 @@ export default class DidUpdate{
             type: OperationType.Update,
             delta: ENCODED_DELTA
         };
+        console.log(`The update request is: ${JSON.stringify(SIDETREE_REQUEST,null,2)}`);
         return SIDETREE_REQUEST;
     }
 

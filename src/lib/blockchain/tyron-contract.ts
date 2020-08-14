@@ -19,39 +19,31 @@ import ErrorCode from '../ErrorCode';
 /** The class to initialize the `tyron-smart-contract` */
 export default class TyronContract {
     
-    /** The Zilliqa address where the `tyron-smart-contract` resides */
-    public readonly tyronAddress: string;
-
     /** The client's Zilliqa address that executes the tyronZIL transaction (ByStr20) */
     public readonly clientAddress: string;
 
+    /** The Zilliqa address where the `tyron-smart-contract` resides */
+    public readonly tyronAddress: string;
+
     constructor(init: ContractInitialization) {
-        this.tyronAddress = init.tyronAddress;
         this.clientAddress = init.clientAddress;
-    }
-
-    public static async initialize(init: ContractInitialization): Promise<TyronContract> {
-        const TYRON_CONTRACT = init.tyronAddress;
-        if (TYRON_CONTRACT !== TyronContracts.OwnYourData) {
+        if (init.tyronAddress !== TyronContracts.OwnYourData) {
             throw new SidetreeError(ErrorCode.WrongContract)
+        } else {
+            this.tyronAddress = init.tyronAddress;         
         }
-
-        const CONTRACT_INIT: ContractInitialization = {
-            tyronAddress: TYRON_CONTRACT,
-            clientAddress: init.clientAddress,
-        }
-
-        return new TyronContract(CONTRACT_INIT);
     }
-
 }
 
 /***            ** interfaces **            ***/
+
+/** The Zilliqa addresses to initialize the `tyron-smart-contract` */
 export interface ContractInitialization {
     tyronAddress: string;
     clientAddress: string;
 }
 
+/** The `tyron contracts` organized by transition name */
 enum TyronContracts {
-    OwnYourData = "add-address"
+    OwnYourData = "zil17slnpyrf8tk5tpf83f57j86ysz5wafg3hkvhzn"
 }

@@ -13,36 +13,35 @@
     GNU General Public License for more details.
 */
 
-import { BlockTimeStamp } from './zilliqa';
 import JsonAsync from '@decentralized-identity/sidetree/dist/lib/core/versions/latest/util/JsonAsync';
 import Multihash from '@decentralized-identity/sidetree/dist/lib/core/versions/latest/Multihash';
+import { TransactionStore } from '../CAS/tyron-store';
 
 export default class TyronState {
-    public readonly previousBlockStamp: BlockTimeStamp;
-    public readonly latestLedgerTime: number;
-    public readonly previousTxHash: string;
-    
-    /** The hash of the tyron-state */
+    /** The hash of the new tyron-state */
     public readonly tyronHash: string;
-
+    public readonly anchorString: string;
+    public readonly previousTransaction: TransactionStore;
+    public readonly previousTyronHash: string;
+    
     private constructor(
         state: StateModel,
         hash: string,
     ) {
-        this.previousBlockStamp = state.previousBlockStamp;
-        this.latestLedgerTime = state.latestLedgerTime;
-        this.previousTxHash = state.previousTxHash;
         this.tyronHash = hash;
+        this.anchorString = state.anchorString;
+        this.previousTransaction = state.previousTransaction;
+        this.previousTyronHash = state.previousTyronHash;
     }
 
     /** Generates a new tyron-state */
-    public static async write(state: string): Promise<TyronState> {
-        const STATE = await JsonAsync.parse(state);
+    public static async write(stateModel: string): Promise<TyronState> {
+        const STATE = await JsonAsync.parse(stateModel);
         
         const MODEL: StateModel = {
-            previousBlockStamp: STATE.previousBlockTimeStamp,
-            latestLedgerTime: STATE.latestLedgerTime,
-            previousTxHash: STATE.previousTxHash,
+            anchorString: STATE.anchorString,
+            previousTransaction: STATE.previousTransaction,
+            previousTyronHash: STATE.previousTyronHash,
         }
 
         const TYRON_HASH = Multihash.canonicalizeThenHashThenEncode(MODEL);
@@ -53,8 +52,9 @@ export default class TyronState {
 
 /***            ** interfaces **            ***/
 
+/** The tyron state model */
 export interface StateModel {
-    previousBlockStamp: BlockTimeStamp;
-    latestLedgerTime: number;
-    previousTxHash: string,
+    anchorString: string;
+    previousTransaction: TransactionStore;
+    previousTyronHash: string;      // The corresponding tyron state to the previous transaction
 }

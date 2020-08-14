@@ -1,3 +1,17 @@
+(*
+    TyronZIL-js: Decentralized identity client for the Zilliqa blockchain platform
+    Copyright (C) 2020 Julio Cesar Cabrapan Duarte
+
+    This program is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+*)
 scilla_version 0
 
 (* The tyron library *)
@@ -12,31 +26,30 @@ library Tyron
 
 contract Tyron(
   (* Immutable fields declaration *)
-  pungtas: ByStr20,
-  tyron_hash: String,
+  pungtas_address: ByStr20, (* the owner of the contract *)
   operation_cost: Uint128 (* equal to 1 ZIL *)
   )
   
   (* Mutable fields declaration *)
-  field tyron_state: String = ""
+  field tyron_hash: String = ""
   field anchor_string: String = ""
   field client_address: ByStr20 = 0xccDdFAD074cd608B6B43e14eb3440240f5bFf087
-  field ledger_time: BNum = BNum 5
-  field state_nonce: Uint32 = Uint32 0
+  field ledger_time: BNum = BNum 999
+  field sidetree_transaction_number: Uint128 = Uint128 0 (* a monotonically increasing number *)
   
   (* Updates the mutable state if the transaction is successful *)
-  procedure updateState(state: String, sidetreeAnchor: String, block: BNum)
-    tyron_state := state;
+  procedure updateState(tyronHash: String, sidetreeAnchor: String, block: BNum)
+    tyron_hash := tyronHash;
     anchor_string := sidetreeAnchor;
     client_address := _sender;
     ledger_time := block;
-    current_nonce <- state_nonce;
-    incrementor = Uint32 1;
-    new_nonce = builtin add current_nonce incrementor;
-    state_nonce := new_nonce
+    latest_tx_number <- sidetree_transaction_number;
+      incrementor = Uint128 1;
+      new_tx_number = builtin add latest_tx_number incrementor;
+    sidetree_transaction_number := new_tx_number
   end
   
-  transition tyronZIL(state: String, sidetreeAnchor: String, count: Uint128)
+  transition ownYourData(tyronHash: String, sidetreeAnchor: String, count: Uint128)
     cost = builtin mul count operation_cost;
     payment_is_accepted = builtin eq _amount cost;
     
@@ -52,10 +65,11 @@ contract Tyron(
           reply = mensaje msg;
           send reply;
           block <- & BLOCKNUMBER;
-          updateState state sidetreeAnchor block;
+          updateState tyronHash sidetreeAnchor block;
+          tx_number <- sidetree_transaction_number;
           success = {
             _eventname: "tyronZIL transaction successful";
-            time_stamp: block
+            sidetree_transaction_number: tx_number
           };
           event success
           
