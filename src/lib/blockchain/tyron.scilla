@@ -16,18 +16,44 @@ scilla_version 0
 
 (* The tyron library *)
 library Tyron
-  let mensaje =
-    fun(msg: Message) =>
-      let nil_msg = Nil{Message} in
-      Cons{Message} msg nil_msg
-  let payment_is_wrong: String = "The payment is not enough for the number of operations"
+
+  let one_msg = 
+  fun (msg : Message) => 
+  let nil_msg = Nil {Message} in
+  Cons {Message} msg nil_msg
+
+  let two_msgs =
+  fun (msg1 : Message) =>
+  fun (msg2 : Message) =>
+    let msgs_tmp = one_msg msg2 in
+    Cons {Message} msg1 msgs_tmp
+      
   let zero = Uint128 0
-  let payment_is_right: String = "The payment is correct thus the tyron-smart-contract is being processed"
+  let hundred = Uint128 100
+  
+  (* Error events *)
+  type Error =
+  | CodeNotClient
+  | CodeNotOwner
+  | CodeInsufficientFunds
+  
+  let make_error =
+    fun (result : Error) =>
+      let result_code = 
+        match result with
+        | CodeNotClient             => Int32 -1
+        | CodeNotOwner              => Int32 -2
+        | CodeInsufficientFunds     => Int32 -3
+        end
+      in
+      { _exception : "Error"; code : result_code }
 
 contract Tyron(
   (* Immutable fields declaration *)
-  pungtas_address: ByStr20, (* the owner of the contract *)
-  operation_cost: Uint128 (* equal to 1 ZIL *)
+  contract_owner: ByStr20,    (* the owner of the contract *)
+  operation_cost: Uint128,    (* equal to 1 ZIL *)
+  client_commission: Uint128, (* % commission *)
+  foundation_address: ByStr20 (* address of the foundation *)
   )
   
   (* Mutable fields declaration *)
@@ -37,50 +63,88 @@ contract Tyron(
   field ledger_time: BNum = BNum 999
   field sidetree_transaction_number: Uint128 = Uint128 0 (* a monotonically increasing number *)
   
+  procedure ThrowError(err : Error)
+    e = make_error err;
+    throw e
+  end
+  
+  procedure IsClient(address: ByStr20)
+    is_client = builtin eq address _sender;
+    match is_client with
+    | True =>
+    | False =>
+      err = CodeNotClient;
+      ThrowError err
+    end
+  end
+  
+  procedure IsOwner()
+    is_owner = builtin eq contract_owner _sender;
+    match is_owner with
+    | True =>
+    | False =>
+      err = CodeNotOwner;
+      ThrowError err
+    end
+  end
+  
   (* Updates the mutable state if the transaction is successful *)
-  procedure updateState(tyronHash: String, sidetreeAnchor: String, block: BNum)
+  procedure UpdateState(tyronHash: String, sidetreeAnchor: String, block: BNum)
     tyron_hash := tyronHash;
     anchor_string := sidetreeAnchor;
-    client_address := _sender;
     ledger_time := block;
     latest_tx_number <- sidetree_transaction_number;
-      incrementor = Uint128 1;
-      new_tx_number = builtin add latest_tx_number incrementor;
+    new_tx_number = let incrementor = Uint128 1 in
+      builtin add latest_tx_number incrementor;
     sidetree_transaction_number := new_tx_number
   end
   
-  transition ownYourData(tyronHash: String, sidetreeAnchor: String, count: Uint128)
+  transition UpdateData(tyronHash: String, sidetreeAnchor: String, count: Uint128)
+    current_client_address <- client_address;
+    IsClient current_client_address;
     cost = builtin mul count operation_cost;
     payment_is_accepted = builtin eq _amount cost;
-    
     match payment_is_accepted with
       | True =>
           accept;
-          msg = {
-            _tag: "";
-            _recipient: _sender;
-            _amount: zero;
-            code: payment_is_right
-          };
-          reply = mensaje msg;
-          send reply;
           block <- & BLOCKNUMBER;
-          updateState tyronHash sidetreeAnchor block;
+          UpdateState tyronHash sidetreeAnchor block;
           tx_number <- sidetree_transaction_number;
-          success = {
-            _eventname: "tyronZIL transaction successful";
-            sidetree_transaction_number: tx_number
+          e = {
+            _eventname: "UpdatedData";
+            sidetree_transaction_number: tx_number;
+            new_tyron_hash: tyronHash;
+            new_anchor_string: sidetreeAnchor
           };
-          event success
-          
-      | False => 
-          msg = {
+          event e;
+          (* Pay tyron client and foundation, must be an externally owned addresses *)
+          payment_to_client = let temp = builtin div _amount hundred in
+            builtin mul temp client_commission;
+          payment_to_foundation = builtin sub _amount payment_to_client;
+          msg_to_client = {
             _tag: "";
             _recipient: _sender;
-            _amount: zero;
-            code: payment_is_wrong
+            _amount: payment_to_client
           };
-          reply = mensaje msg;
-          send reply
+          msg_to_foundation = {
+            _tag: "";
+            _recipient: current_client_address;
+            _amount: payment_to_foundation
+          };
+          msgs = two_msgs msg_to_client msg_to_foundation;
+          send msgs
+      | False => 
+          err = CodeInsufficientFunds;
+          ThrowError err
       end
-end
+  end
+  
+  transition UpdateClient(newClientAddress: ByStr20)
+    IsOwner;
+    client_address := newClientAddress;
+    e = {
+      _eventname: "UpdatedClient";
+      new_client_address: newClientAddress
+    };
+    event e
+  end
