@@ -247,6 +247,7 @@ export default class DidCreate {
             type: OperationType.Create,
             delta: ENCODED_DELTA
         };
+        // Printing the operation request for testing purposes
         console.log(`The create request is: ${JSON.stringify(SIDETREE_REQUEST,null,2)}`);
         return SIDETREE_REQUEST;    
     }

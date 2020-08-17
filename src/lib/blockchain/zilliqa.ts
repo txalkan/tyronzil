@@ -260,7 +260,7 @@ export default class TyronZIL extends TyronContract {
             }
 
             const DATA: Transition = {
-                _tag: "ownYourData",
+                _tag: "UpdateData",
                 _amount: String(input.payment),
                 _sender: input.address,
                 params: [TYRON_HASH, SIDETREE_ANCHOR, COUNT]
