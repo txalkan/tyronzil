@@ -29,5 +29,16 @@ export default {
     InvalidDID: 'The client has rejected the input - invalid tyronZIL DID',
     CouldNotResolve: 'The client has rejected your resolve request',
     IncorrectPatchAction: 'The chosen action is not valid',
+    RepeatedDID: 'There cannot be more than one operation per DID per tyronZIL transaction',
+    BeyondCountLimit: 'The number of operations is beyond the maximum limit for a tyronZIL transaction',
+    FileSizeExceedsLimit: 'The file size exceeds the allowed limit',
+    AnchorNotCAS: 'The Anchor file is not in the content-addressable-storage',
+    MapNotCAS: 'The Map file is not in the content-addressable-storage',
+    ChunkNotCAS: 'The Chunk file is not in the content-addressable-storage',
+    CouldNotFetchLatestTxBlock: "The Zilliqa's latest transaction block could not be retrieved",
+    WrongKey: 'The given private key is wrong',
+    NotEnoughBalance: "The current account's balance is not enough",
+    WrongTyronHash: 'The hash does not match the `tyron-smart-contract`',
+    IncorrectLatestState: "The client's latest tyron-state does not match the latest state in the tyron-smart-contract",
+    WrongContract: "The given address is not a `tyron-contract`",
 };
-  

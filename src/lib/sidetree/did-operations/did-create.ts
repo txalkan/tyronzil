@@ -15,7 +15,6 @@
 
 import OperationType from '@decentralized-identity/sidetree/dist/lib/core/enums/OperationType';
 import CreateOperation from '@decentralized-identity/sidetree/dist/lib/core/versions/latest/CreateOperation';
-
 import { Cryptography, OperationKeyPairInput, JwkEs256k } from '../did-keys';
 import { PublicKeyModel, Operation, Recovery, SidetreeVerificationRelationship } from '../models/verification-method-models';
 import { CliInputModel } from '../models/cli-input-model';
@@ -28,93 +27,63 @@ import { DocumentModel, PatchModel, PatchAction } from '../models/patch-model';
 import DeltaModel from '@decentralized-identity/sidetree/dist/lib/core/versions/latest/models/DeltaModel';
 import SuffixDataModel from '../models/suffix-data-model';
 
-/** Defines output data for a Sidetree-based `DID-create` operation */
-interface CreateOperationOutput {
-    did_tyronZIL: TyronZILScheme;
-    sidetreeRequest: RequestData;
-    operationBuffer: Buffer;
-    createOperation: CreateOperation;
-    publicKey: PublicKeyModel[];
-    privateKey: string[];
-    operation: Operation;   // verification method
-    recovery: Recovery;     // verification method
-    updateKey: JwkEs256k;
-    updatePrivateKey: JwkEs256k;
-    updateCommitment: string;
-    recoveryKey: JwkEs256k;
-    recoveryPrivateKey: JwkEs256k;
-    recoveryCommitment: string;
-    service: ServiceEndpointModel[];
-}
-
-/** Defines input data for a Sidetree-based `DID-create` operation REQUEST*/
-interface RequestInput {
-    publicKey: PublicKeyModel[];
-    service?: ServiceEndpointModel[];
-    updateCommitment: string;
-    recoveryCommitment: string;
-}
-
-/** Defines data for a Sidetree CreateOperation REQUEST*/
-interface RequestData {
-    suffix_data: string;
-    type?: OperationType.Create;
-    delta?: string;
-}
-
 /** Generates a Sidetree-based `DID-create` operation */
 export default class DidCreate {
     public readonly did_tyronZIL: TyronZILScheme;
-    public readonly sidetreeRequest: RequestData;
-    public readonly operationBuffer: Buffer;
+        public readonly didUniqueSuffix: string;
+    public readonly sidetreeRequest: CreateDataRequest;
+        public readonly operationBuffer: Buffer;
     public readonly createOperation: CreateOperation;
-    public readonly type: OperationType.Create;
-    public readonly didUniqueSuffix: string;
+        public readonly type: OperationType.Create;
     public readonly encodedSuffixData: string;
-    public readonly suffixData: SuffixDataModel;
+        public readonly suffixData: SuffixDataModel;
     public readonly encodedDelta: string | undefined;
-    public readonly delta: DeltaModel | undefined; // undefined when Anchor file mode is ON
+        public readonly delta: DeltaModel | undefined; // undefined when Anchor file mode is ON
     public readonly publicKey: PublicKeyModel[];
-    public readonly privateKey: string[];
-    public readonly operation: Operation;
-    public readonly recovery: Recovery;
-    public readonly updateKey: JwkEs256k;
-    public readonly updatePrivateKey: JwkEs256k;
+        public readonly privateKey: string[];
     public readonly updateCommitment: string;
-    public readonly recoveryKey: JwkEs256k;
-    public readonly recoveryPrivateKey: JwkEs256k;
+        public readonly operation: Operation;
+        public readonly updateKey: JwkEs256k;
+        public readonly updatePrivateKey: JwkEs256k;
     public readonly recoveryCommitment: string;
+        public readonly recovery: Recovery;
+        public readonly recoveryKey: JwkEs256k;
+        public readonly recoveryPrivateKey: JwkEs256k;
     public readonly service: ServiceEndpointModel[];
+
+    /***            ****            ***/
 
     private constructor (
         operationOutput: CreateOperationOutput
     ) {
         this.did_tyronZIL = operationOutput.did_tyronZIL;
+            this.didUniqueSuffix = operationOutput.createOperation.didUniqueSuffix;
         this.sidetreeRequest = operationOutput.sidetreeRequest;
-        this.operationBuffer = operationOutput.operationBuffer;
+            this.operationBuffer = operationOutput.operationBuffer;
         this.createOperation = operationOutput.createOperation;
-        this.didUniqueSuffix = operationOutput.createOperation.didUniqueSuffix;
-        this.type = OperationType.Create;
+            this.type = OperationType.Create;
         this.encodedSuffixData = operationOutput.createOperation.encodedSuffixData;
-        this.suffixData = {
-            delta_hash: operationOutput.createOperation.suffixData.deltaHash,
-            recovery_commitment: operationOutput.createOperation.suffixData.recoveryCommitment
-        };
+            this.suffixData = {
+                delta_hash: operationOutput.createOperation.suffixData.deltaHash,
+                recovery_commitment: operationOutput.createOperation.suffixData.recoveryCommitment
+            };
         this.encodedDelta = operationOutput.createOperation.encodedDelta;
-        this.delta = operationOutput.createOperation.delta;
+            this.delta = operationOutput.createOperation.delta;
         this.publicKey = operationOutput.publicKey;
-        this.privateKey = operationOutput.privateKey;
+            this.privateKey = operationOutput.privateKey;
         this.operation = operationOutput.operation;
         this.recovery = operationOutput.recovery;
         this.updateKey = operationOutput.updateKey;
-        this.updatePrivateKey = operationOutput.updatePrivateKey;
-        this.updateCommitment = operationOutput.updateCommitment;
+            this.updatePrivateKey = operationOutput.updatePrivateKey;
+            this.updateCommitment = operationOutput.updateCommitment;
         this.recoveryKey = operationOutput.recoveryKey;
-        this.recoveryPrivateKey = operationOutput.recoveryPrivateKey;
-        this.recoveryCommitment = operationOutput.recoveryCommitment;
+            this.recoveryPrivateKey = operationOutput.recoveryPrivateKey;
+            this.recoveryCommitment = operationOutput.recoveryCommitment;
         this.service = operationOutput.service;
     }
 
+    /***            ****            ***/
+   
     /** Generates a Sidetree-based `DID-create` operation with input from the CLI */
     public static async executeCli(input: CliInputModel): Promise<DidCreate> {
         
@@ -245,7 +214,7 @@ export default class DidCreate {
     }
 
     /** Generates the Sidetree data for the `DID-create` operation */
-    public static async sidetreeRequest(input: RequestInput): Promise<RequestData> {
+    public static async sidetreeRequest(input: RequestInput): Promise<CreateDataRequest> {
         
         const DOCUMENT: DocumentModel = {
             public_keys: input.publicKey,
@@ -273,11 +242,50 @@ export default class DidCreate {
         const ENCODED_SUFFIX_DATA = Encoder.encode(JSON.stringify(SUFFIX_DATA));
         
         /** DID data to generate a new Sidetree CreateOperation */
-        const SIDETREE_REQUEST: RequestData = {
+        const SIDETREE_REQUEST: CreateDataRequest = {
             suffix_data: ENCODED_SUFFIX_DATA,
             type: OperationType.Create,
             delta: ENCODED_DELTA
         };
+        // Printing the operation request for testing purposes
+        console.log(`The create request is: ${JSON.stringify(SIDETREE_REQUEST,null,2)}`);
         return SIDETREE_REQUEST;    
     }
 }
+
+/***            ** interfaces **            ***/
+
+/** Defines output data for a Sidetree-based `DID-create` operation */
+interface CreateOperationOutput {
+    did_tyronZIL: TyronZILScheme;
+    sidetreeRequest: CreateDataRequest;
+    operationBuffer: Buffer;
+    createOperation: CreateOperation;
+    publicKey: PublicKeyModel[];
+    privateKey: string[];
+    operation: Operation;   // verification method
+    recovery: Recovery;     // verification method
+    updateKey: JwkEs256k;
+    updatePrivateKey: JwkEs256k;
+    updateCommitment: string;
+    recoveryKey: JwkEs256k;
+    recoveryPrivateKey: JwkEs256k;
+    recoveryCommitment: string;
+    service: ServiceEndpointModel[];
+}
+
+/** Defines input data for a Sidetree-based `DID-create` operation REQUEST*/
+interface RequestInput {
+    publicKey: PublicKeyModel[];
+    service?: ServiceEndpointModel[];
+    updateCommitment: string;
+    recoveryCommitment: string;
+}
+
+/** Defines data for a Sidetree CreateOperation REQUEST*/
+export interface CreateDataRequest {
+    suffix_data: string;
+    type: OperationType.Create;
+    delta: string;
+}
+

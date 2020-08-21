@@ -18,9 +18,9 @@ import { PublicKeyPurpose, VerificationMethodModel } from './models/verification
 import ServiceEndpointModel from '@decentralized-identity/sidetree/dist/lib/core/versions/latest/models/ServiceEndpointModel';
 import { TyronZILUrlScheme } from './tyronZIL-schemes/did-url-scheme';
 import * as fs from 'fs';
-import LogColors from '../bin/log-colors';
+import LogColors from '../../bin/log-colors';
 import SidetreeError from '@decentralized-identity/sidetree/dist/lib/common/SidetreeError';
-import Error from './ErrorCode';
+import Error from '../ErrorCode';
 
 interface DidDocScheme {
     id: string;

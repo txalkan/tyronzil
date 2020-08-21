@@ -17,7 +17,7 @@ import TyronZILScheme, { SchemeInputData, NetworkNamespace } from "./did-scheme"
 import SidetreeError from "@decentralized-identity/sidetree/dist/lib/common/SidetreeError";
 // import { ParsedUrlQueryInput } from "querystring";
 //import { URL } from 'url';
-import ErrorCode from '../ErrorCode';
+import ErrorCode from '../../ErrorCode';
 
 export interface UrlInput {
     schemeInput: SchemeInputData;

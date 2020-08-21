@@ -18,7 +18,7 @@ import Jws from '@decentralized-identity/sidetree/dist/lib/core/versions/latest/
 import { UpdateSignedDataModel, RecoverSignedDataModel, DeactivateSignedDataModel } from './models/signed-data-models';
 import { JWK } from 'jose';
 import SidetreeError from '@decentralized-identity/sidetree/dist/lib/common/SidetreeError';
-import ErrorCode from './ErrorCode';
+import ErrorCode from '../ErrorCode';
 
 /** Defines input data to generate a cryptographic key pair */
 export interface OperationKeyPairInput {

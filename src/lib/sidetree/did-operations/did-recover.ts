@@ -28,55 +28,10 @@ import { RecoverSignedDataModel } from '../models/signed-data-models';
 import { CliInputModel } from '../models/cli-input-model';
 import DidCreate from './did-create';
 
-/** Defines input data for a Sidetree-based `DID-recover` operation */
-export interface RecoverOperationInput {
-    did_tyronZIL: TyronZILScheme;
-    recoveryPrivateKey: JwkEs256k;
-    cliInput: CliInputModel;
-}
-
-/** Defines output data of a Sidetree-based `DID-recover` operation */
-interface RecoverOperationOutput {
-    did_tyronZIL: TyronZILScheme;
-    sidetreeRequest: RequestData;
-    operationBuffer: Buffer;
-    recoverOperation: RecoverOperation;
-    publicKey: PublicKeyModel[];
-    privateKey: string[];
-    operation: Operation;   // verification method
-    recovery: Recovery;     // verification method
-    updateKey: JwkEs256k;
-    updatePrivateKey: JwkEs256k;
-    updateCommitment: string;
-    recoveryKey: JwkEs256k;
-    recoveryPrivateKey: JwkEs256k;
-    recoveryCommitment: string;
-    service: ServiceEndpointModel[];
-}
-
-/** Defines input data for a Sidetree-based `DID-recover` operation REQUEST*/
-interface RequestInput {
-    did_tyronZIL: TyronZILScheme;
-    recoveryPrivateKey: JwkEs256k;
-    publicKey: PublicKeyModel[];
-    service?: ServiceEndpointModel[];
-    updateCommitment: string;
-    recoveryCommitment: string;
-}
-
-/** Defines data for a Sidetree RecoverOperation REQUEST*/
-interface RequestData {
-    did_suffix: string;
-    signed_data: string;
-    type?: OperationType.Recover;
-    delta?: string;
-}
-
-
 /** Generates a Sidetree-based `DID-recover` operation */
 export default class DidRecover {
     public readonly did_tyronZIL: TyronZILScheme;
-    public readonly sidetreeRequest: RequestData;
+    public readonly sidetreeRequest: SignedDataRequest;
     public readonly operationBuffer: Buffer;
     public readonly recoverOperation: RecoverOperation;
     public readonly type: OperationType.Recover;
@@ -218,7 +173,7 @@ export default class DidRecover {
     }
 
     /** Generates the Sidetree data for the `DID-recover` operation */
-    public static async sidetreeRequest(input: RequestInput): Promise<RequestData> {
+    public static async sidetreeRequest(input: RequestInput): Promise<SignedDataRequest> {
         
         const DOCUMENT: DocumentModel = {
             public_keys: input.publicKey,
@@ -248,7 +203,7 @@ export default class DidRecover {
         const SIGNED_DATA_JWS = await Cryptography.signUsingEs256k(SIGNED_DATA, recoveryNoKid);
         
         /** DID data to generate a Sidetree RecoverOperation */
-        const SIDETREE_REQUEST: RequestData = {
+        const SIDETREE_REQUEST: SignedDataRequest = {
             did_suffix: input.did_tyronZIL.didUniqueSuffix,
             signed_data: SIGNED_DATA_JWS,
             type: OperationType.Recover,
@@ -256,4 +211,50 @@ export default class DidRecover {
         };
         return SIDETREE_REQUEST;
     }
+}
+
+/***            ** interfaces **            ***/
+
+/** Defines input data for a Sidetree-based `DID-recover` operation */
+export interface RecoverOperationInput {
+    did_tyronZIL: TyronZILScheme;
+    recoveryPrivateKey: JwkEs256k;
+    cliInput: CliInputModel;
+}
+
+/** Defines output data of a Sidetree-based `DID-recover` operation */
+interface RecoverOperationOutput {
+    did_tyronZIL: TyronZILScheme;
+    sidetreeRequest: SignedDataRequest;
+    operationBuffer: Buffer;
+    recoverOperation: RecoverOperation;
+    publicKey: PublicKeyModel[];
+    privateKey: string[];
+    operation: Operation;   // verification method
+    recovery: Recovery;     // verification method
+    updateKey: JwkEs256k;
+    updatePrivateKey: JwkEs256k;
+    updateCommitment: string;
+    recoveryKey: JwkEs256k;
+    recoveryPrivateKey: JwkEs256k;
+    recoveryCommitment: string;
+    service: ServiceEndpointModel[];
+}
+
+/** Defines input data for a Sidetree-based `DID-recover` operation REQUEST*/
+interface RequestInput {
+    did_tyronZIL: TyronZILScheme;
+    recoveryPrivateKey: JwkEs256k;
+    publicKey: PublicKeyModel[];
+    service?: ServiceEndpointModel[];
+    updateCommitment: string;
+    recoveryCommitment: string;
+}
+
+/** Defines data for a Sidetree RecoverOperation REQUEST*/
+interface SignedDataRequest {
+    did_suffix: string;
+    signed_data: string;
+    type: OperationType.Recover;
+    delta: string;
 }

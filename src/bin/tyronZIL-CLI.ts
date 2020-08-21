@@ -14,27 +14,27 @@
 */
 
 import LogColors from './log-colors';
-import DidCreate from '../lib/did-operations/did-create';
-import DidRecover, { RecoverOperationInput } from '../lib/did-operations/did-recover';
-import { CliInputModel, PublicKeyInput } from '../lib/models/cli-input-model';
-import TyronZILScheme from '../lib/tyronZIL-schemes/did-scheme';
-import { NetworkNamespace, SchemeInputData } from '../lib/tyronZIL-schemes/did-scheme';
+import DidCreate from '../lib/sidetree/did-operations/did-create';
+import DidRecover, { RecoverOperationInput } from '../lib/sidetree/did-operations/did-recover';
+import { CliInputModel, PublicKeyInput } from '../lib/sidetree/models/cli-input-model';
+import TyronZILScheme from '../lib/sidetree/tyronZIL-schemes/did-scheme';
+import { NetworkNamespace, SchemeInputData } from '../lib/sidetree/tyronZIL-schemes/did-scheme';
 import * as readline from 'readline-sync';
-import { PublicKeyPurpose } from '../lib/models/verification-method-models';
-import { LongFormDidInput, TyronZILUrlScheme } from '../lib/tyronZIL-schemes/did-url-scheme';
-import DidState from '../lib/did-state';
+import { PublicKeyPurpose } from '../lib/sidetree/models/verification-method-models';
+import { LongFormDidInput, TyronZILUrlScheme } from '../lib/sidetree/tyronZIL-schemes/did-url-scheme';
+import DidState from '../lib/sidetree/did-state';
 import * as fs from 'fs';
-import DidDoc, {ResolutionInput, Accept} from '../lib/did-document';
+import DidDoc, {ResolutionInput, Accept} from '../lib/sidetree/did-document';
 import JsonAsync from '@decentralized-identity/sidetree/dist/lib/core/versions/latest/util/JsonAsync';
 import ServiceEndpointModel from '@decentralized-identity/sidetree/dist/lib/core/versions/latest/models/ServiceEndpointModel';
-import { PrivateKeys, Cryptography} from '../lib/did-keys';
+import { PrivateKeys, Cryptography} from '../lib/sidetree/did-keys';
 import Multihash from '@decentralized-identity/sidetree/dist/lib/core/versions/latest/Multihash';
 import Encoder from '@decentralized-identity/sidetree/dist/lib/core/versions/latest/Encoder';
 import SidetreeError from '@decentralized-identity/sidetree/dist/lib/common/SidetreeError';
 import ErrorCode from '../lib/ErrorCode';
-import DidDeactivate, { DeactivateOperationInput } from '../lib/did-operations/did-deactivate';
-import { PatchAction, PatchModel } from '../lib/models/patch-model';
-import DidUpdate, { UpdateOperationInput } from '../lib/did-operations/did-update';
+import DidDeactivate, { DeactivateOperationInput } from '../lib/sidetree/did-operations/did-deactivate';
+import { PatchAction, PatchModel } from '../lib/sidetree/models/patch-model';
+import DidUpdate, { UpdateOperationInput } from '../lib/sidetree/did-operations/did-update';
 
 /** Handles the command-line interface DID operations */
 export default class TyronCLI {

@@ -20,31 +20,10 @@ import { Cryptography, JwkEs256k } from '../did-keys';
 import Jws from '@decentralized-identity/sidetree/dist/lib/core/versions/latest/util/Jws';
 import { DeactivateSignedDataModel } from '../models/signed-data-models';
 
-/** Defines input data for a Sidetree-based `DID-deactivate` operation */
-export interface DeactivateOperationInput {
-    did_tyronZIL: TyronZILScheme;
-    recoveryPrivateKey: JwkEs256k;
-}
-
-/** Defines output data of a Sidetree-based `DID-deactivate` operation */
-interface DeactivateOperationOutput {
-    did_tyronZIL: TyronZILScheme;
-    operationRequest: RequestData;
-    operationBuffer: Buffer;
-    deactivateOperation: DeactivateOperation;
-}
-
-/** Defines data for a Sidetree DeactivateOperation REQUEST*/
-interface RequestData {
-    did_suffix: string,
-    signed_data: string;
-    type?: OperationType.Deactivate
-}
-
 /** Generates a Sidetree-based `DID-deactivate` operation */
 export default class DidDeactivate {
     public readonly did_tyronZIL: TyronZILScheme;
-    public readonly operationRequest: RequestData;
+    public readonly operationRequest: SignedDataRequest;
     public readonly operationBuffer: Buffer;
     public readonly deactivateOperation: DeactivateOperation;
     public readonly type: OperationType.Deactivate;
@@ -80,7 +59,7 @@ export default class DidDeactivate {
         const SIGNED_DATA_JWS = await Cryptography.signUsingEs256k(SIGNED_DATA, recoveryNoKid);
         
         /** DID data to generate a Sidetree DeactivateOperation */
-        const OPERATION_REQUEST: RequestData = {
+        const OPERATION_REQUEST: SignedDataRequest = {
             did_suffix: input.did_tyronZIL.didUniqueSuffix,
             signed_data: SIGNED_DATA_JWS,
             type: OperationType.Deactivate
@@ -101,4 +80,27 @@ export default class DidDeactivate {
 
         return new DidDeactivate(OPERATION_OUTPUT);
     }
+}
+
+/***            ** interfaces **            ***/
+
+/** Defines input data for a Sidetree-based `DID-deactivate` operation */
+export interface DeactivateOperationInput {
+    did_tyronZIL: TyronZILScheme;
+    recoveryPrivateKey: JwkEs256k;
+}
+
+/** Defines output data of a Sidetree-based `DID-deactivate` operation */
+interface DeactivateOperationOutput {
+    did_tyronZIL: TyronZILScheme;
+    operationRequest: SignedDataRequest;
+    operationBuffer: Buffer;
+    deactivateOperation: DeactivateOperation;
+}
+
+/** Defines data for a Sidetree DeactivateOperation REQUEST*/
+interface SignedDataRequest {
+    did_suffix: string,
+    signed_data: string;
+    type: OperationType.Deactivate
 }

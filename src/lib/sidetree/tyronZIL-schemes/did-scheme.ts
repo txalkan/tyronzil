@@ -13,16 +13,6 @@
     GNU General Public License for more details.
 */
 
-export enum NetworkNamespace {
-    Mainnet = 'main:',
-    Testnet = 'test:',
-}
-
-export interface SchemeInputData {
-    network: NetworkNamespace;
-    didUniqueSuffix: string;
-}
-
 /** Defines the tyronZIL DID scheme */
 export default class TyronZILScheme {
     public static readonly schemeIdentifier = 'did:';
@@ -50,4 +40,14 @@ export default class TyronZILScheme {
 
         return new TyronZILScheme(SCHEME_DATA);
     }
+}
+
+export enum NetworkNamespace {
+    Mainnet = 'main:',
+    Testnet = 'test:',
+}
+
+export interface SchemeInputData {
+    network: NetworkNamespace;
+    didUniqueSuffix: string;
 }
