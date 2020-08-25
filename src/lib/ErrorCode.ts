@@ -14,6 +14,7 @@
 */
 
 export default {
+    InvalidAddress: 'The given address is not a valid Zilliqa Bech32 address',
     JwkEs256kUndefined: 'jwk_es256k_is_undefined',
     JwkEs256kHasUnknownProperty: 'jwk_es256k_has_unknown_property',
     JwkEs256kMissingOrInvalidCrv: 'jwk_es256k_missing_or_invalid_crv',

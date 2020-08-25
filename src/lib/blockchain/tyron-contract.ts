@@ -18,32 +18,49 @@ import ErrorCode from '../ErrorCode';
 
 /** The class to initialize the `tyron-smart-contract` */
 export default class TyronContract {
-    
+
+    /** The Zilliqa address where the `TyronInit smart-contract` resides */
+    public readonly tyron_init: string;
+
+    /** The user's Zilliqa address */
+    public readonly contract_owner: string;
+
+    /** The address of the user's `tyron-smart-contract` */
+    public readonly tyron_addr: string;
+
     /** The client's Zilliqa address that executes the tyronZIL transaction (ByStr20) */
-    public readonly clientAddress: string;
+    public readonly client_addr: string;
 
-    /** The Zilliqa address where the `tyron-smart-contract` resides */
-    public readonly tyronAddress: string;
+    /** The minimum amount that the client MUST stake (in Qa = 10^-12 ZIL) */
+    public readonly tyron_stake: number;
 
-    constructor(init: ContractInitialization) {
-        this.clientAddress = init.clientAddress;
-        if (init.tyronAddress !== TyronContracts.OwnYourData) {
+    constructor(
+        init: ContractInit,
+        tyron_addr: string
+    ) {
+        if (init.tyron_init !== TyronContracts.tyron_init) {
             throw new SidetreeError(ErrorCode.WrongContract)
         } else {
-            this.tyronAddress = init.tyronAddress;         
+            this.tyron_init = init.tyron_init;         
         }
+        this.contract_owner = init.contract_owner;
+        this.client_addr = init.client_addr;
+        this.tyron_stake = init.tyron_stake;
+        this.tyron_addr = tyron_addr;
     }
 }
 
 /***            ** interfaces **            ***/
 
 /** The Zilliqa addresses to initialize the `tyron-smart-contract` */
-export interface ContractInitialization {
-    tyronAddress: string;
-    clientAddress: string;
+export interface ContractInit {
+    tyron_init: string;
+    contract_owner: string;
+    client_addr: string;
+    tyron_stake: number;
 }
 
-/** The `tyron contracts` organized by transition name */
+/** The `tyron smart-contracts` */
 enum TyronContracts {
-    OwnYourData = "zil17slnpyrf8tk5tpf83f57j86ysz5wafg3hkvhzn"
+    tyron_init = "0x2ec55313454c229f02cc03266b3df5dbc72cadde"
 }
