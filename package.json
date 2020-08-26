@@ -1,7 +1,7 @@
 {
   "name": "tyronzil-js",
   "version": "0.0.1",
-  "description": "Sidetree-based DID client for the Zilliqa blockchain platform",
+  "description": "Decentralized identity client for the Zilliqa blockchain platform",
   "main": "dist/src/core.js",
   "bin": {
     "tyronzil": "./dist/src/bin/index.js"

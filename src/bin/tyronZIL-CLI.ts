@@ -88,10 +88,10 @@ export default class TyronCLI {
         }
 
         this.clientInit()
-        .then( async client => {
+        .then(async client => {
 
             /** Gets the user's address, which is the contract_owner */
-            const user_privateKey = readline.question(LogColors.green(`As the user, you're the owner of your tyron smart-contract! Which private key do you choose to have that power? - `) + LogColors.lightBlue(`Your answer: `));
+            const user_privateKey = readline.question(LogColors.green(`As the user, you're the owner of your tyron-smart-contract! Which private key do you choose to have that power? - `) + LogColors.lightBlue(`Your answer: `));
             const CONTRACT_OWNER = Crypto.getAddressFromPrivateKey(user_privateKey);
             const USER: Account = {
                 addr: CONTRACT_OWNER,
@@ -105,7 +105,7 @@ export default class TyronCLI {
     
             return ACCOUNTS;
         })
-        .then( async accounts => {
+        .then(async accounts => {
 
             // Adds public keys and service endpoints:
             const PUBLIC_KEYS = await this.InputKeys();
@@ -171,10 +171,10 @@ export default class TyronCLI {
 
             return TYRON_CLI;
         })
-        .then( async TYRON_CLI => {
+        .then(async TYRON_CLI => {
 
             /** Asks if the user wants to write their tyronZIL DID on Zilliqa */
-            const write_did = readline.question(`Would you like to write your tyronZIL DID on Zilliqa? [y/n] - Defaults to yes ` + LogColors.lightBlue(`Your answer: `));
+            const write_did = readline.question(LogColors.green(`Would you like to write your tyronZIL DID on Zilliqa?`) + ` - [y/n] - Defaults to yes ` + LogColors.lightBlue(`Your answer: `));
             switch (write_did.toLowerCase()) {
                 case "n":
                     console.log(LogColors.green(`Then, that's all for now. Enjoy your decentralized identity!`));
@@ -182,6 +182,8 @@ export default class TyronCLI {
                 default:
                     break;
             }
+
+            console.log(LogColors.brightGreen(`Initializing your tyron-smart-contract...`))
 
             const CONTRACT_INIT: ContractInit = {
                 tyron_init: "0x2ec55313454c229f02cc03266b3df5dbc72cadde",
@@ -213,7 +215,7 @@ export default class TyronCLI {
                 - client_commission
             */
 
-            const tyron_addr = "0x8484a7f54409e727ac421cc4650828f53028fcd0";
+            const tyron_addr = Crypto.toChecksumAddress("0x8484a7f54409e727ac421cc4650828f53028fcd0");
             const INITIALIZE = await Transaction.initialize(
                 NETWORK,
                 CONTRACT_INIT,

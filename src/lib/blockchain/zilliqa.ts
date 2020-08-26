@@ -209,8 +209,6 @@ export class Transaction extends ZilliqaInit {
             const CUMULATIVE_GAS = TX_RECEIPT!.cumulative_gas;
             console.log(`The total gas consumed in this transaction is: ${CUMULATIVE_GAS}`);
 
-            const EVENT_LOGS = TX_RECEIPT!.event_logs;
-            console.log(`An array of event logs emitted by the contract during processing: ${JSON.stringify(EVENT_LOGS, null, 2)}`);
             console.log(LogColors.green(`The tyronZIL transaction ${tag} has been successful!`));
         })
         .catch(error => console.error(error));
