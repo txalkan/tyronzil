@@ -48,7 +48,7 @@ export default class TyronState extends TyronContract {
         
         const ZIL_INIT = new ZilliqaInit(network, init, tyron_addr);
         const ZIL_API = ZIL_INIT.API;
-        const tyron_state = await ZIL_API.blockchain.getSmartContractState(tyron_addr)
+        await ZIL_API.blockchain.getSmartContractState(tyron_addr)
         .then(async SMART_CONTRACT_STATE => {
             const STATE: StateModel = {
                 decentralized_identifier: SMART_CONTRACT_STATE.result.decentralized_identifier,
@@ -68,7 +68,6 @@ export default class TyronState extends TyronContract {
             return new TyronState(init, tyron_addr, STATE);
         })
         .catch(error => console.error(error));
-        return tyron_state;
     }
 }
 

@@ -17,51 +17,55 @@ import * as readline from 'readline-sync';
 import LogColors from '../../../bin/log-colors';
 import * as fs from 'fs';
 import Encoder from '@decentralized-identity/sidetree/dist/lib/core/versions/latest/Encoder';
-import Compressor from '@decentralized-identity/sidetree/dist/lib/core/versions/latest/util/Compressor';
 import { NetworkNamespace } from '../../sidetree/tyronZIL-schemes/did-scheme';
 import { ContractInit } from '../tyron-contract';
+import { ZilliqaInit } from '../zilliqa';
+import * as util from 'util';
+import * as zlib from 'zlib';
 
 export default class SmartContract {
-    /** Encodes the contract into a Base64URL string */
+    /** Encodes the given contract into a Base64URL string to save it into the `TyronInit-smart-contract` */
     public static async encode(): Promise<void> {
         const contractName = readline.question(LogColors.green(`What is the name of the contract that you'd like to encode? - `) + LogColors.lightBlue(`Your answer: `));
         try {
             const CONTRACT_STRING = (fs.readFileSync(`src/lib/blockchain/smart-contracts/${contractName}.scilla`)).toString();
-            const CONTRACT_BUFFER = Buffer.from(CONTRACT_STRING);
-            const COMPRESSED_CONTRACT = await Compressor.compress(CONTRACT_BUFFER);
-            const ENCODED_CONTRACT = Encoder.encode(COMPRESSED_CONTRACT);
-            console.log(ENCODED_CONTRACT);
-
+            const COMPRESSED_CONTRACT = await (util.promisify(zlib.gzip))(CONTRACT_STRING) as Buffer;
+            console.log(Encoder.encode(COMPRESSED_CONTRACT));
+            console.log(COMPRESSED_CONTRACT.byteLength)
         } catch (error) {
             console.error(error)
         }
     }
 
-    public static async fetch(network: NetworkNamespace, init: ContractInit, tyron_addr: string): Promise<void | TyronState> {
-        
-        const ZIL_INIT = new ZilliqaInit(network, init, tyron_addr);
-        const ZIL_API = ZIL_INIT.API;
-        const tyron_state = await ZIL_API.blockchain.getSmartContractState(tyron_addr)
-        .then(async SMART_CONTRACT_STATE => {
-            const STATE: StateModel = {
-                decentralized_identifier: SMART_CONTRACT_STATE.result.decentralized_identifier,
-                suffix_data: SMART_CONTRACT_STATE.result.suffix_data,
-                signed_data: SMART_CONTRACT_STATE.result.signed_data,
-                delta: SMART_CONTRACT_STATE.result.delta,
-                update_commitment: SMART_CONTRACT_STATE.result.update_commitment,
-                recovery_commitment: SMART_CONTRACT_STATE.result.recovery_commitment,
-                previous_stamp: SMART_CONTRACT_STATE.result.previous_stamp,
-                timestamp: {
-                    status: SMART_CONTRACT_STATE.result.status,
-                    ledger_time: SMART_CONTRACT_STATE.result.ledger_time,
-                    sidetree_transaction_number: SMART_CONTRACT_STATE.result.sidetree_transaction_number,
-                    zilliqa_tranID: SMART_CONTRACT_STATE.result.zilliqa_tranID
-                }
+    /** Fetches the `tyron-smart-contract` by version & decodes it */
+    public static async decode(/*network: NetworkNamespace, init: ContractInit, contractVersion: string*/): Promise<string | void> {
+        const network = NetworkNamespace.Testnet;
+        const init: ContractInit = {
+            tyron_init: "0x75d8297b8bd2e35de1c17e19d2c13504de623793",
+            contract_owner: "0x059f722D2E94C0A6C710e628D14b18BeEe2a62db",
+            client_addr: "0xccDdFAD074cd608B6B43e14eb3440240f5bFf087",
+            tyron_stake: 100000000000000,
+        };
+        const contractVersion = "0.3.1";
+        const ZIL_INIT = new ZilliqaInit(network, init);
+        const THIS_CONTRACT = await ZIL_INIT.API.blockchain.getSmartContractState(init.tyron_init)
+        .then(async STATE => {
+            const INIT = {
+                tyron_smart_contracts: STATE.result.tyron_smart_contracts,
             };
-            return new TyronState(init, tyron_addr, STATE);
+            const CONTRACTS = Object.entries(INIT.tyron_smart_contracts);            
+            let ENCODED_CONTRACT: string;
+            CONTRACTS.forEach((value: [string, unknown]) => {
+                if (value[0] === contractVersion) {
+                    ENCODED_CONTRACT = value[1] as string;
+                }
+            });
+            
+            const COMPRESSED_CONTRACT = Encoder.decodeAsBuffer(ENCODED_CONTRACT!);
+            const DECOMPRESSED_CONTRACT = await (util.promisify(zlib.unzip))(COMPRESSED_CONTRACT) as Buffer;
+            return DECOMPRESSED_CONTRACT.toString();
         })
         .catch(error => console.error(error));
-        return tyron_state;
+        return THIS_CONTRACT;
     }
-
 }

@@ -49,6 +49,9 @@ yargs
   .command('encode', ' -> encodes the given contract into a Base64URL string', async () => {
     await SmartContract.encode();
   })
+  .command('decode', ' -> decodes the given contract version fron the TyronInit smart-contract', async () => {
+    await SmartContract.decode();
+  })
   .strict()       // the command must be one of the explicitly defined commands
   .help(false)    // disabling --help option
   .version(false) // disabling --version option

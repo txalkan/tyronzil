@@ -36,7 +36,7 @@ export default class TyronContract {
 
     constructor(
         init: ContractInit,
-        tyron_addr: string
+        tyron_addr?: string
     ) {
         if (init.tyron_init !== TyronContracts.tyron_init) {
             throw new SidetreeError(ErrorCode.WrongContract)
@@ -46,7 +46,7 @@ export default class TyronContract {
         this.contract_owner = init.contract_owner;
         this.client_addr = init.client_addr;
         this.tyron_stake = init.tyron_stake;
-        this.tyron_addr = tyron_addr;
+        this.tyron_addr = tyron_addr!;
     }
 }
 
@@ -62,5 +62,5 @@ export interface ContractInit {
 
 /** The `tyron smart-contracts` */
 enum TyronContracts {
-    tyron_init = "0x2ec55313454c229f02cc03266b3df5dbc72cadde"
+    tyron_init = "0x75d8297b8bd2e35de1c17e19d2c13504de623793"
 }

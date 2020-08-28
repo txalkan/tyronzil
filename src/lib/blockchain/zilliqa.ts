@@ -31,7 +31,7 @@ export class ZilliqaInit extends TyronContract {
     constructor(
         network: NetworkNamespace,
         init: ContractInit,
-        tyron_addr: string
+        tyron_addr?: string
     ) {
         super(init, tyron_addr);
         let NETWORK_ENDPOINT;
