@@ -28,10 +28,9 @@ export default class TyronState extends TyronContract {
     
     private constructor(
         init: ContractInit,
-        tyron_addr: string,
-        state: StateModel,
+        state: StateModel
     ) {
-        super(init, tyron_addr);
+        super(init);
         this.decentralized_identifier = state.decentralized_identifier;
         this.suffix_data = state.suffix_data;
         this.signed_data = state.signed_data;
@@ -44,11 +43,11 @@ export default class TyronState extends TyronContract {
     /** Fetches the current state from the blockchain 
      * @params addr: the Zilliqa address of the user's smart-contract
     */
-    public static async fetch(network: NetworkNamespace, init: ContractInit, tyron_addr: string): Promise<void | TyronState> {
+    public static async fetch(network: NetworkNamespace, init: ContractInit, tyronAddr: string): Promise<void | TyronState> {
         
-        const ZIL_INIT = new ZilliqaInit(network, init, tyron_addr);
+        const ZIL_INIT = new ZilliqaInit(network, init);
         const ZIL_API = ZIL_INIT.API;
-        await ZIL_API.blockchain.getSmartContractState(tyron_addr)
+        await ZIL_API.blockchain.getSmartContractState(tyronAddr)
         .then(async SMART_CONTRACT_STATE => {
             const STATE: StateModel = {
                 decentralized_identifier: SMART_CONTRACT_STATE.result.decentralized_identifier,
@@ -65,7 +64,7 @@ export default class TyronState extends TyronContract {
                     zilliqa_tranID: SMART_CONTRACT_STATE.result.zilliqa_tranID
                 }
             };
-            return new TyronState(init, tyron_addr, STATE);
+            return new TyronState(init, STATE);
         })
         .catch(error => console.error(error));
     }

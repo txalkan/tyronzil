@@ -25,9 +25,6 @@ export default class TyronContract {
     /** The user's Zilliqa address */
     public readonly contract_owner: string;
 
-    /** The address of the user's `tyron-smart-contract` */
-    public readonly tyron_addr: string;
-
     /** The client's Zilliqa address that executes the tyronZIL transaction (ByStr20) */
     public readonly client_addr: string;
 
@@ -35,8 +32,7 @@ export default class TyronContract {
     public readonly tyron_stake: number;
 
     constructor(
-        init: ContractInit,
-        tyron_addr?: string
+        init: ContractInit
     ) {
         if (init.tyron_init !== TyronContracts.tyron_init) {
             throw new SidetreeError(ErrorCode.WrongContract)
@@ -46,7 +42,6 @@ export default class TyronContract {
         this.contract_owner = init.contract_owner;
         this.client_addr = init.client_addr;
         this.tyron_stake = init.tyron_stake;
-        this.tyron_addr = tyron_addr!;
     }
 }
 

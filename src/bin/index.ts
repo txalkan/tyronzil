@@ -18,7 +18,7 @@
 
 import * as yargs from 'yargs';
 import tyronCLI from './tyronZIL-CLI';
-import SmartContract from '../lib/blockchain/smart-contracts/smart-contracts';
+import SmartUtil from '../lib/blockchain/smart-contracts/smart-util';
 
 yargs
   .scriptName('tyronzil')
@@ -47,10 +47,7 @@ yargs
     await tyronCLI.handleResolve();
   })
   .command('encode', ' -> encodes the given contract into a Base64URL string', async () => {
-    await SmartContract.encode();
-  })
-  .command('decode', ' -> decodes the given contract version fron the TyronInit smart-contract', async () => {
-    await SmartContract.decode();
+    await SmartUtil.encode();
   })
   .strict()       // the command must be one of the explicitly defined commands
   .help(false)    // disabling --help option

@@ -36,7 +36,7 @@ import ErrorCode from '../lib/ErrorCode';
 import DidDeactivate, { DeactivateOperationInput } from '../lib/sidetree/did-operations/did-deactivate';
 import { PatchAction, PatchModel } from '../lib/sidetree/models/patch-model';
 import DidUpdate, { UpdateOperationInput } from '../lib/sidetree/did-operations/did-update';
-import { Transaction, TransitionTag } from '../lib/blockchain/zilliqa';
+import { TyronTransaction, TransitionTag, DeployedContract } from '../lib/blockchain/zilliqa';
 import { ContractInit } from '../lib/blockchain/tyron-contract';
 
 /** Handles the command-line interface DID operations */
@@ -73,7 +73,7 @@ export default class TyronCLI {
         const network = readline.question(LogColors.green(`On which Zilliqa network do you want to create your tyronZIL DID, mainnet(m) or testnet(t)?`) + ` - [m/t] - Defaults to testnet - ` + LogColors.lightBlue(`Your answer: `));
             
         if (network.toLowerCase() !== 'm' && network.toLowerCase() !== 't') {
-            console.log(LogColors.brightGreen(`Creating your tyronZIL DID on the Zilliqa testnet..`));
+            console.log(LogColors.brightGreen(`Creating your tyronZIL DID on the Zilliqa testnet...`));
         }
 
         // Defaults to testnet
@@ -90,7 +90,6 @@ export default class TyronCLI {
         this.clientInit()
         .then(async client => {
 
-            /** Gets the user's address, which is the contract_owner */
             const user_privateKey = readline.question(LogColors.green(`As the user, you're the owner of your tyron-smart-contract! Which private key do you choose to have that power? - `) + LogColors.lightBlue(`Your answer: `));
             const CONTRACT_OWNER = Crypto.getAddressFromPrivateKey(user_privateKey);
             const USER: Account = {
@@ -136,7 +135,7 @@ export default class TyronCLI {
             /** tyronZIL DID instance with the proper DID-scheme */
             const DID_tyronZIL = DID_SCHEME.did_tyronZIL;
             
-            console.log(LogColors.green(`Your decentralized identity on Zilliqa is: `) + LogColors.brightGreen(`${DID_tyronZIL}`)); 
+            console.log(LogColors.yellow(`Your decentralized identity on Zilliqa is: `) + LogColors.brightYellow(`${DID_tyronZIL}`)); 
             
             /***            ****            ***/
             
@@ -161,7 +160,7 @@ export default class TyronCLI {
             const LONG_FORM_DID = await TyronZILUrlScheme.longFormDid(LONG_DID_INPUT);
             const LONG_DID_tyronZIL = LONG_FORM_DID.longFormDid;
 
-            console.log(LogColors.green(`In case you want to submit the transaction at a later stage, your Sidetree Long-Form DID is: `) + `${LONG_DID_tyronZIL}`);
+            console.log(LogColors.yellow(`In case you want to submit the transaction at a later stage, your Sidetree Long-Form DID is: `) + LogColors.brightYellow(`${LONG_DID_tyronZIL}`));
             
             const TYRON_CLI = {
                 accounts: accounts,
@@ -172,7 +171,6 @@ export default class TyronCLI {
             return TYRON_CLI;
         })
         .then(async TYRON_CLI => {
-
             /** Asks if the user wants to write their tyronZIL DID on Zilliqa */
             const write_did = readline.question(LogColors.green(`Would you like to write your tyronZIL DID on Zilliqa?`) + ` - [y/n] - Defaults to yes ` + LogColors.lightBlue(`Your answer: `));
             switch (write_did.toLowerCase()) {
@@ -183,58 +181,44 @@ export default class TyronCLI {
                     break;
             }
 
-            console.log(LogColors.brightGreen(`Initializing your tyron-smart-contract...`))
-
             const CONTRACT_INIT: ContractInit = {
-                tyron_init: "0x2ec55313454c229f02cc03266b3df5dbc72cadde",
+                tyron_init: "0x75d8297b8bd2e35de1c17e19d2c13504de623793",
                 contract_owner: TYRON_CLI.accounts.user.addr,
                 client_addr: TYRON_CLI.accounts.client.addr,
-                tyron_stake: 100000000000000        //e.g. 100 ZIL
+                tyron_stake: 100000000000000        // e.g. 100 ZIL
             };
 
-            /*
-            1) the client(or anyone) deploys the contract 
-                immutable fields:
-                - tyron_init
-                - contract_owner
-
-                {
-                "cumulative_gas": 9694,
-                "epoch_num": "1740410",
-                "success": true,
-                "errors": {
-                }
-
-            2) the user  calls the ContractInit transition
-                parameter:
-                - client_addr
-
-                sets the:
-                - operation_cost
-                - foundation_addr
-                - client_commission
-            */
-
-            const tyron_addr = Crypto.toChecksumAddress("0x8484a7f54409e727ac421cc4650828f53028fcd0");
-            const INITIALIZE = await Transaction.initialize(
+            const gas_limit = readline.question(LogColors.green(`What is the gas limit? - `) + LogColors.lightBlue(`Your answer: `));
+            
+            console.log(LogColors.brightGreen(`Initializing your tyron-smart-contract...`));
+            
+            const INITIALIZE = await TyronTransaction.initialize(
                 NETWORK,
                 CONTRACT_INIT,
-                tyron_addr,
                 TYRON_CLI.accounts.client.privateKey,
-                TYRON_CLI.accounts.user.privateKey
+                TYRON_CLI.accounts.user.privateKey,
+                Number(gas_limit),
             );
             
-            const TAG = TransitionTag.Create;
+            const INIT = INITIALIZE as TyronTransaction;
+            
+            const version = readline.question(LogColors.green(`What version of the tyron-smart-contract would you like to deploy? - `) + LogColors.lightBlue(`Your answer: `));
+            console.log(LogColors.brightGreen(`Deploying...`))
 
-            const PARAMS = await Transaction.create(
+            /***            ****            ***/
+            // The user deploys their tyron-smart-contract and calls the ContractInit transition
+            const DEPLOYED_CONTRACT = await TyronTransaction.deploy(INIT, version);
+            const TYRON_ADDR = (DEPLOYED_CONTRACT as DeployedContract).contract.address;
+       
+            const TAG = TransitionTag.Create;
+            const PARAMS = await TyronTransaction.create(
                 TYRON_CLI.did,
                 TYRON_CLI.operation.encodedSuffixData,
                 TYRON_CLI.operation.encodedDelta,
                 TYRON_CLI.operation.updateCommitment,
                 TYRON_CLI.operation.recoveryCommitment
             );
-            const INIT = INITIALIZE as Transaction;
-            await Transaction.submit(INIT, TAG, PARAMS);         
+            await TyronTransaction.submit(INIT, TYRON_ADDR!, TAG, PARAMS);
         })
         .catch(error => console.error(error))            
     }

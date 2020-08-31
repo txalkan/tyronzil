@@ -16,11 +16,14 @@
 import { NetworkNamespace } from '../sidetree/tyronZIL-schemes/did-scheme';
 import TyronContract, { ContractInit } from './tyron-contract';
 import * as API from '@zilliqa-js/zilliqa';
+import { Transaction } from '@zilliqa-js/account';
+import { Contract} from '@zilliqa-js/contract';
 import * as Crypto from '@zilliqa-js/crypto';
 import * as Util from '@zilliqa-js/util';
 import SidetreeError from '@decentralized-identity/sidetree/dist/lib/common/SidetreeError';
 import ErrorCode from '../ErrorCode';
 import LogColors from '../../bin/log-colors';
+import SmartUtil from './smart-contracts/smart-util';
 
 export class ZilliqaInit extends TyronContract {
     public readonly endpoint: ZilliqaEndpoint;
@@ -31,9 +34,8 @@ export class ZilliqaInit extends TyronContract {
     constructor(
         network: NetworkNamespace,
         init: ContractInit,
-        tyron_addr?: string
     ) {
-        super(init, tyron_addr);
+        super(init);
         let NETWORK_ENDPOINT;
         let CHAIN_ID;
         switch (network) {
@@ -63,72 +65,87 @@ enum ZilliqaChainID {
     Testnet = 333,
 }
 
-export class Transaction extends ZilliqaInit {
+export class TyronTransaction extends ZilliqaInit {
+    private readonly gas_price: Util.BN;
+    private readonly gas_limit: Util.Long;
+
     /** The client's private key */
     private readonly client_privateKey: string;
     /** The client's current nonce */
     private readonly client_nonce: number;
     
     /** The user's private key */
-    readonly user_privateKey: string;
+    private readonly user_privateKey: string;
     /** The user's current nonce */
-    readonly user_nonce: number;
+    private readonly user_nonce: number;
 
     private constructor(
         network: NetworkNamespace,
         init: ContractInit,
-        tyron_addr: string,
+        gas_price: Util.BN,
+        gas_limit: Util.Long,
         client_key: string,
         client_nonce: number,
         user_key: string,
         user_nonce: number
     ) {
-        super(network, init, tyron_addr);
+        super(network, init);
+        this.gas_price = gas_price;
+        this.gas_limit = gas_limit
         this.client_privateKey = client_key;
         this.client_nonce = client_nonce;
         this.user_privateKey = user_key;
-        this.user_nonce = user_nonce; 
+        this.user_nonce = user_nonce;            
     }
     
     /** Validates whether the user and client accounts have provided the correct private keys and have enough funds
-     * @returns Transaction instance */
+     * @returns TyronTransaction instance */
     public static async initialize(
         network: NetworkNamespace,
         init: ContractInit,
-        tyron_addr: string,
-        client_privateKey: string,
-        user_privateKey: string
-    ): Promise<void | Transaction> {
-
-        const ZIL_INIT = new ZilliqaInit(network, init, tyron_addr);
-        const ZIL_API = ZIL_INIT.API;
-        
-        const transaction_init = Promise.resolve(Crypto.getAddressFromPrivateKey(client_privateKey))
-        .then(async CLIENT_ADDR => {
-
+        clientPrivateKey: string,
+        userPrivateKey: string,
+        gasLimit: number
+    ): Promise<TyronTransaction | void> {
+        const ZIL_INIT = new ZilliqaInit(network, init);
+        const tyron_init = await ZIL_INIT.API.blockchain.getMinimumGasPrice()
+        .then(min_gas_price => {
+            const GAS_PRICE = new Util.BN(min_gas_price.result!);
+            const GAS_LIMIT = new Util.Long(gasLimit);
+            const GAS = {
+                price: GAS_PRICE,
+                limit: GAS_LIMIT
+            };
+            return GAS
+        })
+        .then(async gas => {
+            const CLIENT_ADDR = Crypto.getAddressFromPrivateKey(clientPrivateKey);
             if (CLIENT_ADDR !== ZIL_INIT.client_addr) {
                 throw new SidetreeError(ErrorCode.WrongKey);
             }
             /** Gets the current balance of the account (in Qa = 10^-12 ZIL as string)
             * & the current nonce of the account (as number) */
-            const GET_BALANCE = await ZIL_API.blockchain.getBalance(CLIENT_ADDR);
+            const GET_BALANCE = await ZIL_INIT.API.blockchain.getBalance(CLIENT_ADDR);
             const BALANCE_RESULT = GET_BALANCE.result;
 
             // The account's balance MUST be greater than a minimum stake amount
             if (Number(BALANCE_RESULT.balance) < ZIL_INIT.tyron_stake) {
             throw new SidetreeError(ErrorCode.NotEnoughBalance)
             }
-            return Number(BALANCE_RESULT.nonce);
+            const PARAMETERS = {
+                gas: gas,
+                client_nonce: Number(BALANCE_RESULT.nonce)
+            };
+            return PARAMETERS;
         })
-        .then(async client_nonce => {
-        
-            const USER_ADDRESS = Crypto.getAddressFromPrivateKey(user_privateKey);
+        .then(async parameters => {
+            const USER_ADDRESS = Crypto.getAddressFromPrivateKey(userPrivateKey);
             if (USER_ADDRESS !== ZIL_INIT.contract_owner) {
                 throw new SidetreeError(ErrorCode.WrongKey);
             }
             /** Gets the current balance of the account (in Qa = 10^-12 ZIL as string)
             * & the current nonce of the account (as number) */
-            const GET_BALANCE = await ZIL_API.blockchain.getBalance(USER_ADDRESS);
+            const GET_BALANCE = await ZIL_INIT.API.blockchain.getBalance(USER_ADDRESS);
             const BALANCE_RESULT = GET_BALANCE.result;
 
             // The account's balance MUST be greater than the cost to initialize the `tyron-smart-contract`, e.g. 100ZIL
@@ -137,21 +154,113 @@ export class Transaction extends ZilliqaInit {
             }
             const USER_NONCE = Number(BALANCE_RESULT.nonce);
 
-            return new Transaction(network, init, tyron_addr, client_privateKey, client_nonce, user_privateKey, USER_NONCE);
+            return new TyronTransaction(
+                network,
+                init,
+                parameters.gas.price,
+                parameters.gas.limit,
+                clientPrivateKey,
+                parameters.client_nonce,
+                userPrivateKey,
+                USER_NONCE);
         })
         .catch(error => console.error(error));
-        return transaction_init;
+        return tyron_init;
     }
 
-    public static async submit(init: Transaction, tag: TransitionTag, params: TransitionParams[]): Promise<void> {
-        
-        await init.API.blockchain.getSmartContractState(init.tyron_addr)
-        .then(async SMART_CONTRACT_STATE => {
+    /***            ****            ***/
+    
+    /** Deploys the `tyron-smart-contract` by version
+     * & calls the ContractInit transition with the client_addr to set the operation_cost, the foundation_addr & client_commission from the TyronInit contract 
+    */
+    public static async deploy(init: TyronTransaction, version: string): Promise<DeployedContract | void> {
+        const deployed_contract = await SmartUtil.decode(init.API, init.tyron_init, version)
+        .then(contract_code => {
+            const CODE = contract_code as string;
+
+            const CONTRACT_INIT = [
+                {
+                  vname: '_scilla_version',
+                  type: 'Uint32',
+                  value: '0',
+                },
+                {
+                    vname: 'tyron_init',
+                    type: 'ByStr20',
+                    value: `${init.tyron_init}`,
+                },
+                {
+                  vname: 'contract_owner',
+                  type: 'ByStr20',
+                  value: `${init.contract_owner}`,
+                },
+            ];
+
+            const CONTRACT = init.API.contracts.new(CODE, CONTRACT_INIT);
+            return CONTRACT;
+        })
+        .then(async contract => {
+            init.API.wallet.addByPrivateKey(init.user_privateKey);
+            const [deployTx, tyron_smart_contract] = await contract.deploy(
+                {
+                version: init.version,
+                gasPrice: init.gas_price,
+                gasLimit: init.gas_limit,
+                nonce: init.user_nonce + 1,
+                },
+                33,
+                1000,
+                false,
+            );
+            console.log(LogColors.yellow(`Deployment Transaction ID: `) + LogColors.brightYellow(`${deployTx.id}`));
             
+            console.log(LogColors.yellow(`Your tyron-smart-contract address is: `) + LogColors.brightYellow(`${tyron_smart_contract.address}`));
+            
+            const DEPLOYED_CONTRACT = {
+                transaction: deployTx,
+                contract: tyron_smart_contract
+            };
+            const CUMULATIVE_GAS = (deployTx.getReceipt())!.cumulative_gas;
+            console.log(LogColors.yellow(`The total gas consumed by deploying your tyron-smart-contract is: `) + LogColors.brightYellow(`${CUMULATIVE_GAS}`));
+            return DEPLOYED_CONTRACT;
+        })
+        .then(async deployed_contract => {
+            console.log(LogColors.brightGreen(`Calling the ContractInit transition...`))
+            const CALL = await deployed_contract.contract.call(
+                'ContractInit',
+                [
+                    {
+                        vname: 'clientAddress',
+                        type: 'String',
+                        value: `${init.client_addr}`
+                    }
+                ],
+                {
+                    version: init.version,
+                    amount: new Util.BN(0),
+                    gasPrice: init.gas_price,
+                    gasLimit: init.gas_limit
+                },
+                33,
+                1000,
+                false
+            );
+            const CUMULATIVE_GAS = (CALL.getReceipt())!.cumulative_gas;
+            console.log(LogColors.yellow(`The total gas consumed by the ContractInit transition is: `) + LogColors.brightYellow(`${CUMULATIVE_GAS}`));
+            return deployed_contract;
+        })
+        .catch(err => console.error(err));
+        return deployed_contract;
+    }
+
+    /** Submits a tyronZIL transaction (DID operation) */
+    public static async submit(init: TyronTransaction, tyronAddr: string, tag: TransitionTag, params: TransitionParams[]): Promise<void> {
+        console.log(LogColors.brightGreen(`Processing your ${tag} tyronZIL transaction...`));
+        await init.API.blockchain.getSmartContractState(tyronAddr)
+        .then(async SMART_CONTRACT_STATE => {
             return SMART_CONTRACT_STATE.result.operation_cost;
         })
         .then(async operation_cost => {
-            
             const AMOUNT = new Util.BN(operation_cost);
             const MIN_GAS_PRICE = await init.API.blockchain.getMinimumGasPrice();
             const GAS_PRICE = new Util.BN(MIN_GAS_PRICE.result!);
@@ -171,7 +280,7 @@ export class Transaction extends ZilliqaInit {
                 nonce: init.client_nonce + 1,
                 gasLimit: GAS_LIMIT,
                 gasPrice: GAS_PRICE,
-                toAddr: init.tyron_addr,
+                toAddr: tyronAddr,
                 pubKey: PUB_KEY,
                 data: JSON.stringify(TRANSITION),
             };
@@ -180,25 +289,22 @@ export class Transaction extends ZilliqaInit {
             return RAW_TX;
         })
         .then(async raw_tx  => {
-            
             init.API.wallet.addByPrivateKey(init.client_privateKey);
             const SIGNED_TX = await init.API.wallet.signWith(raw_tx, init.client_addr);
             return SIGNED_TX;
         })
         .then(async signed_tx => {
-
             /** Sends the transaction to the Zilliqa blockchain platform */
             const TX = await init.API.provider.send('CreateTransaction', signed_tx.txParams);
             const TX_RESULT = TX.result;
-            console.log(`The transaction result is: ${JSON.stringify(TX_RESULT, null, 2)}`);
+            console.log(LogColors.yellow(`The transaction result is: `) + LogColors.brightYellow(`${JSON.stringify(TX_RESULT, null, 2)}`));
 
             const TRAN_ID = TX_RESULT.TranID;
-
+            
             const TRANSACTION = await signed_tx.confirm(TRAN_ID, 33, 1000)
-            console.log(`The TX is: ${JSON.stringify(TRANSACTION, null, 2)}`);
-
+            console.log(LogColors.yellow(`The ${tag} tyronZIL transaction is: `) + LogColors.brightYellow(`${JSON.stringify(TRANSACTION, null, 2)}`));
             const STATUS = signed_tx.isConfirmed();
-            console.log(`The status of the transaction is: ${STATUS}`);
+            console.log(LogColors.yellow(`The transaction is confirmed: `) + LogColors.brightYellow(`${STATUS}`));
 
             return TRAN_ID;
         })
@@ -207,9 +313,9 @@ export class Transaction extends ZilliqaInit {
             const TX_RECEIPT = GET_TRANSACTION.getReceipt();
 
             const CUMULATIVE_GAS = TX_RECEIPT!.cumulative_gas;
-            console.log(`The total gas consumed in this transaction is: ${CUMULATIVE_GAS}`);
+            console.log(LogColors.yellow(`The total gas consumed in this ${tag} transaction is: `) + LogColors.brightYellow(`${CUMULATIVE_GAS}`));
 
-            console.log(LogColors.green(`The tyronZIL transaction ${tag} has been successful!`));
+            console.log(LogColors.brightGreen(`The ${tag} tyronZIL transaction has been successful!`));
         })
         .catch(error => console.error(error));
     }
@@ -224,42 +330,50 @@ export class Transaction extends ZilliqaInit {
 
         const PARAMS = [];
         const DID: TransitionParams = {
-            vname: "did",
-            type: "String",
+            vname: 'did',
+            type: 'String',
             value: did,
         };
         PARAMS.push(DID);
 
         const SUFFIX: TransitionParams = {
-            vname: "suffixData",
-            type: "String",
+            vname: 'suffixData',
+            type: 'String',
             value: suffixData,
         };
         PARAMS.push(SUFFIX);
 
         const DELTA: TransitionParams = {
-            vname: "encodedDelta",
-            type: "String",
+            vname: 'encodedDelta',
+            type: 'String',
             value: encodedDelta!,
         };
         PARAMS.push(DELTA);
 
         const UPDATE_COMMIT: TransitionParams = {
-            vname: "updateCommitment",
-            type: "String",
+            vname: 'updateCommitment',
+            type: 'String',
             value: updateCommitment,
         };
         PARAMS.push(UPDATE_COMMIT);
 
         const RECOVERY_COMMIT: TransitionParams = {
-            vname: "recoveryCommitment",
-            type: "String",
+            vname: 'recoveryCommitment',
+            type: 'String',
             value: recoveryCommitment,
         };
         PARAMS.push(RECOVERY_COMMIT);
 
         return PARAMS;
     }
+}
+
+/***            ****            ***/
+
+/** The result of a tyron-smart-contract deployment */
+export interface DeployedContract {
+    transaction: Transaction,
+    contract: Contract
 }
 
 interface Transition {
@@ -270,7 +384,7 @@ interface Transition {
 }
 
 export enum TransitionTag {
-    Create = "DidCreate"
+    Create = 'DidCreate'
 }
 
 interface TransitionParams {

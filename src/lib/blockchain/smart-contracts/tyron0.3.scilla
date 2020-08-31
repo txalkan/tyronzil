@@ -78,7 +78,7 @@ contract Tyron(
     contract_owner: ByStr20        (* the user is the owner of the contract *)
 )
     with
-        let init_contract = 0x2ec55313454c229f02cc03266b3df5dbc72cadde in
+        let init_contract = 0x75d8297b8bd2e35de1c17e19d2c13504de623793 in
         builtin eq init_contract tyron_init
     =>
 
