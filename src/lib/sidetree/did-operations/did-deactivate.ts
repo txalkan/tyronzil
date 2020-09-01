@@ -16,7 +16,8 @@
 import TyronZILScheme from '../tyronZIL-schemes/did-scheme';
 import OperationType from '@decentralized-identity/sidetree/dist/lib/core/enums/OperationType';
 import DeactivateOperation from '@decentralized-identity/sidetree/dist/lib/core/versions/latest/DeactivateOperation';
-import { Cryptography, JwkEs256k } from '../did-keys';
+import JwkEs256k from '@decentralized-identity/sidetree/dist/lib/core/models/JwkEs256k';
+import { Cryptography } from '../did-keys';
 import Jws from '@decentralized-identity/sidetree/dist/lib/core/versions/latest/util/Jws';
 import { DeactivateSignedDataModel } from '../models/signed-data-models';
 
@@ -53,9 +54,9 @@ export default class DidDeactivate {
         /** To create the Deactivate Operation Signed Data Object */
         const SIGNED_DATA: DeactivateSignedDataModel = {
             did_suffix: input.did_tyronZIL.didUniqueSuffix,
-            recovery_key: Cryptography.getPublicKeyNoKid(input.recoveryPrivateKey),
+            recovery_key: Cryptography.getPublicKey(input.recoveryPrivateKey),
         };
-        const recoveryNoKid = Cryptography.removeKid(input.recoveryPrivateKey);
+        const recoveryNoKid = input.recoveryPrivateKey;
         const SIGNED_DATA_JWS = await Cryptography.signUsingEs256k(SIGNED_DATA, recoveryNoKid);
         
         /** DID data to generate a Sidetree DeactivateOperation */

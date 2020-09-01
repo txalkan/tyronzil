@@ -16,9 +16,10 @@
 import TyronZILScheme from '../tyronZIL-schemes/did-scheme';
 import OperationType from '@decentralized-identity/sidetree/dist/lib/core/enums/OperationType';
 import RecoverOperation from '@decentralized-identity/sidetree/dist/lib/core/versions/latest/RecoverOperation';
-import { PublicKeyModel, Operation, Recovery } from '../models/verification-method-models';
+import { PublicKeyModel } from '../models/verification-method-models';
 import ServiceEndpointModel from '@decentralized-identity/sidetree/dist/lib/core/versions/latest/models/ServiceEndpointModel';
-import { Cryptography, OperationKeyPairInput, JwkEs256k } from '../did-keys';
+import JwkEs256k from '@decentralized-identity/sidetree/dist/lib/core/models/JwkEs256k';
+import { Cryptography, OperationKeyPairInput } from '../did-keys';
 import Multihash from '@decentralized-identity/sidetree/dist/lib/core/versions/latest/Multihash';
 import Jws from '@decentralized-identity/sidetree/dist/lib/core/versions/latest/util/Jws';
 import { DocumentModel, PatchModel, PatchAction } from '../models/patch-model';
@@ -26,7 +27,6 @@ import DeltaModel from '@decentralized-identity/sidetree/dist/lib/core/versions/
 import Encoder from '@decentralized-identity/sidetree/dist/lib/core/versions/latest/Encoder';
 import { RecoverSignedDataModel } from '../models/signed-data-models';
 import { CliInputModel } from '../models/cli-input-model';
-import DidCreate from './did-create';
 
 /** Generates a Sidetree-based `DID-recover` operation */
 export default class DidRecover {
@@ -42,8 +42,6 @@ export default class DidRecover {
     public readonly delta: DeltaModel | undefined; // undefined when Anchor file mode is ON
     public readonly publicKey: PublicKeyModel[];
     public readonly privateKey: string[];
-    public readonly operation: Operation;
-    public readonly recovery: Recovery;
     public readonly updateKey: JwkEs256k;
     public readonly updatePrivateKey: JwkEs256k;
     public readonly updateCommitment: string;
@@ -71,8 +69,6 @@ export default class DidRecover {
         this.delta = operationOutput.recoverOperation.delta;
         this.publicKey = operationOutput.publicKey;
         this.privateKey = operationOutput.privateKey;
-        this.operation = operationOutput.operation;
-        this.recovery = operationOutput.recovery;
         this.updateKey = operationOutput.updateKey;
         this.updatePrivateKey = operationOutput.updatePrivateKey;
         this.updateCommitment = operationOutput.updateCommitment;
@@ -148,9 +144,6 @@ export default class DidRecover {
         /** Executes the Sidetree RecoverOperation */
         const RECOVER_OPERATION = await RecoverOperation.parse(OPERATION_BUFFER);
         
-        const VM_OPERATION = await DidCreate.generateVMOperation(UPDATE_KEY, input.did_tyronZIL);
-        const VM_RECOVERY = await DidCreate.generateVMRecovery(RECOVERY_KEY, input.did_tyronZIL);
-
         /** Output data from a Sidetree-based `DID-recover` operation */
         const OPERATION_OUTPUT: RecoverOperationOutput = {
             did_tyronZIL: input.did_tyronZIL,
@@ -159,8 +152,6 @@ export default class DidRecover {
             recoverOperation: RECOVER_OPERATION,
             publicKey: PUBLIC_KEYS,
             privateKey: PRIVATE_KEYS,
-            operation: VM_OPERATION,
-            recovery: VM_RECOVERY,
             updateKey: UPDATE_KEY,
             updatePrivateKey: UPDATE_PRIVATE_KEY,
             updateCommitment: UPDATE_COMMITMENT,
@@ -196,10 +187,10 @@ export default class DidRecover {
         /** To create the Recovery Operation Signed Data Object */
         const SIGNED_DATA: RecoverSignedDataModel = {
             delta_hash: DELTA_HASH,
-            recovery_key: Cryptography.getPublicKeyNoKid(input.recoveryPrivateKey),
+            recovery_key: Cryptography.getPublicKey(input.recoveryPrivateKey),
             recovery_commitment: input.recoveryCommitment
         };
-        const recoveryNoKid = Cryptography.removeKid(input.recoveryPrivateKey);
+        const recoveryNoKid = input.recoveryPrivateKey;
         const SIGNED_DATA_JWS = await Cryptography.signUsingEs256k(SIGNED_DATA, recoveryNoKid);
         
         /** DID data to generate a Sidetree RecoverOperation */
@@ -230,8 +221,6 @@ interface RecoverOperationOutput {
     recoverOperation: RecoverOperation;
     publicKey: PublicKeyModel[];
     privateKey: string[];
-    operation: Operation;   // verification method
-    recovery: Recovery;     // verification method
     updateKey: JwkEs256k;
     updatePrivateKey: JwkEs256k;
     updateCommitment: string;

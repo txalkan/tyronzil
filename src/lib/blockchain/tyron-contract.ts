@@ -15,10 +15,11 @@
 
 import SidetreeError from '@decentralized-identity/sidetree/dist/lib/common/SidetreeError';
 import ErrorCode from '../ErrorCode';
+import ZilliqaInit from './zilliqa-init';
+import { NetworkNamespace } from '../sidetree/tyronZIL-schemes/did-scheme';
 
 /** The class to initialize the `tyron-smart-contract` */
-export default class TyronContract {
-
+export default class TyronContract extends ZilliqaInit {
     /** The Zilliqa address where the `TyronInit smart-contract` resides */
     public readonly tyron_init: string;
 
@@ -32,8 +33,10 @@ export default class TyronContract {
     public readonly tyron_stake: number;
 
     constructor(
+        network: NetworkNamespace,
         init: ContractInit
     ) {
+        super(network);
         if (init.tyron_init !== TyronContracts.tyron_init) {
             throw new SidetreeError(ErrorCode.WrongContract)
         } else {

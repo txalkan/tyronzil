@@ -14,6 +14,7 @@
 */
 
 import { PublicKeyModel, PublicKeyPurpose } from './models/verification-method-models';
+import JwkEs256k from '@decentralized-identity/sidetree/dist/lib/core/models/JwkEs256k';
 import Jws from '@decentralized-identity/sidetree/dist/lib/core/versions/latest/util/Jws';
 import { UpdateSignedDataModel, RecoverSignedDataModel, DeactivateSignedDataModel } from './models/signed-data-models';
 import { JWK } from 'jose';
@@ -26,41 +27,29 @@ export interface OperationKeyPairInput {
     purpose?: PublicKeyPurpose[]
 }
 
-/** Defines the model of a secp256k1 key as JWK */
-export interface JwkEs256k {
-    kty: string;
-    crv: string;
-    x: string;
-    y: string;
-    kid?: string;
-    d?: string;       // For the privateKey ONLY
-}
-
 export interface PrivateKeys {
-  privateKeys?: string[],    // encoded strings
+  privateKeys?: string[],        //encoded strings
   updatePrivateKey?: string,
   recoveryPrivateKey?: string,
 }
 
 /** Generates cryptographic operations */
 export class Cryptography {
-  
-  /** 
-  * Asymmetric cryptography to generate the key pair using the KEY_ALGORITHM (secp256k1)
+  /** Asymmetric cryptography to generate the key pair using the KEY_ALGORITHM (secp256k1)
    * @returns [publicKey, privateKey] */
   public static async operationKeyPair(input: OperationKeyPairInput): Promise<[PublicKeyModel, JwkEs256k]> {
     const [publicKey, privateKey] = await this.jwkPair();
     const publicKeyModel: PublicKeyModel = {
       id: input.id,
       type: 'EcdsaSecp256k1VerificationKey2019',
-      publicKeyJwk: publicKey,
+      jwk: publicKey,
       purpose: input.purpose || Object.values(PublicKeyPurpose)
     };
     return [publicKeyModel, privateKey];
   }
 
   /** Signs the given payload as a es256k compact JWS */
-  public static async signUsingEs256k (payload: UpdateSignedDataModel | RecoverSignedDataModel | DeactivateSignedDataModel, privateKey: JwkEs256k): Promise<string> {
+  public static async signUsingEs256k(payload: UpdateSignedDataModel | RecoverSignedDataModel | DeactivateSignedDataModel, privateKey: JwkEs256k): Promise<string> {
     const protectedHeader = {
       alg: 'ES256K'
     };
@@ -68,10 +57,8 @@ export class Cryptography {
     return compactJws;
   }
 
-  /**
-   * * Generates a secp256k1 key pair
-   * @returns [publicKey, privateKey]
-   * */
+  /** Generates a secp256k1 key pair
+   * @returns [publicKey, privateKey] */
   public static async jwkPair(): Promise<[JwkEs256k, JwkEs256k]> {
     const KEY_PAIR = await JWK.generate('EC', 'secp256k1');
     const JWK_ECKey = KEY_PAIR.toJWK();
@@ -80,25 +67,22 @@ export class Cryptography {
       kty: JWK_ECKey.kty,
       crv: JWK_ECKey.crv,
       x: JWK_ECKey.x,
-      y: JWK_ECKey.y,
-      kid: JWK_ECKey.kid
+      y: JWK_ECKey.y
     };
 
     const PRIVATE_KEY = Object.assign({ d: KEY_PAIR.d }, PUBLIC_KEY);
     return [PUBLIC_KEY, PRIVATE_KEY];
   }
   
-  /**
-   * * Validates if the given key is a secp256k1 public key in JWK format allowed by Sidetree
-   * @throws SidetreeError
-   * */
+  /** Validates if the given key is a secp256k1 public key in JWK format allowed by Sidetree
+   * @throws SidetreeError */
   // eslint-disable-next-line
   public static validateKey(jwk: any) {
     if (jwk === undefined) {
       throw new SidetreeError(ErrorCode.JwkEs256kUndefined);
     }
 
-    const allowedProperties = new Set(['kty', 'crv', 'x', 'y', 'kid']);
+    const allowedProperties = new Set(['kty', 'crv', 'x', 'y']);
     for (const property in jwk) {
       if (!allowedProperties.has(property)) {
         throw new SidetreeError(ErrorCode.JwkEs256kHasUnknownProperty);
@@ -120,10 +104,6 @@ export class Cryptography {
     if (typeof jwk.y !== 'string') {
       throw new SidetreeError(ErrorCode.JwkEs256kMissingOrInvalidTypeY);
     }
-
-    if (typeof jwk.kid !== 'string') {
-      throw new SidetreeError(ErrorCode.JwkEs256kMissingOrInvalidTypeKid);
-      }
   }
 
   /** Gets the public key corresponding to the given private es256k key */
@@ -132,23 +112,6 @@ export class Cryptography {
 
     // Deletes the private key portion
     delete KEY.d;
-    return KEY;
-  }
-
-  /** Gets the corresponding public key with NO KID */
-  public static getPublicKeyNoKid(privateKey: JwkEs256k): JwkEs256k {
-    const KEY = Object.assign({}, privateKey);
-  
-    // Deletes the private key portion
-    delete KEY.d;
-    delete KEY.kid;
-    return KEY;
-  }
-  
-  public static removeKid(key: JwkEs256k): JwkEs256k {
-    const KEY = Object.assign({}, key);
-  
-    delete KEY.kid;
     return KEY;
   }
 }

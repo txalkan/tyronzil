@@ -15,8 +15,9 @@
 
 import OperationType from '@decentralized-identity/sidetree/dist/lib/core/enums/OperationType';
 import CreateOperation from '@decentralized-identity/sidetree/dist/lib/core/versions/latest/CreateOperation';
-import { Cryptography, OperationKeyPairInput, JwkEs256k } from '../did-keys';
-import { PublicKeyModel, Operation, Recovery, SidetreeVerificationRelationship } from '../models/verification-method-models';
+import JwkEs256k from '@decentralized-identity/sidetree/dist/lib/core/models/JwkEs256k';
+import { Cryptography, OperationKeyPairInput } from '../did-keys';
+import { PublicKeyModel } from '../models/verification-method-models';
 import { CliInputModel } from '../models/cli-input-model';
 import TyronZILScheme from '../tyronZIL-schemes/did-scheme';
 import { SchemeInputData } from '../tyronZIL-schemes/did-scheme';
@@ -42,11 +43,9 @@ export default class DidCreate {
     public readonly publicKey: PublicKeyModel[];
         public readonly privateKey: string[];
     public readonly updateCommitment: string;
-        public readonly operation: Operation;
         public readonly updateKey: JwkEs256k;
         public readonly updatePrivateKey: JwkEs256k;
     public readonly recoveryCommitment: string;
-        public readonly recovery: Recovery;
         public readonly recoveryKey: JwkEs256k;
         public readonly recoveryPrivateKey: JwkEs256k;
     public readonly service: ServiceEndpointModel[];
@@ -71,8 +70,6 @@ export default class DidCreate {
             this.delta = operationOutput.createOperation.delta;
         this.publicKey = operationOutput.publicKey;
             this.privateKey = operationOutput.privateKey;
-        this.operation = operationOutput.operation;
-        this.recovery = operationOutput.recovery;
         this.updateKey = operationOutput.updateKey;
             this.updatePrivateKey = operationOutput.updatePrivateKey;
             this.updateCommitment = operationOutput.updateCommitment;
@@ -158,9 +155,6 @@ export default class DidCreate {
 
         const DID_tyronZIL = await TyronZILScheme.newDID(SCHEME_DATA);
 
-        const VM_OPERATION = await this.generateVMOperation(UPDATE_KEY, DID_tyronZIL);
-        const VM_RECOVERY = await this.generateVMRecovery(RECOVERY_KEY, DID_tyronZIL);
-
         /** Output data from a new Sidetree-based `DID-create` operation */
         const OPERATION_OUTPUT: CreateOperationOutput = {
             did_tyronZIL: DID_tyronZIL,
@@ -169,8 +163,6 @@ export default class DidCreate {
             createOperation: CREATE_OPERATION,
             publicKey: PUBLIC_KEYS,
             privateKey: PRIVATE_KEYS,
-            operation: VM_OPERATION,
-            recovery: VM_RECOVERY,
             updateKey: UPDATE_KEY,
             updatePrivateKey: UPDATE_PRIVATE_KEY,
             updateCommitment: UPDATE_COMMITMENT,
@@ -181,36 +173,6 @@ export default class DidCreate {
         };
         return new DidCreate(OPERATION_OUTPUT);
 
-    }
-
-    /** Generates an Operation verification-method instance */
-    public static async generateVMOperation(updateKey: JwkEs256k, did: TyronZILScheme): Promise<Operation> {
-        const ID = did.did_tyronZIL + '#' + updateKey.kid;
-        const TYPE = 'EcdsaSecp256k1VerificationKey2019';
-        const JWK = updateKey;
-        
-        const VM_OPERATION: Operation = {
-            id: ID,
-            type: TYPE,
-            publicKeyJwk: JWK,
-            purpose: SidetreeVerificationRelationship.Operation
-        }
-        return VM_OPERATION;
-    }
-
-    /** Generates a Recovery verification-method instance */
-    public static async generateVMRecovery(recoveryKey: JwkEs256k, did: TyronZILScheme): Promise<Recovery> {
-        const ID = did.did_tyronZIL + '#' + recoveryKey.kid;
-        const TYPE = 'EcdsaSecp256k1VerificationKey2019';
-        const JWK = recoveryKey;
-        
-        const VM_RECOVERY: Recovery = {
-            id: ID,
-            type: TYPE,
-            publicKeyJwk: JWK,
-            purpose: SidetreeVerificationRelationship.Recovery
-        }
-        return VM_RECOVERY;
     }
 
     /** Generates the Sidetree data for the `DID-create` operation */
@@ -262,8 +224,6 @@ interface CreateOperationOutput {
     createOperation: CreateOperation;
     publicKey: PublicKeyModel[];
     privateKey: string[];
-    operation: Operation;   // verification method
-    recovery: Recovery;     // verification method
     updateKey: JwkEs256k;
     updatePrivateKey: JwkEs256k;
     updateCommitment: string;

@@ -14,43 +14,40 @@
 */
 
 import ServiceEndpointModel from '@decentralized-identity/sidetree/dist/lib/core/versions/latest/models/ServiceEndpointModel';
-import { PublicKeyModel, Operation, Recovery } from './models/verification-method-models';
+import { PublicKeyModel } from './models/verification-method-models';
 import * as fs from 'fs';
 import LogColors from '../../bin/log-colors';
-import DidCreate from './did-operations/did-create';
-import DidRecover from './did-operations/did-recover';
-import JsonAsync from '@decentralized-identity/sidetree/dist/lib/core/versions/latest/util/JsonAsync';
-import DidDeactivate from './did-operations/did-deactivate';
+import TyronState from '../blockchain/tyron-state';
+import { NetworkNamespace } from './tyronZIL-schemes/did-scheme';
+import SidetreeError from '@decentralized-identity/sidetree/dist/lib/common/SidetreeError';
+import ErrorCode from '../ErrorCode';
+import { PatchAction, PatchModel } from './models/patch-model';
 import OperationType from '@decentralized-identity/sidetree/dist/lib/core/enums/OperationType';
+import Encoder from '@decentralized-identity/sidetree/dist/lib/core/versions/latest/Encoder';
+import DeltaModel from '@decentralized-identity/sidetree/dist/lib/core/versions/latest/models/DeltaModel';
 
 /** tyronZIL's DID-state */
 export default class DidState {
     public readonly did_tyronZIL: string;
-    public status: OperationType
 
     // Verification methods
-    public publicKey?: PublicKeyModel[];
+    public readonly publicKey: PublicKeyModel[] | undefined;
     
-    // Sidetree commitments
-    public updateCommitment?: string;
-    public readonly recoveryCommitment?: string;
-
     // Services
-    public service?: ServiceEndpointModel[];
+    public readonly service?: ServiceEndpointModel[] | undefined;
 
-    // Ledger-time of the last transaction that affected the state
-    public readonly lastTransaction?: number;
+    // Sidetree commitments
+    public readonly updateCommitment: string | undefined;
+    public readonly recoveryCommitment: string | undefined;
     
     private constructor(
         input: DidStateModel
     ) {
         this.did_tyronZIL = input.did_tyronZIL;
-        this.status = input.status
         this.publicKey = input.publicKey;
         this.updateCommitment = input.updateCommitment;
         this.recoveryCommitment = input.recoveryCommitment
         this.service = input.service;
-        this.lastTransaction = input.lastTransaction;
     }
 
     /***            ****            ***/
@@ -65,77 +62,68 @@ export default class DidState {
 
     /***            ****            ***/
 
-    /** Fetches the current DID-state for the given tyronZIL DID */
-    public static async fetch(did_tyronZIL: string): Promise<DidState> {
-        const FILE_NAME = `DID_STATE_${did_tyronZIL}.json`;
-        let DID_STATE_FILE;
-        try {
-            DID_STATE_FILE = fs.readFileSync(FILE_NAME);
-        } catch (error) {
-            console.log(LogColors.red(`Could not read the DID-state`));
-        }
-        
-        /** Parses the DID-state */
-        let DID_STATE_JSON;
-        if (DID_STATE_FILE !== undefined){
-            DID_STATE_JSON = await JsonAsync.parse(DID_STATE_FILE.toString());
-        }
-        
-        /** The tyronZIL DID-state */
-        const DID_STATE: DidStateModel = {
-            did_tyronZIL: DID_STATE_JSON.did_tyronZIL,
-            status: DID_STATE_JSON.status,
-            publicKey: DID_STATE_JSON.publicKey,
-            operation: DID_STATE_JSON.operation,
-            recovery: DID_STATE_JSON.recovery,
-            updateCommitment: DID_STATE_JSON.updateCommitment,
-            recoveryCommitment: DID_STATE_JSON.recoveryCommitment,
-            service: DID_STATE_JSON.service,
-            lastTransaction: DID_STATE_JSON.lastTransaction,
-        };
-
-        return new DidState(DID_STATE);
-    }
-
-    /***            ****            ***/
-
-    /** Serializes the create and recover operation output into its DID-state */
-    public static async build(operation: DidCreate | DidRecover): Promise<DidState> {
-        const DID_STATE: DidStateModel = {
-            did_tyronZIL: operation.did_tyronZIL.did_tyronZIL,
-            publicKey: operation.publicKey,
-            operation: operation.operation,
-            recovery: operation.recovery,
-            updateCommitment: operation.updateCommitment,
-            recoveryCommitment: operation.recoveryCommitment,
-            service: operation.service,
-            status: operation.type
-        }
-        return new DidState(DID_STATE);
-    }
-
-    /***            ****            ***/
-
-    /** Deactivates the DID-state */
-    public static async deactivate(operation: DidDeactivate): Promise<DidState> {
-        const DID_STATE_MODEL: DidStateModel = {
-            did_tyronZIL: operation.did_tyronZIL.did_tyronZIL,
-            status: operation.type
-        }
-        return new DidState(DID_STATE_MODEL);
+    /** Fetches the current DID-state for the given tyron_addr */
+    public static async fetch(network: NetworkNamespace, tyronAddr: string): Promise<DidState | void> {
+        const did_state = await TyronState.fetch(network, tyronAddr)
+        .then(async tyron_state => {
+            const this_state = tyron_state as TyronState;
+            const STATUS = this_state.status;
+            let PUBLIC_KEY;
+            let SERVICE;
+            let UPDATE_COMMITMENT;
+            let RECOVERY_COMMITMENT;
+            switch (STATUS) {
+                case OperationType.Deactivate:
+                    PUBLIC_KEY = undefined;
+                    SERVICE = undefined;
+                    UPDATE_COMMITMENT = undefined;
+                    RECOVERY_COMMITMENT = undefined;
+                    break;
+                default: {
+                    const DECODED_DELTA = Encoder.decodeAsString(this_state.delta)
+                    const DELTA_MODEL: DeltaModel = JSON.parse(DECODED_DELTA);
+                    UPDATE_COMMITMENT = DELTA_MODEL.updateCommitment;
+                    if(UPDATE_COMMITMENT !== this_state.update_commitment){
+                        throw new SidetreeError(ErrorCode.InvalidUpdateCommitment)
+                    } else {
+                        RECOVERY_COMMITMENT = this_state.recovery_commitment;
+                        const PATCHES = DELTA_MODEL.patches as PatchModel[];
+                        let DOCUMENT;
+                        for(const patch of PATCHES) {
+                            const ACTION = patch.action;
+                            switch (ACTION) {
+                                case PatchAction.Replace:
+                                    DOCUMENT = patch.document;
+                                    PUBLIC_KEY = DOCUMENT?.public_keys;
+                                    SERVICE = DOCUMENT?.service_endpoints;
+                                    break;
+                            }
+                        } 
+                    }
+                    break;
+                }
+            }
+            const DID_STATE: DidStateModel = {
+                did_tyronZIL: this_state.decentralized_identifier,
+                publicKey: PUBLIC_KEY,
+                service: SERVICE,
+                updateCommitment: UPDATE_COMMITMENT,
+                recoveryCommitment: RECOVERY_COMMITMENT
+            }
+            return new DidState(DID_STATE);
+        })
+        .catch(err => console.error(err))
+        return did_state;
     }
 }
 
 /***            ** interfaces **            ***/
 
+/** The state model of a decentralized identifier */
 export interface DidStateModel {
     did_tyronZIL: string;
-    status: OperationType
-    publicKey?: PublicKeyModel[];       // undefined after deactivation
-    operation?: Operation;              // undefined after deactivation
-    recovery?: Recovery;                // undefined after deactivation
-    updateCommitment?: string;          // undefined after deactivation
-    recoveryCommitment?: string;        // undefined after deactivation
-    service?: ServiceEndpointModel[];   // undefined after deactivation
-    lastTransaction?: number;   
+    publicKey: PublicKeyModel[] | undefined;
+    service: ServiceEndpointModel[] | undefined;        // undefined after deactivation       // undefined after deactivation
+    updateCommitment: string | undefined;        // undefined after deactivation
+    recoveryCommitment: string | undefined;        // undefined after deactivation
 }
