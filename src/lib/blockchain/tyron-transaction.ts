@@ -13,59 +13,19 @@
     GNU General Public License for more details.
 */
 
-import { NetworkNamespace } from '../sidetree/tyronZIL-schemes/did-scheme';
+import { NetworkNamespace } from '../decentralized-identity/tyronZIL-schemes/did-scheme';
+import ZilliqaInit from './zilliqa-init';
 import TyronContract, { ContractInit } from './tyron-contract';
-import * as API from '@zilliqa-js/zilliqa';
 import { Transaction } from '@zilliqa-js/account';
 import { Contract} from '@zilliqa-js/contract';
 import * as Crypto from '@zilliqa-js/crypto';
 import * as Util from '@zilliqa-js/util';
 import SidetreeError from '@decentralized-identity/sidetree/dist/lib/common/SidetreeError';
-import ErrorCode from '../ErrorCode';
+import ErrorCode from '../decentralized-identity/util/ErrorCode';
 import LogColors from '../../bin/log-colors';
 import SmartUtil from './smart-contracts/smart-util';
 
-export class ZilliqaInit extends TyronContract {
-    public readonly endpoint: ZilliqaEndpoint;
-    public readonly chainID: ZilliqaChainID;
-    public readonly API: API.Zilliqa;
-    public readonly version: number;
-
-    constructor(
-        network: NetworkNamespace,
-        init: ContractInit,
-    ) {
-        super(init);
-        let NETWORK_ENDPOINT;
-        let CHAIN_ID;
-        switch (network) {
-            case NetworkNamespace.Mainnet:
-                NETWORK_ENDPOINT = ZilliqaEndpoint.Mainnet;
-                CHAIN_ID = ZilliqaChainID.Mainnet;                
-                break;
-            case NetworkNamespace.Testnet:
-                NETWORK_ENDPOINT = ZilliqaEndpoint.Testnet;
-                CHAIN_ID = ZilliqaChainID.Testnet;
-                break;
-        }
-        this.endpoint = NETWORK_ENDPOINT;
-        this.chainID = CHAIN_ID;
-        this.API = new API.Zilliqa(this.endpoint);
-        this.version = Util.bytes.pack(this.chainID, 1);
-    }
-}
-
-enum ZilliqaEndpoint {
-    Mainnet = 'https://api.zilliqa.com/',
-    Testnet = 'https://dev-api.zilliqa.com/',
-}
-
-enum ZilliqaChainID {
-    Mainnet = 1,
-    Testnet = 333,
-}
-
-export class TyronTransaction extends ZilliqaInit {
+export default class TyronTransaction extends TyronContract {
     private readonly gas_price: Util.BN;
     private readonly gas_limit: Util.Long;
 
@@ -107,8 +67,8 @@ export class TyronTransaction extends ZilliqaInit {
         userPrivateKey: string,
         gasLimit: number
     ): Promise<TyronTransaction | void> {
-        const ZIL_INIT = new ZilliqaInit(network, init);
-        const tyron_init = await ZIL_INIT.API.blockchain.getMinimumGasPrice()
+        const ZIL_INIT = new ZilliqaInit(network);
+        const transaction_init = await ZIL_INIT.API.blockchain.getMinimumGasPrice()
         .then(min_gas_price => {
             const GAS_PRICE = new Util.BN(min_gas_price.result!);
             const GAS_LIMIT = new Util.Long(gasLimit);
@@ -120,7 +80,7 @@ export class TyronTransaction extends ZilliqaInit {
         })
         .then(async gas => {
             const CLIENT_ADDR = Crypto.getAddressFromPrivateKey(clientPrivateKey);
-            if (CLIENT_ADDR !== ZIL_INIT.client_addr) {
+            if (CLIENT_ADDR !== init.client_addr) {
                 throw new SidetreeError(ErrorCode.WrongKey);
             }
             /** Gets the current balance of the account (in Qa = 10^-12 ZIL as string)
@@ -129,7 +89,7 @@ export class TyronTransaction extends ZilliqaInit {
             const BALANCE_RESULT = GET_BALANCE.result;
 
             // The account's balance MUST be greater than a minimum stake amount
-            if (Number(BALANCE_RESULT.balance) < ZIL_INIT.tyron_stake) {
+            if (Number(BALANCE_RESULT.balance) < init.tyron_stake) {
             throw new SidetreeError(ErrorCode.NotEnoughBalance)
             }
             const PARAMETERS = {
@@ -140,7 +100,7 @@ export class TyronTransaction extends ZilliqaInit {
         })
         .then(async parameters => {
             const USER_ADDRESS = Crypto.getAddressFromPrivateKey(userPrivateKey);
-            if (USER_ADDRESS !== ZIL_INIT.contract_owner) {
+            if (USER_ADDRESS !== init.contract_owner) {
                 throw new SidetreeError(ErrorCode.WrongKey);
             }
             /** Gets the current balance of the account (in Qa = 10^-12 ZIL as string)
@@ -165,7 +125,7 @@ export class TyronTransaction extends ZilliqaInit {
                 USER_NONCE);
         })
         .catch(error => console.error(error));
-        return tyron_init;
+        return transaction_init;
     }
 
     /***            ****            ***/
@@ -221,7 +181,7 @@ export class TyronTransaction extends ZilliqaInit {
                 contract: tyron_smart_contract
             };
             const CUMULATIVE_GAS = (deployTx.getReceipt())!.cumulative_gas;
-            console.log(LogColors.yellow(`The total gas consumed by deploying your tyron-smart-contract is: `) + LogColors.brightYellow(`${CUMULATIVE_GAS}`));
+            console.log(LogColors.yellow(`The total gas consumed by deploying your tyron-smart-contract was: `) + LogColors.brightYellow(`${CUMULATIVE_GAS}`));
             return DEPLOYED_CONTRACT;
         })
         .then(async deployed_contract => {
@@ -246,7 +206,7 @@ export class TyronTransaction extends ZilliqaInit {
                 false
             );
             const CUMULATIVE_GAS = (CALL.getReceipt())!.cumulative_gas;
-            console.log(LogColors.yellow(`The total gas consumed by the ContractInit transition is: `) + LogColors.brightYellow(`${CUMULATIVE_GAS}`));
+            console.log(LogColors.yellow(`The total gas consumed by the ContractInit transition was: `) + LogColors.brightYellow(`${CUMULATIVE_GAS}`));
             return deployed_contract;
         })
         .catch(err => console.error(err));
@@ -313,7 +273,7 @@ export class TyronTransaction extends ZilliqaInit {
             const TX_RECEIPT = GET_TRANSACTION.getReceipt();
 
             const CUMULATIVE_GAS = TX_RECEIPT!.cumulative_gas;
-            console.log(LogColors.yellow(`The total gas consumed in this ${tag} transaction is: `) + LogColors.brightYellow(`${CUMULATIVE_GAS}`));
+            console.log(LogColors.yellow(`The total gas consumed in this ${tag} transaction was: `) + LogColors.brightYellow(`${CUMULATIVE_GAS}`));
 
             console.log(LogColors.brightGreen(`The ${tag} tyronZIL transaction has been successful!`));
         })
@@ -323,7 +283,7 @@ export class TyronTransaction extends ZilliqaInit {
     public static async create(
         did: string,
         suffixData: string,
-        encodedDelta: string | undefined,
+        delta: string,
         updateCommitment: string,
         recoveryCommitment: string
     ): Promise<TransitionParams[]> {
@@ -344,9 +304,9 @@ export class TyronTransaction extends ZilliqaInit {
         PARAMS.push(SUFFIX);
 
         const DELTA: TransitionParams = {
-            vname: 'encodedDelta',
+            vname: 'newDelta',
             type: 'String',
-            value: encodedDelta!,
+            value: delta,
         };
         PARAMS.push(DELTA);
 

@@ -14,7 +14,8 @@
 */
 
 import TyronZILScheme from '../tyronZIL-schemes/did-scheme';
-import { Cryptography, OperationKeyPairInput, JwkEs256k } from '../did-keys';
+import JwkEs256k from '@decentralized-identity/sidetree/dist/lib/core/models/JwkEs256k';
+import { Cryptography, OperationKeyPairInput } from '../util/did-keys';
 import { PublicKeyModel } from '../models/verification-method-models';
 import Jws from '@decentralized-identity/sidetree/dist/lib/core/versions/latest/util/Jws';
 import Multihash from '@decentralized-identity/sidetree/dist/lib/core/versions/latest/Multihash';
@@ -25,7 +26,7 @@ import { PatchModel, PatchAction } from '../models/patch-model';
 import DeltaModel from '@decentralized-identity/sidetree/dist/lib/core/versions/latest/models/DeltaModel';
 import { UpdateSignedDataModel } from '../models/signed-data-models';
 import SidetreeError from '@decentralized-identity/sidetree/dist/lib/common/SidetreeError';
-import ErrorCode from '../../ErrorCode';
+import ErrorCode from '../util/ErrorCode';
 import { PublicKeyInput } from '../models/cli-input-model';
 import DidState from '../did-state';
 
@@ -74,9 +75,8 @@ export default class DidUpdate{
     
     /** Generates a Sidetree-based `DID-update` operation with input from the CLI */
     public static async execute(input: UpdateOperationInput): Promise<DidUpdate> {
-        /** The tyronZIL DID-state that updates */
+        /** The tyronZIL DID-state to update */
         const DID_STATE = input.didState;
-        DID_STATE.status = OperationType.Update;
 
         const PUBLIC_KEYS = DID_STATE.publicKey;
 
@@ -126,9 +126,9 @@ export default class DidUpdate{
                     })
                     
                     /** IDs of the services to remove */
-                    const IDs = new Set(input.patch.ids);
+                    //const IDs = new Set(input.patch.ids);
 
-                    DID_STATE.service = DID_STATE.service.filter(service => !IDs.has(service.id))
+                    //DID_STATE.service = DID_STATE.service.filter(service => !IDs.has(service.id))
                 }
                 break;
             case PatchAction.RemoveKeys:
@@ -149,7 +149,7 @@ export default class DidUpdate{
                     for (const value of KEY_MAP.values()){
                         PUBLIC_KEY.push(value)
                     }
-                    DID_STATE.publicKey = PUBLIC_KEY;
+                    //DID_STATE.publicKey = PUBLIC_KEY;
                 }
                 break;
             default:
@@ -162,13 +162,13 @@ export default class DidUpdate{
         // Creates key-pair for the updateCommitment (save private key for next update operation)
         const [UPDATE_KEY, UPDATE_PRIVATE_KEY] = await Cryptography.jwkPair();
         /** Utilizes the UPDATE_KEY to make the `update reveal value` for the next update operation */
-        const NEW_UPDATE_COMMITMENT = Multihash.canonicalizeThenHashThenEncode(Cryptography.removeKid(UPDATE_KEY));
-        DID_STATE.updateCommitment = NEW_UPDATE_COMMITMENT;
+        const NEW_UPDATE_COMMITMENT = Multihash.canonicalizeThenHashThenEncode((UPDATE_KEY));
+        //DID_STATE.updateCommitment = NEW_UPDATE_COMMITMENT;
         
         /***            ****            ***/
 
-        const PREVIOUS_UPDATE_KEY = Cryptography.getPublicKeyNoKid(input.updatePrivateKey)
-        const updateNoKid = Cryptography.removeKid(input.updatePrivateKey);
+        const PREVIOUS_UPDATE_KEY = Cryptography.getPublicKey(input.updatePrivateKey);
+        const updateNoKid = input.updatePrivateKey;
 
         /** Input data for the Sidetree request */
         const SIDETREE_REQUEST_INPUT: RequestInput = {

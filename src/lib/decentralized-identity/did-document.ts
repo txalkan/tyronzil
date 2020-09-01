@@ -20,16 +20,16 @@ import { TyronZILUrlScheme } from './tyronZIL-schemes/did-url-scheme';
 import * as fs from 'fs';
 import LogColors from '../../bin/log-colors';
 import SidetreeError from '@decentralized-identity/sidetree/dist/lib/common/SidetreeError';
-import Error from '../ErrorCode';
+import ErrorCode from './util/ErrorCode';
+import { NetworkNamespace } from './tyronZIL-schemes/did-scheme';
 
 interface DidDocScheme {
     id: string;
     publicKey: VerificationMethodModel[];
     authentication: (string | VerificationMethodModel)[];
-    controller?: string;
     service?: ServiceEndpointModel[];
-    created?: number; // MUST be a valid XML datetime value, as defined in section 3.3.7 of [W3C XML Schema Definition Language (XSD) 1.1 Part 2: Datatypes [XMLSCHEMA1.1-2]]. This datetime value MUST be normalized to UTC 00:00, as indicated by the trailing "Z"
-    updated?: number; // timestamp of the most recent change
+    created?: number; //MUST be a valid XML datetime value, as defined in section 3.3.7 of [W3C XML Schema Definition Language (XSD) 1.1 Part 2: Datatypes [XMLSCHEMA1.1-2]]. This datetime value MUST be normalized to UTC 00:00, as indicated by the trailing "Z"
+    updated?: number; //timestamp of the most recent change
 }
 
 export interface ResolutionInput {
@@ -38,32 +38,32 @@ export interface ResolutionInput {
 }
 
 export interface ResolutionInputMetadata {
-    accept: Accept;        // to request a certain type of result
-    versionId?: string;     // to request a specific version of the DID-document - mutually exclusive with versionTime
-    versionTime?: string;       // idem versionId - an RFC3339 combined date and time representing when the DID-doc was current for the input DID
-    noCache?: boolean;      // to request a certain kind of caching behavior - 'true': caching is disabled and a fresh DID-doc is retrieved from the registry
+    accept: Accept;        //to request a certain type of result
+    versionId?: string;        //to request a specific version of the DID-document - mutually exclusive with versionTime
+    versionTime?: string;        //idem versionId - an RFC3339 combined date and time representing when the DID-doc was current for the input DID
+    noCache?: boolean;        //to request a certain kind of caching behavior - 'true': caching is disabled and a fresh DID-doc is retrieved from the registry
     dereferencingInput?: DereferencingInputMetadata;
 }
 
 interface DereferencingInputMetadata {
-    serviceType?: string;       // to select a specific service from the DID-document
-    followRedirect?: boolean;       // to instruct whether redirects should be followed
+    serviceType?: string;        //to select a specific service from the DID-document
+    followRedirect?: boolean;        //to instruct whether redirects should be followed
 }
 
 export enum Accept {
-    contentType = "application/did+json",      // requests a DId-document as output
-    Result = "application/did+json;profile='https://w3c-ccg.github.io/did-resolution'",     // requests a DID resolution result as output
+    contentType = "application/did+json",        //requests a DId-document as output
+    Result = "application/did+json;profile='https://w3c-ccg.github.io/did-resolution'"        //requests a DID resolution result as output
 }
 
-interface ResolutionResult {
+export interface ResolutionResult {
     resolutionMetadata?: unknown;
     document: DidDoc;
     metadata: DocumentMetadata;
 }
 
 interface DocumentMetadata {
-    updateCommitment?: string;      // both commitments are undefined after deactivation
-    recoveryCommitment?: string;
+    updateCommitment: string | undefined;        //both commitments are undefined after deactivation
+    recoveryCommitment: string | undefined;
 }
 
 /***            ****            ***/
@@ -73,7 +73,6 @@ export default class DidDoc {
     public readonly id: string;
     public readonly publicKey: VerificationMethodModel[];
     public readonly authentication: (string | VerificationMethodModel)[];
-    public readonly controller?: string;
     public readonly service?: ServiceEndpointModel[];
 
     private constructor (
@@ -82,7 +81,6 @@ export default class DidDoc {
         this.id = operationOutput.id;
         this.publicKey = operationOutput.publicKey;
         this.authentication = operationOutput.authentication;
-        this.controller = operationOutput.controller;
         this.service = operationOutput.service;
     }
 
@@ -98,14 +96,13 @@ export default class DidDoc {
 
     /** Generates a 'DID-read' operation, resolving any tyronZIL DID-state into its DID-document */
     public static async read(input: DidState): Promise<DidDoc> {
-        
         /** Validates tyronZIL's DID-scheme */
         let ID;
         try {
             const DID_SCHEME = await TyronZILUrlScheme.validate(input.did_tyronZIL);
             ID = DID_SCHEME.did_tyronZIL;
         } catch (error) {
-            throw new SidetreeError(Error.InvalidDID);
+            throw new SidetreeError(ErrorCode.InvalidDID);
         }
 
         /***            ****            ***/
@@ -123,7 +120,7 @@ export default class DidDoc {
                 const VERIFICATION_METHOD: VerificationMethodModel = {
                     id: DID_URL,
                     type: key.type,
-                    publicKeyJwk: key.publicKeyJwk
+                    jwk: key.jwk
                 };
 
                 /** The verification relationship for the key */
@@ -172,32 +169,38 @@ export default class DidDoc {
         if (SERVICES.length !== 0) {
             OPERATION_OUTPUT.service = SERVICES;
         }
-
         return new DidDoc(OPERATION_OUTPUT);
     }
 
     /***            ****            ***/
 
     /** The tyronZIL DID resolution function */
-    public static async resolution(input: ResolutionInput): Promise<ResolutionResult | DidDoc> {
+    public static async resolution(network: NetworkNamespace, tyronAddr: string, input: ResolutionInput): Promise<ResolutionResult | DidDoc | void> {
         const ACCEPT = input.metadata.accept;
         const DID_tyronZIL = input.did;
-        const DID_STATE = await DidState.fetch(DID_tyronZIL);
-        const DID_DOC = await DidDoc.read(DID_STATE);
-        
-        switch (ACCEPT) {
-            case Accept.contentType:
-                return DID_DOC;
-            case Accept.Result: {
-                const RESOLUTION_RESULT: ResolutionResult = {
-                    document: DID_DOC,
-                    metadata: {
-                        updateCommitment: DID_STATE.updateCommitment,
-                        recoveryCommitment: DID_STATE.recoveryCommitment,
-                    }
-                }
-                return RESOLUTION_RESULT;
+        const DID_RESOLVED = await DidState.fetch(network, tyronAddr)
+        .then(async did_state => {
+            const DID_STATE = did_state as DidState;
+            if(DID_STATE.did_tyronZIL !== DID_tyronZIL){
+                throw new SidetreeError(ErrorCode.DidMismatch)
             }
-        }
+            const DID_DOC = await DidDoc.read(DID_STATE);
+            switch (ACCEPT) {
+                case Accept.contentType:
+                    return DID_DOC;
+                case Accept.Result: {
+                    const RESOLUTION_RESULT: ResolutionResult = {
+                        document: DID_DOC,
+                        metadata: {
+                            updateCommitment: DID_STATE.updateCommitment,
+                            recoveryCommitment: DID_STATE.recoveryCommitment,
+                        }
+                    }
+                    return RESOLUTION_RESULT;
+                }
+            }
+        })
+        .catch(err => console.error(err))
+        return DID_RESOLVED;
     }
 }

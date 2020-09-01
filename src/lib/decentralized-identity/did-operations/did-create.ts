@@ -15,8 +15,9 @@
 
 import OperationType from '@decentralized-identity/sidetree/dist/lib/core/enums/OperationType';
 import CreateOperation from '@decentralized-identity/sidetree/dist/lib/core/versions/latest/CreateOperation';
-import { Cryptography, OperationKeyPairInput, JwkEs256k } from '../did-keys';
-import { PublicKeyModel, Operation, Recovery, SidetreeVerificationRelationship } from '../models/verification-method-models';
+import JwkEs256k from '@decentralized-identity/sidetree/dist/lib/core/models/JwkEs256k';
+import { Cryptography, OperationKeyPairInput } from '../util/did-keys';
+import { PublicKeyModel } from '../models/verification-method-models';
 import { CliInputModel } from '../models/cli-input-model';
 import TyronZILScheme from '../tyronZIL-schemes/did-scheme';
 import { SchemeInputData } from '../tyronZIL-schemes/did-scheme';
@@ -25,61 +26,37 @@ import Encoder from '@decentralized-identity/sidetree/dist/lib/core/versions/lat
 import ServiceEndpointModel from '@decentralized-identity/sidetree/dist/lib/core/versions/latest/models/ServiceEndpointModel';
 import { DocumentModel, PatchModel, PatchAction } from '../models/patch-model';
 import DeltaModel from '@decentralized-identity/sidetree/dist/lib/core/versions/latest/models/DeltaModel';
-import SuffixDataModel from '../models/suffix-data-model';
+import { SuffixDataModel } from '../util/sidetree';
 
 /** Generates a Sidetree-based `DID-create` operation */
 export default class DidCreate {
-    public readonly did_tyronZIL: TyronZILScheme;
-        public readonly didUniqueSuffix: string;
-    public readonly sidetreeRequest: CreateDataRequest;
-        public readonly operationBuffer: Buffer;
+    public readonly type: OperationType.Create;
+    public readonly DIDScheme: TyronZILScheme;
+    public readonly sidetreeRequest: Buffer;
+    /** The result from the Sidetree request */
     public readonly createOperation: CreateOperation;
-        public readonly type: OperationType.Create;
-    public readonly encodedSuffixData: string;
-        public readonly suffixData: SuffixDataModel;
-    public readonly encodedDelta: string | undefined;
-        public readonly delta: DeltaModel | undefined; // undefined when Anchor file mode is ON
-    public readonly publicKey: PublicKeyModel[];
-        public readonly privateKey: string[];
-    public readonly updateCommitment: string;
-        public readonly operation: Operation;
-        public readonly updateKey: JwkEs256k;
-        public readonly updatePrivateKey: JwkEs256k;
-    public readonly recoveryCommitment: string;
-        public readonly recovery: Recovery;
-        public readonly recoveryKey: JwkEs256k;
-        public readonly recoveryPrivateKey: JwkEs256k;
-    public readonly service: ServiceEndpointModel[];
-
+    /** The encoded Suffix Data Object */
+    public readonly suffixData: string;
+    /** The encoded Delta Object */
+    public readonly delta: string;
+    public readonly privateKey: string[];
+    public readonly updatePrivateKey: JwkEs256k;
+    public readonly recoveryPrivateKey: JwkEs256k;
+    
     /***            ****            ***/
 
     private constructor (
-        operationOutput: CreateOperationOutput
+        operation: CreateOperationModel
     ) {
-        this.did_tyronZIL = operationOutput.did_tyronZIL;
-            this.didUniqueSuffix = operationOutput.createOperation.didUniqueSuffix;
-        this.sidetreeRequest = operationOutput.sidetreeRequest;
-            this.operationBuffer = operationOutput.operationBuffer;
-        this.createOperation = operationOutput.createOperation;
-            this.type = OperationType.Create;
-        this.encodedSuffixData = operationOutput.createOperation.encodedSuffixData;
-            this.suffixData = {
-                delta_hash: operationOutput.createOperation.suffixData.deltaHash,
-                recovery_commitment: operationOutput.createOperation.suffixData.recoveryCommitment
-            };
-        this.encodedDelta = operationOutput.createOperation.encodedDelta;
-            this.delta = operationOutput.createOperation.delta;
-        this.publicKey = operationOutput.publicKey;
-            this.privateKey = operationOutput.privateKey;
-        this.operation = operationOutput.operation;
-        this.recovery = operationOutput.recovery;
-        this.updateKey = operationOutput.updateKey;
-            this.updatePrivateKey = operationOutput.updatePrivateKey;
-            this.updateCommitment = operationOutput.updateCommitment;
-        this.recoveryKey = operationOutput.recoveryKey;
-            this.recoveryPrivateKey = operationOutput.recoveryPrivateKey;
-            this.recoveryCommitment = operationOutput.recoveryCommitment;
-        this.service = operationOutput.service;
+        this.type = OperationType.Create;
+        this.DIDScheme = operation.DIDScheme;
+        this.sidetreeRequest = operation.sidetreeRequest;
+        this.createOperation = operation.createOperation;    
+        this.suffixData = this.createOperation.encodedSuffixData;
+        this.delta = this.createOperation.encodedDelta;
+        this.privateKey = operation.privateKey;
+        this.updatePrivateKey = operation.updatePrivateKey;
+        this.recoveryPrivateKey = operation.recoveryPrivateKey;
     }
 
     /***            ****            ***/
@@ -145,77 +122,34 @@ export default class DidCreate {
         
         /** Sidetree data to generate a `DID-create` operation */
         const SIDETREE_REQUEST = await DidCreate.sidetreeRequest(SIDETREE_REQUEST_INPUT);
-            const OPERATION_BUFFER = Buffer.from(JSON.stringify(SIDETREE_REQUEST));
+        const SIDETREE_REQUEST_BUFFER = Buffer.from(JSON.stringify(SIDETREE_REQUEST));
         
         /** Executes the Sidetree CreateOperation */
-        const CREATE_OPERATION = await CreateOperation.parse(OPERATION_BUFFER);
-        const DID_SUFFIX = CREATE_OPERATION.didUniqueSuffix;
+        const CREATE_OPERATION = await CreateOperation.parse(SIDETREE_REQUEST_BUFFER);
 
         const SCHEME_DATA: SchemeInputData = {
             network: input.network,
-            didUniqueSuffix: DID_SUFFIX
+            didUniqueSuffix: CREATE_OPERATION.didUniqueSuffix
         };
 
-        const DID_tyronZIL = await TyronZILScheme.newDID(SCHEME_DATA);
-
-        const VM_OPERATION = await this.generateVMOperation(UPDATE_KEY, DID_tyronZIL);
-        const VM_RECOVERY = await this.generateVMRecovery(RECOVERY_KEY, DID_tyronZIL);
+        /** The tyronZIL DID-scheme */
+        const DID_SCHEME = await TyronZILScheme.newDID(SCHEME_DATA);
 
         /** Output data from a new Sidetree-based `DID-create` operation */
-        const OPERATION_OUTPUT: CreateOperationOutput = {
-            did_tyronZIL: DID_tyronZIL,
-            sidetreeRequest: SIDETREE_REQUEST,
-            operationBuffer: OPERATION_BUFFER,
+        const OPERATION_OUTPUT: CreateOperationModel = {
+            DIDScheme: DID_SCHEME,
+            sidetreeRequest: SIDETREE_REQUEST_BUFFER,
             createOperation: CREATE_OPERATION,
-            publicKey: PUBLIC_KEYS,
             privateKey: PRIVATE_KEYS,
-            operation: VM_OPERATION,
-            recovery: VM_RECOVERY,
-            updateKey: UPDATE_KEY,
             updatePrivateKey: UPDATE_PRIVATE_KEY,
-            updateCommitment: UPDATE_COMMITMENT,
-            recoveryKey: RECOVERY_KEY,
-            recoveryPrivateKey: RECOVERY_PRIVATE_KEY,
-            recoveryCommitment: RECOVERY_COMMITMENT,
-            service: SERVICE      
+            recoveryPrivateKey: RECOVERY_PRIVATE_KEY  
         };
         return new DidCreate(OPERATION_OUTPUT);
 
     }
 
-    /** Generates an Operation verification-method instance */
-    public static async generateVMOperation(updateKey: JwkEs256k, did: TyronZILScheme): Promise<Operation> {
-        const ID = did.did_tyronZIL + '#' + updateKey.kid;
-        const TYPE = 'EcdsaSecp256k1VerificationKey2019';
-        const JWK = updateKey;
-        
-        const VM_OPERATION: Operation = {
-            id: ID,
-            type: TYPE,
-            publicKeyJwk: JWK,
-            purpose: SidetreeVerificationRelationship.Operation
-        }
-        return VM_OPERATION;
-    }
-
-    /** Generates a Recovery verification-method instance */
-    public static async generateVMRecovery(recoveryKey: JwkEs256k, did: TyronZILScheme): Promise<Recovery> {
-        const ID = did.did_tyronZIL + '#' + recoveryKey.kid;
-        const TYPE = 'EcdsaSecp256k1VerificationKey2019';
-        const JWK = recoveryKey;
-        
-        const VM_RECOVERY: Recovery = {
-            id: ID,
-            type: TYPE,
-            publicKeyJwk: JWK,
-            purpose: SidetreeVerificationRelationship.Recovery
-        }
-        return VM_RECOVERY;
-    }
-
     /** Generates the Sidetree data for the `DID-create` operation */
     public static async sidetreeRequest(input: RequestInput): Promise<CreateDataRequest> {
-        
         const DOCUMENT: DocumentModel = {
             public_keys: input.publicKey,
             service_endpoints: input.service
@@ -255,22 +189,13 @@ export default class DidCreate {
 /***            ** interfaces **            ***/
 
 /** Defines output data for a Sidetree-based `DID-create` operation */
-interface CreateOperationOutput {
-    did_tyronZIL: TyronZILScheme;
-    sidetreeRequest: CreateDataRequest;
-    operationBuffer: Buffer;
+interface CreateOperationModel {
+    DIDScheme: TyronZILScheme;
+    sidetreeRequest: Buffer;
     createOperation: CreateOperation;
-    publicKey: PublicKeyModel[];
     privateKey: string[];
-    operation: Operation;   // verification method
-    recovery: Recovery;     // verification method
-    updateKey: JwkEs256k;
     updatePrivateKey: JwkEs256k;
-    updateCommitment: string;
-    recoveryKey: JwkEs256k;
     recoveryPrivateKey: JwkEs256k;
-    recoveryCommitment: string;
-    service: ServiceEndpointModel[];
 }
 
 /** Defines input data for a Sidetree-based `DID-create` operation REQUEST*/

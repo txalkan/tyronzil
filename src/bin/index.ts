@@ -32,13 +32,13 @@ yargs
         await tyronCLI.handleCreate();
       })
       .command('update', ' -> updates the given tyronZIL DID and its DID-state', async () => {
-        await tyronCLI.handleUpdate();
+        //await tyronCLI.handleUpdate();
       })
       .command('recover', ' -> recovers the given tyronZIL DID and creates a new DID-state)', async () => {
-        await tyronCLI.handleRecover();
+        //await tyronCLI.handleRecover();
       })
       .command('deactivate', ' -> deactivates the given tyronZIL DID and its DID-state', async () => {
-        await tyronCLI.handleDeactivate();
+        //await tyronCLI.handleDeactivate();
       })
       .wrap(null)
       .strict(); // the sub-command must be one of the explicitly defined sub-commands

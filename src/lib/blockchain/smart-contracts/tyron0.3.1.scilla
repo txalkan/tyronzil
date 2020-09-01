@@ -89,7 +89,7 @@ contract Tyron(
     field operation_cost: Uint128 = Uint128 0   
     field foundation_address: ByStr20 = 0x45832badF26Bc3F66DA3b9eD242EA84AfFA024a3
     field client_commission: Uint128 = Uint128 0        (* % of the operation_cost *)       
-  (* defined by the tyronZIL DID method *)
+  (* defined by the tyronZIL DID method & Sidetree protocol *)
     field decentralized_identifier: String = ""
     field suffix_data: String = ""
     field signed_data: String = ""
@@ -237,7 +237,7 @@ contract Tyron(
     transition DidCreate(
         did: String,
         suffixData: String,
-        encodedDelta: String,
+        newDelta: String,
         updateCommitment: String,
         recoveryCommitment: String
     )
@@ -246,7 +246,7 @@ contract Tyron(
         Payment;
         decentralized_identifier := did;
         suffix_data := suffixData;
-        delta := encodedDelta;
+        delta := newDelta;
         update_commitment := updateCommitment;
         recovery_commitment := recoveryCommitment;
         status := created;
@@ -256,7 +256,7 @@ contract Tyron(
     transition DidUpdate(
         updateCommitment: String,
         signedData: String,
-        encodedDelta: String,
+        newDelta: String,
         newUpdateCommitment: String
     )
         IsClient;
@@ -265,7 +265,7 @@ contract Tyron(
         IsCommitment this_commitment updateCommitment;
         Payment;
         signed_data := signedData;
-        delta := encodedDelta;
+        delta := newDelta;
         update_commitment := newUpdateCommitment;
         status := updated;
         Timestamp
@@ -274,7 +274,7 @@ contract Tyron(
     transition DidRecover(
         recoveryCommitment: String,
         signedData: String,
-        encodedDelta: String,
+        newDelta: String,
         newUpdateCommitment: String,
         newRecoveryCommitment: String
     )
@@ -284,7 +284,7 @@ contract Tyron(
         IsCommitment this_commitment recoveryCommitment;
         Payment;
         signed_data := signedData;
-        delta := encodedDelta;
+        delta := newDelta;
         update_commitment := newUpdateCommitment;
         recovery_commitment := newRecoveryCommitment;
         status := recovered;

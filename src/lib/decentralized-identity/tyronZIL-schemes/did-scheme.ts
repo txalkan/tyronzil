@@ -32,7 +32,6 @@ export default class TyronZILScheme {
 
     /** Generates a tyronZIL DID with the given didUniqueSuffix and network */
     public static async newDID(input: SchemeInputData): Promise<TyronZILScheme> {
-
         const SCHEME_DATA: SchemeInputData = {
             network: input.network,
             didUniqueSuffix: input.didUniqueSuffix,
@@ -49,5 +48,6 @@ export enum NetworkNamespace {
 
 export interface SchemeInputData {
     network: NetworkNamespace;
+    /** The globally unique part of the DID */
     didUniqueSuffix: string;
 }

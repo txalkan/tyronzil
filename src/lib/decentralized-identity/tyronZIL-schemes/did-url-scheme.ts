@@ -17,20 +17,7 @@ import TyronZILScheme, { SchemeInputData, NetworkNamespace } from "./did-scheme"
 import SidetreeError from "@decentralized-identity/sidetree/dist/lib/common/SidetreeError";
 // import { ParsedUrlQueryInput } from "querystring";
 //import { URL } from 'url';
-import ErrorCode from '../../ErrorCode';
-
-export interface UrlInput {
-    schemeInput: SchemeInputData;
-    path?: string;
-    query?: string;
-    fragment?: string;
-}
-
-export interface LongFormDidInput {
-    schemeInput: SchemeInputData;
-    encodedSuffixData: string;
-    encodedDelta: string;
-}
+import ErrorCode from '../util/ErrorCode';
 
 export class TyronZILUrlScheme extends TyronZILScheme {
     public readonly didUrl?: string;
@@ -52,7 +39,7 @@ export class TyronZILUrlScheme extends TyronZILScheme {
 
     /** Generates the Sidetree Long-Form DID URI with the initial-state URL parameter */
     public static async longFormDid(input: LongFormDidInput): Promise<TyronZILUrlScheme> {
-        const INITIAL_STATE_VALUE = input.encodedSuffixData + '.' + input.encodedDelta;
+        const INITIAL_STATE_VALUE = input.suffixData + '.' + input.delta;
         
         const QUERY: Query = {
             urlParameter: UrlParameters.InitialState,
@@ -69,7 +56,6 @@ export class TyronZILUrlScheme extends TyronZILScheme {
 
     /** Validates if the given DID is a proper tyronZIL DID */
     public static async validate(did: string): Promise<TyronZILUrlScheme> {
-        
         /*
         let IS_URL = undefined;
         try {
@@ -102,6 +88,18 @@ export class TyronZILUrlScheme extends TyronZILScheme {
     }
 }
 
+export interface UrlInput {
+    schemeInput: SchemeInputData;
+    path?: string;
+    query?: string;
+    fragment?: string;
+}
+
+export interface LongFormDidInput {
+    schemeInput: SchemeInputData;
+    suffixData: string;
+    delta: string;
+}
 
 export interface Query {
     urlParameter: UrlParameters;

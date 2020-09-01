@@ -13,7 +13,19 @@
     GNU General Public License for more details.
 */
 
-export default interface SuffixDataModel {
-    delta_hash: string;
-    recovery_commitment: string;
+import * as fs from 'fs';
+import LogColors from './log-colors';
+
+export default class Util {
+    public static async fetch(did: string): Promise<any> {
+        const FILE_NAME = `DID_RESOLVED_${did}.json`;
+        let OBJECT: any;
+        try {
+            const FILE = fs.readFileSync(FILE_NAME);
+            OBJECT = await JSON.parse(FILE.toString());
+        } catch (error) {
+            console.log(LogColors.red(`Could not parse the file into an object`));
+        }
+        return OBJECT;
+    }
 }

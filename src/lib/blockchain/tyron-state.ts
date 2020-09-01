@@ -13,81 +13,71 @@
     GNU General Public License for more details.
 */
 
-import { NetworkNamespace } from '../sidetree/tyronZIL-schemes/did-scheme';
-import { ZilliqaInit } from './zilliqa';
-import TyronContract, { ContractInit } from './tyron-contract';
+import { NetworkNamespace } from '../decentralized-identity/tyronZIL-schemes/did-scheme';
+import ZilliqaInit from './zilliqa-init';
+import OperationType from '@decentralized-identity/sidetree/dist/lib/core/enums/OperationType';
 
-export default class TyronState extends TyronContract {
+export default class TyronState {
     public readonly decentralized_identifier: string;
     public readonly suffix_data: string;
     public readonly signed_data: string;
     public readonly delta: string;
     public readonly update_commitment: string;
     public readonly recovery_commitment: string;
-    public readonly previous_stamp: string;
+    public readonly status: OperationType;
+    public readonly ledger_time: number;
+    public readonly sidetree_transaction_number: number;
     
     private constructor(
-        init: ContractInit,
-        state: StateModel
+        state: TyronStateModel
     ) {
-        super(init);
         this.decentralized_identifier = state.decentralized_identifier;
         this.suffix_data = state.suffix_data;
         this.signed_data = state.signed_data;
         this.delta = state.delta;
         this.update_commitment = state.update_commitment;
         this.recovery_commitment = state.recovery_commitment;
-        this.previous_stamp = state.previous_stamp;
+        this.status = state.status as OperationType;
+        this.ledger_time = state.ledger_time;
+        this.sidetree_transaction_number = state.sidetree_transaction_number;
     }
 
     /** Fetches the current state from the blockchain 
      * @params addr: the Zilliqa address of the user's smart-contract
     */
-    public static async fetch(network: NetworkNamespace, init: ContractInit, tyronAddr: string): Promise<void | TyronState> {
-        
-        const ZIL_INIT = new ZilliqaInit(network, init);
-        const ZIL_API = ZIL_INIT.API;
-        await ZIL_API.blockchain.getSmartContractState(tyronAddr)
+    public static async fetch(network: NetworkNamespace, tyronAddr: string): Promise<void | TyronState> {
+        const ZIL_INIT = new ZilliqaInit(network);
+        const tyron_state = await ZIL_INIT.API.blockchain.getSmartContractState(tyronAddr)
         .then(async SMART_CONTRACT_STATE => {
-            const STATE: StateModel = {
-                decentralized_identifier: SMART_CONTRACT_STATE.result.decentralized_identifier,
-                suffix_data: SMART_CONTRACT_STATE.result.suffix_data,
-                signed_data: SMART_CONTRACT_STATE.result.signed_data,
-                delta: SMART_CONTRACT_STATE.result.delta,
-                update_commitment: SMART_CONTRACT_STATE.result.update_commitment,
-                recovery_commitment: SMART_CONTRACT_STATE.result.recovery_commitment,
-                previous_stamp: SMART_CONTRACT_STATE.result.previous_stamp,
-                timestamp: {
-                    status: SMART_CONTRACT_STATE.result.status,
-                    ledger_time: SMART_CONTRACT_STATE.result.ledger_time,
-                    sidetree_transaction_number: SMART_CONTRACT_STATE.result.sidetree_transaction_number,
-                    zilliqa_tranID: SMART_CONTRACT_STATE.result.zilliqa_tranID
-                }
+            const STATE: TyronStateModel = {
+                decentralized_identifier: String(SMART_CONTRACT_STATE.result.decentralized_identifier),
+                suffix_data: String(SMART_CONTRACT_STATE.result.suffix_data),
+                signed_data: String(SMART_CONTRACT_STATE.result.signed_data),
+                delta: String(SMART_CONTRACT_STATE.result.delta),
+                update_commitment: String(SMART_CONTRACT_STATE.result.update_commitment),
+                recovery_commitment: String(SMART_CONTRACT_STATE.result.recovery_commitment),
+                status: String(SMART_CONTRACT_STATE.result.status),
+                ledger_time: Number(SMART_CONTRACT_STATE.result.ledger_time),
+                sidetree_transaction_number: Number(SMART_CONTRACT_STATE.result.sidetree_transaction_number),
             };
-            return new TyronState(init, STATE);
+            return new TyronState(STATE);
         })
         .catch(error => console.error(error));
+        return tyron_state;
     }
 }
 
 /***            ** interfaces **            ***/
 
 /** The tyron state model */
-export interface StateModel {
+export interface TyronStateModel {
     decentralized_identifier: string;
     suffix_data: string;
     signed_data: string;
     delta: string;
     update_commitment: string;
     recovery_commitment: string;
-    previous_stamp: string;         // hash of the previous timestamp
-    timestamp: TimestampModel;
-}
-
-interface TimestampModel {
-    //did: string; to-do add this in another way. like a commitment
     status: string;
     ledger_time: number;
     sidetree_transaction_number: number;
-    zilliqa_tranID: number;
 }
