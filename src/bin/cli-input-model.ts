@@ -13,24 +13,17 @@
     GNU General Public License for more details.
 */
 
-import JwkEs256k from "@decentralized-identity/sidetree/dist/lib/core/models/JwkEs256k";
+import { NetworkNamespace } from '../lib/decentralized-identity/tyronZIL-schemes/did-scheme';
+import { PublicKeyPurpose } from '../lib/decentralized-identity/util/sidetree protocol/models/verification-method-models';
+import ServiceEndpointModel from '@decentralized-identity/sidetree/dist/lib/core/versions/latest/models/ServiceEndpointModel';
 
-export interface VerificationMethodModel {
+export interface CliInputModel {
+    network: NetworkNamespace;
+    publicKeyInput: PublicKeyInput[];
+    service: ServiceEndpointModel[];
+}
+
+export interface PublicKeyInput {
     id: string;
-    type: string;
-    controller?: string;
-    jwk: JwkEs256k;
-}
-
-export interface PublicKeyModel extends VerificationMethodModel {
-    purpose: PublicKeyPurpose[]
-}
-
-export enum PublicKeyPurpose {
-    General = 'general',
-    Auth = 'auth',
-    Agreement = 'agreement',
-    Assertion = 'assertion',
-    Delegation = 'delegation',
-    Invocation = 'invocation'
+    purpose: PublicKeyPurpose[];
 }

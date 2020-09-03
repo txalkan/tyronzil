@@ -51,6 +51,7 @@ library Tyron
     | CodeNotOwner
     | DidIsDeactivated
     | CodeWrongCommitment
+    | CodeWrongSignature
     | CodeInsufficientFunds
     
     let make_error =
@@ -62,7 +63,8 @@ library Tyron
             | CodeNotOwner              => Int32 -3
             | DidIsDeactivated          => Int32 -4
             | CodeWrongCommitment       => Int32 -5
-            | CodeInsufficientFunds     => Int32 -6
+            | CodeWrongSignature        => Int32 -6
+            | CodeInsufficientFunds     => Int32 -7
             end
         in
         { _exception : "Error"; code : result_code }
@@ -91,9 +93,8 @@ contract Tyron(
     field client_commission: Uint128 = Uint128 0        (* % of the operation_cost *)       
   (* defined by the tyronZIL DID method & Sidetree protocol *)
     field decentralized_identifier: String = ""
-    field suffix_data: String = ""
-    field signed_data: String = ""
-    field delta: String = ""
+    field document: String = ""
+    field update_signature: String = ""
   (* Sidetree public key commitments *)
     field update_commitment: String = ""
     field recovery_commitment: String = ""
@@ -161,6 +162,19 @@ contract Tyron(
         | True =>
         | False =>
             err = CodeWrongCommitment;
+            ThrowError err
+        end
+    end
+
+    procedure IsSigned(        (* Checks the validity of a signature *)
+        thisSignature: String,
+        givenSignature: String
+    )
+        signature_is_correct = builtin eq thisSignature givenSignature;
+        match signature_is_correct with
+        | True =>
+        | False =>
+            err = CodeWrongSignature;
             ThrowError err
         end
     end
@@ -236,8 +250,7 @@ contract Tyron(
 
     transition DidCreate(
         did: String,
-        suffixData: String,
-        newDelta: String,
+        doc: String,
         updateCommitment: String,
         recoveryCommitment: String
     )
@@ -245,8 +258,7 @@ contract Tyron(
         IsDeactivated;
         Payment;
         decentralized_identifier := did;
-        suffix_data := suffixData;
-        delta := newDelta;
+        document := doc;
         update_commitment := updateCommitment;
         recovery_commitment := recoveryCommitment;
         status := created;
@@ -255,18 +267,21 @@ contract Tyron(
 
     transition DidUpdate(
         updateCommitment: String,
-        signedData: String,
-        newDelta: String,
-        newUpdateCommitment: String
+        signature: String,
+        newUpdateCommitment: String,
+        newSignature: String,
+        newDoc: String        
     )
         IsClient;
         IsDeactivated;
         this_commitment <- update_commitment;
         IsCommitment this_commitment updateCommitment;
+        this_signature <- update_signature;
+        IsSigned this_signature signature;
         Payment;
-        signed_data := signedData;
-        delta := newDelta;
         update_commitment := newUpdateCommitment;
+        update_signature := newSignature;
+        document := newDoc;
         status := updated;
         Timestamp
     end

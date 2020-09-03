@@ -18,7 +18,7 @@ import Encoder from '@decentralized-identity/sidetree/dist/lib/core/versions/lat
 import JsonAsync from '@decentralized-identity/sidetree/dist/lib/core/versions/latest/util/JsonAsync';
 
 export class Sidetree {
-    private static async parse(encoded: string): Promise<any> {
+    public static async parse(encoded: string): Promise<any> {
         const MODEL = JsonAsync.parse(Encoder.decodeBase64UrlAsString(encoded))
         .then(model => { return model })
         .catch(err => console.error(err))

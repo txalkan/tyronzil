@@ -13,10 +13,10 @@
     GNU General Public License for more details.
 */
 
-import { PublicKeyModel, PublicKeyPurpose } from '../models/verification-method-models';
+import { PublicKeyModel, PublicKeyPurpose } from './sidetree protocol/models/verification-method-models';
 import JwkEs256k from '@decentralized-identity/sidetree/dist/lib/core/models/JwkEs256k';
 import Jws from '@decentralized-identity/sidetree/dist/lib/core/versions/latest/util/Jws';
-import { UpdateSignedDataModel, RecoverSignedDataModel, DeactivateSignedDataModel } from '../models/signed-data-models';
+import { UpdateSignedDataModel, RecoverSignedDataModel, DeactivateSignedDataModel } from './sidetree protocol/models/signed-data-models';
 import { JWK } from 'jose';
 import SidetreeError from '@decentralized-identity/sidetree/dist/lib/common/SidetreeError';
 import ErrorCode from './ErrorCode';
@@ -25,12 +25,6 @@ import ErrorCode from './ErrorCode';
 export interface OperationKeyPairInput {
     id: string,
     purpose?: PublicKeyPurpose[]
-}
-
-export interface PrivateKeys {
-  privateKeys?: string[],        //encoded strings
-  updatePrivateKey?: string,
-  recoveryPrivateKey?: string,
 }
 
 /** Generates cryptographic operations */

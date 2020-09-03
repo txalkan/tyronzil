@@ -107,9 +107,9 @@ export interface Query {
 }
 
 export enum UrlParameters {
-    Hl = 'hl',      // resource hash of the DID-document to add integrity protection
-    Service = 'service',        // identifies a service from the DID-document by service ID
-    VersionId = 'version-id',       // identifies a specific version of the DID-document to be resolved
-    VersionTime = 'version-time',       // identifies a specific version timestamp of the DID-document to be resolved (the doc that was valid at that particular time)
-    InitialState = 'sidetree-initial-state'     // initial self-certifying state, to use the DID immediately after generation without being anchored (unpublished DID)
+    Hl = 'hl',        //resource hash of the DID-document to add integrity protection
+    Service = 'service',        //identifies a service from the DID-document by service ID
+    VersionId = 'version-id',        //identifies a specific version of the DID-document to be resolved
+    VersionTime = 'version-time',        //identifies a specific version timestamp of the DID-document to be resolved (the doc that was valid at that particular time)
+    InitialState = 'sidetree-initial-state'        //initial self-certifying state, to use the DID immediately after generation without being anchored (unpublished DID)
 }

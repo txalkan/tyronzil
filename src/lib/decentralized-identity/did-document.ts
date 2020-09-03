@@ -14,7 +14,7 @@
 */
 
 import DidState from './did-state';
-import { PublicKeyPurpose, VerificationMethodModel } from './models/verification-method-models';
+import { PublicKeyPurpose, VerificationMethodModel } from './util/sidetree protocol/models/verification-method-models';
 import ServiceEndpointModel from '@decentralized-identity/sidetree/dist/lib/core/versions/latest/models/ServiceEndpointModel';
 import { TyronZILUrlScheme } from './tyronZIL-schemes/did-url-scheme';
 import * as fs from 'fs';
@@ -22,51 +22,6 @@ import LogColors from '../../bin/log-colors';
 import SidetreeError from '@decentralized-identity/sidetree/dist/lib/common/SidetreeError';
 import ErrorCode from './util/ErrorCode';
 import { NetworkNamespace } from './tyronZIL-schemes/did-scheme';
-
-interface DidDocScheme {
-    id: string;
-    publicKey: VerificationMethodModel[];
-    authentication: (string | VerificationMethodModel)[];
-    service?: ServiceEndpointModel[];
-    created?: number; //MUST be a valid XML datetime value, as defined in section 3.3.7 of [W3C XML Schema Definition Language (XSD) 1.1 Part 2: Datatypes [XMLSCHEMA1.1-2]]. This datetime value MUST be normalized to UTC 00:00, as indicated by the trailing "Z"
-    updated?: number; //timestamp of the most recent change
-}
-
-export interface ResolutionInput {
-    did: string;
-    metadata: ResolutionInputMetadata;
-}
-
-export interface ResolutionInputMetadata {
-    accept: Accept;        //to request a certain type of result
-    versionId?: string;        //to request a specific version of the DID-document - mutually exclusive with versionTime
-    versionTime?: string;        //idem versionId - an RFC3339 combined date and time representing when the DID-doc was current for the input DID
-    noCache?: boolean;        //to request a certain kind of caching behavior - 'true': caching is disabled and a fresh DID-doc is retrieved from the registry
-    dereferencingInput?: DereferencingInputMetadata;
-}
-
-interface DereferencingInputMetadata {
-    serviceType?: string;        //to select a specific service from the DID-document
-    followRedirect?: boolean;        //to instruct whether redirects should be followed
-}
-
-export enum Accept {
-    contentType = "application/did+json",        //requests a DId-document as output
-    Result = "application/did+json;profile='https://w3c-ccg.github.io/did-resolution'"        //requests a DID resolution result as output
-}
-
-export interface ResolutionResult {
-    resolutionMetadata?: unknown;
-    document: DidDoc;
-    metadata: DocumentMetadata;
-}
-
-interface DocumentMetadata {
-    updateCommitment: string | undefined;        //both commitments are undefined after deactivation
-    recoveryCommitment: string | undefined;
-}
-
-/***            ****            ***/
 
 /** Generates a tyronZIL DID document */
 export default class DidDoc {
@@ -88,11 +43,22 @@ export default class DidDoc {
 
     /** Saves the DID-document */
     public static async write(did: string, input: DidDoc | ResolutionResult): Promise<void> {
-        const PRINT_STATE = JSON.stringify(input, null, 2);
-        const FILE_NAME = `DID_RESOLVED_${did}.json`;
-        fs.writeFileSync(FILE_NAME, PRINT_STATE);
-        console.info(LogColors.yellow(`DID resolved as: ${LogColors.brightYellow(FILE_NAME)}`));
+        try {
+            const PRINT_STATE = JSON.stringify(input, null, 2);
+            let FILE_NAME;
+            if(input instanceof DidDoc) {
+                FILE_NAME = `DID_DOCUMENT_${did}.json`;        
+            } else {
+                FILE_NAME = `DID_RESOLVED_${did}.json`;
+            }
+            fs.writeFileSync(FILE_NAME, PRINT_STATE);
+            console.info(LogColors.yellow(`DID resolved as: ${LogColors.brightYellow(FILE_NAME)}`));
+        } catch (error) {
+            throw new SidetreeError(ErrorCode.CouldNotSave);            
+        }
     }
+
+    /***            ****            ***/
 
     /** Generates a 'DID-read' operation, resolving any tyronZIL DID-state into its DID-document */
     public static async read(input: DidState): Promise<DidDoc> {
@@ -203,4 +169,50 @@ export default class DidDoc {
         .catch(err => console.error(err))
         return DID_RESOLVED;
     }
+}
+
+/***            ****            ***/
+
+/** The scheme of a `tyron-did-document` */
+interface DidDocScheme {
+    id: string;
+    publicKey: VerificationMethodModel[];
+    authentication: (string | VerificationMethodModel)[];
+    service?: ServiceEndpointModel[];
+    created?: number; //MUST be a valid XML datetime value, as defined in section 3.3.7 of [W3C XML Schema Definition Language (XSD) 1.1 Part 2: Datatypes [XMLSCHEMA1.1-2]]. This datetime value MUST be normalized to UTC 00:00, as indicated by the trailing "Z"
+    updated?: number; //timestamp of the most recent change
+}
+
+export interface ResolutionInput {
+    did: string;
+    metadata: ResolutionInputMetadata;
+}
+
+export interface ResolutionInputMetadata {
+    accept: Accept;        //to request a certain type of result
+    versionId?: string;        //to request a specific version of the DID-document - mutually exclusive with versionTime
+    versionTime?: string;        //idem versionId - an RFC3339 combined date and time representing when the DID-doc was current for the input DID
+    noCache?: boolean;        //to request a certain kind of caching behavior - 'true': caching is disabled and a fresh DID-doc is retrieved from the registry
+    dereferencingInput?: DereferencingInputMetadata;
+}
+
+interface DereferencingInputMetadata {
+    serviceType?: string;        //to select a specific service from the DID-document
+    followRedirect?: boolean;        //to instruct whether redirects should be followed
+}
+
+export enum Accept {
+    contentType = "application/did+json",        //requests a DId-document as output
+    Result = "application/did+json;profile='https://w3c-ccg.github.io/did-resolution'"        //requests a DID resolution result as output
+}
+
+export interface ResolutionResult {
+    resolutionMetadata?: unknown;
+    document: DidDoc;
+    metadata: DocumentMetadata;
+}
+
+interface DocumentMetadata {
+    updateCommitment: string | undefined;        //both commitments are undefined after deactivation
+    recoveryCommitment: string | undefined;
 }

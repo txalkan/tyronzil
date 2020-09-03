@@ -174,7 +174,7 @@ export default class TyronTransaction extends TyronContract {
             );
             console.log(LogColors.yellow(`Deployment Transaction ID: `) + LogColors.brightYellow(`${deployTx.id}`));
             
-            console.log(LogColors.yellow(`Your tyron-smart-contract address is: `) + LogColors.brightYellow(`${tyron_smart_contract.address}`));
+            console.log(LogColors.yellow(`Your tyron-smart-contract address is: `) + LogColors.brightGreen(`${tyron_smart_contract.address}`));
             
             const DEPLOYED_CONTRACT = {
                 transaction: deployTx,
@@ -265,7 +265,11 @@ export default class TyronTransaction extends TyronContract {
             console.log(LogColors.yellow(`The ${tag} tyronZIL transaction is: `) + LogColors.brightYellow(`${JSON.stringify(TRANSACTION, null, 2)}`));
             const STATUS = signed_tx.isConfirmed();
             console.log(LogColors.yellow(`The transaction is confirmed: `) + LogColors.brightYellow(`${STATUS}`));
-
+            if(STATUS){
+                console.log(LogColors.brightGreen(`The ${tag} tyronZIL transaction has been successful!`));
+            } else {
+                console.log(LogColors.red(`The ${tag} tyronZIL transaction has been unsuccessful!`));
+            }
             return TRAN_ID;
         })
         .then(async zilliqa_tranID => {
@@ -274,16 +278,13 @@ export default class TyronTransaction extends TyronContract {
 
             const CUMULATIVE_GAS = TX_RECEIPT!.cumulative_gas;
             console.log(LogColors.yellow(`The total gas consumed in this ${tag} transaction was: `) + LogColors.brightYellow(`${CUMULATIVE_GAS}`));
-
-            console.log(LogColors.brightGreen(`The ${tag} tyronZIL transaction has been successful!`));
         })
         .catch(error => console.error(error));
     }
 
     public static async create(
         did: string,
-        suffixData: string,
-        delta: string,
+        document: string,
         updateCommitment: string,
         recoveryCommitment: string
     ): Promise<TransitionParams[]> {
@@ -296,19 +297,12 @@ export default class TyronTransaction extends TyronContract {
         };
         PARAMS.push(DID);
 
-        const SUFFIX: TransitionParams = {
-            vname: 'suffixData',
+        const DOCUMENT: TransitionParams = {
+            vname: 'document',
             type: 'String',
-            value: suffixData,
+            value: document,
         };
-        PARAMS.push(SUFFIX);
-
-        const DELTA: TransitionParams = {
-            vname: 'newDelta',
-            type: 'String',
-            value: delta,
-        };
-        PARAMS.push(DELTA);
+        PARAMS.push(DOCUMENT);
 
         const UPDATE_COMMIT: TransitionParams = {
             vname: 'updateCommitment',

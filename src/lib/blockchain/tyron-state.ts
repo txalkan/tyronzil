@@ -19,9 +19,7 @@ import OperationType from '@decentralized-identity/sidetree/dist/lib/core/enums/
 
 export default class TyronState {
     public readonly decentralized_identifier: string;
-    public readonly suffix_data: string;
-    public readonly signed_data: string;
-    public readonly delta: string;
+    public readonly document: string;
     public readonly update_commitment: string;
     public readonly recovery_commitment: string;
     public readonly status: OperationType;
@@ -32,9 +30,7 @@ export default class TyronState {
         state: TyronStateModel
     ) {
         this.decentralized_identifier = state.decentralized_identifier;
-        this.suffix_data = state.suffix_data;
-        this.signed_data = state.signed_data;
-        this.delta = state.delta;
+        this.document = state.document;
         this.update_commitment = state.update_commitment;
         this.recovery_commitment = state.recovery_commitment;
         this.status = state.status as OperationType;
@@ -51,9 +47,8 @@ export default class TyronState {
         .then(async SMART_CONTRACT_STATE => {
             const STATE: TyronStateModel = {
                 decentralized_identifier: String(SMART_CONTRACT_STATE.result.decentralized_identifier),
-                suffix_data: String(SMART_CONTRACT_STATE.result.suffix_data),
-                signed_data: String(SMART_CONTRACT_STATE.result.signed_data),
-                delta: String(SMART_CONTRACT_STATE.result.delta),
+                document: String(SMART_CONTRACT_STATE.result.document),
+                update_signature: String(SMART_CONTRACT_STATE.result.update_signature),
                 update_commitment: String(SMART_CONTRACT_STATE.result.update_commitment),
                 recovery_commitment: String(SMART_CONTRACT_STATE.result.recovery_commitment),
                 status: String(SMART_CONTRACT_STATE.result.status),
@@ -72,9 +67,8 @@ export default class TyronState {
 /** The tyron state model */
 export interface TyronStateModel {
     decentralized_identifier: string;
-    suffix_data: string;
-    signed_data: string;
-    delta: string;
+    document: string;
+    update_signature: string;
     update_commitment: string;
     recovery_commitment: string;
     status: string;

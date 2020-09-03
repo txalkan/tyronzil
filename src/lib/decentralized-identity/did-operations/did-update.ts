@@ -13,126 +13,102 @@
     GNU General Public License for more details.
 */
 
-import TyronZILScheme from '../tyronZIL-schemes/did-scheme';
 import JwkEs256k from '@decentralized-identity/sidetree/dist/lib/core/models/JwkEs256k';
 import { Cryptography, OperationKeyPairInput } from '../util/did-keys';
-import { PublicKeyModel } from '../models/verification-method-models';
-import Jws from '@decentralized-identity/sidetree/dist/lib/core/versions/latest/util/Jws';
+import { PublicKeyModel } from '../util/sidetree protocol/models/verification-method-models';
 import Multihash from '@decentralized-identity/sidetree/dist/lib/core/versions/latest/Multihash';
 import Encoder from '@decentralized-identity/sidetree/dist/lib/core/versions/latest/Encoder';
 import OperationType from '@decentralized-identity/sidetree/dist/lib/core/enums/OperationType';
 import UpdateOperation from '@decentralized-identity/sidetree/dist/lib/core/versions/latest/UpdateOperation';
-import { PatchModel, PatchAction } from '../models/patch-model';
-import DeltaModel from '@decentralized-identity/sidetree/dist/lib/core/versions/latest/models/DeltaModel';
-import { UpdateSignedDataModel } from '../models/signed-data-models';
+import { PatchModel, PatchAction } from '../util/sidetree protocol/models/patch-model';
+import { UpdateSignedDataModel } from '../util/sidetree protocol/models/signed-data-models';
 import SidetreeError from '@decentralized-identity/sidetree/dist/lib/common/SidetreeError';
 import ErrorCode from '../util/ErrorCode';
-import { PublicKeyInput } from '../models/cli-input-model';
+import { PublicKeyInput } from '../../../bin/cli-input-model';
 import DidState from '../did-state';
 
 /** Generates a Sidetree-based `DID-update` operation */
 export default class DidUpdate{
-    public readonly did_tyronZIL: TyronZILScheme;
-    public readonly sidetreeRequest: SignedDataRequest;
-    public readonly operationBuffer: Buffer;
-    public readonly updateOperation: UpdateOperation;
     public readonly type: OperationType.Update;
-    public readonly didUniqueSuffix: string;
-    public readonly signedDataJws: Jws;
-    public readonly signedData: UpdateSignedDataModel;
-    public readonly encodedDelta: string | undefined;
-    public readonly delta: DeltaModel | undefined; // undefined when Map file mode is ON
-    public readonly didState: DidState;
+    public readonly did: string;
+    public readonly sidetreeRequest: Buffer;
+    /** The result from the Sidetree request */
+    public readonly updateOperation: UpdateOperation;
+    /** The encoded Delta Object */
+    public readonly delta: string;
+    /** The signature from the previous Signed Data Object */
+    public readonly updateSignature: string;
     public readonly privateKey?: string[];
-    public readonly updateKey: JwkEs256k;
     public readonly updatePrivateKey: JwkEs256k;
-    public readonly updateCommitment: string;
     
     private constructor (
-        operationOutput: UpdateOperationOutput
+        operation: UpdateOperationModel
     ) {
-        this.did_tyronZIL = operationOutput.did_tyronZIL;
-        this.sidetreeRequest = operationOutput.sidetreeRequest;
-        this.operationBuffer = operationOutput.operationBuffer;
-        this.updateOperation = operationOutput.updateOperation;
         this.type = OperationType.Update;
-        this.didUniqueSuffix = operationOutput.updateOperation.didUniqueSuffix;
-        this.signedDataJws = operationOutput.updateOperation.signedDataJws;
-        this.signedData = {
-            delta_hash: operationOutput.updateOperation.signedData.deltaHash,
-            update_key: operationOutput.updateOperation.signedData.updateKey
-        };
-        this.encodedDelta = operationOutput.updateOperation.encodedDelta;
-        this.delta = operationOutput.updateOperation.delta;
-        this.didState = operationOutput.didState;
-        this.privateKey = operationOutput.privateKey;
-        this.updateKey = operationOutput.updateKey;
-        this.updatePrivateKey = operationOutput.updatePrivateKey;
-        this.updateCommitment = operationOutput.updateCommitment;
+        this.did = operation.did;
+        this.sidetreeRequest = operation.sidetreeRequest;
+        this.updateOperation = operation.updateOperation;
+        this.delta = this.updateOperation.encodedDelta!;
+        this.updateSignature = this.updateOperation.signedDataJws.signature;
+        this.privateKey = operation.privateKey;
+        this.updatePrivateKey = operation.newUpdatePrivateKey;
     }
 
     /***            ****            ***/
     
     /** Generates a Sidetree-based `DID-update` operation with input from the CLI */
     public static async execute(input: UpdateOperationInput): Promise<DidUpdate> {
-        /** The tyronZIL DID-state to update */
-        const DID_STATE = input.didState;
-
-        const PUBLIC_KEYS = DID_STATE.publicKey;
+        const PUBLIC_KEYS = input.state.publicKey;
 
         /** Maps the public keys to their IDs */
-        const KEY_MAP = new Map((DID_STATE.publicKey || []).map(publicKey => [publicKey.id, publicKey]));
+        const KEY_MAP = new Map((PUBLIC_KEYS || []).map(publicKey => [publicKey.id, publicKey]));
 
-        /** The requested update patch by the user*/
+        /** The requested update patch by the user */
         const ACTION = input.patch.action;
         const PATCHES = [];
         let PRIVATE_KEYS;
         const PUBLIC_KEY = [];
         switch (ACTION) {
-            case PatchAction.AddKeys: {
-                const KEYS = input.patch.keyInput;
-                if ( KEYS !== undefined) {
-                    const ADD_KEYS = await DidUpdate.addKeys(KEYS);
-                    PATCHES.push(ADD_KEYS.patch);
-                    PRIVATE_KEYS = ADD_KEYS.privateKey
-                    
-                    if (Array.isArray(ADD_KEYS.publicKey)) {
-                        for (const key of ADD_KEYS.publicKey) {
-                            PUBLIC_KEYS?.push(key)
+            case PatchAction.AddKeys:
+                {
+                    const KEYS = input.patch.keyInput;
+                    if ( KEYS !== undefined) {
+                        const ADD_KEYS = await DidUpdate.addKeys(KEYS);
+                        PATCHES.push(ADD_KEYS.patch);
+                        PRIVATE_KEYS = ADD_KEYS.privateKey
+                        
+                        if (Array.isArray(ADD_KEYS.publicKey)) {
+                            for (const key of ADD_KEYS.publicKey) {
+                                PUBLIC_KEYS?.push(key)
+                            }
                         }
                     }
                 }
-            }
                 break;
             case PatchAction.AddServices:
-            {
-                const SERVICES = input.patch.service_endpoints;
-                if (SERVICES !== undefined) {
-                    PATCHES.push({
-                        action: PatchAction.AddServices,
-                        service_endpoints: input.patch.service_endpoints
-                    })
-                    for (const service of SERVICES) {
-                        DID_STATE.service?.push(service)
+                {
+                    const SERVICES = input.patch.service_endpoints;
+                    if (SERVICES !== undefined) {
+                        PATCHES.push({
+                            action: PatchAction.AddServices,
+                            service_endpoints: input.patch.service_endpoints
+                        })
+                        for (const service of SERVICES) {
+                            input.state.service?.push(service)
+                        }
                     }
                 }
-            }
                 break;
             case PatchAction.RemoveServices:
-                if (DID_STATE.service !== undefined && input.patch.ids !== undefined) {
+                if (input.state.service !== undefined && input.patch.ids !== undefined) {
                     PATCHES.push({
                         action: PatchAction.RemoveServices,
                         ids: input.patch.ids
                     })
-                    
-                    /** IDs of the services to remove */
-                    //const IDs = new Set(input.patch.ids);
-
-                    //DID_STATE.service = DID_STATE.service.filter(service => !IDs.has(service.id))
                 }
                 break;
             case PatchAction.RemoveKeys:
-                if (input.patch.public_keys !== undefined && DID_STATE.publicKey !== undefined) {
+                if (input.patch.public_keys !== undefined) {
                     PATCHES.push({
                         action: PatchAction.RemoveKeys,
                         public_keys: input.patch.public_keys
@@ -149,55 +125,44 @@ export default class DidUpdate{
                     for (const value of KEY_MAP.values()){
                         PUBLIC_KEY.push(value)
                     }
-                    //DID_STATE.publicKey = PUBLIC_KEY;
                 }
                 break;
             default:
                 throw new SidetreeError(ErrorCode.IncorrectPatchAction);
         }
-        
-        
+
         /***            ****            ***/
 
         // Creates key-pair for the updateCommitment (save private key for next update operation)
         const [UPDATE_KEY, UPDATE_PRIVATE_KEY] = await Cryptography.jwkPair();
         /** Utilizes the UPDATE_KEY to make the `update reveal value` for the next update operation */
         const NEW_UPDATE_COMMITMENT = Multihash.canonicalizeThenHashThenEncode((UPDATE_KEY));
-        //DID_STATE.updateCommitment = NEW_UPDATE_COMMITMENT;
         
         /***            ****            ***/
 
-        const PREVIOUS_UPDATE_KEY = Cryptography.getPublicKey(input.updatePrivateKey);
-        const updateNoKid = input.updatePrivateKey;
-
         /** Input data for the Sidetree request */
         const SIDETREE_REQUEST_INPUT: RequestInput = {
-            did_tyronZIL: input.did_tyronZIL,
-            updateKey: PREVIOUS_UPDATE_KEY ,
-            updatePrivateKey: updateNoKid,
-            updateCommitment: NEW_UPDATE_COMMITMENT,
+            did: input.state.did_tyronZIL,
+            updatePrivateKey: input.updatePrivateKey,
+            newUpdateCommitment: NEW_UPDATE_COMMITMENT,
             patches: PATCHES
         };
 
         /** Sidetree data to generate a `DID-update` operation */
         const SIDETREE_REQUEST = await DidUpdate.sidetreeRequest(SIDETREE_REQUEST_INPUT);
-            const OPERATION_BUFFER = Buffer.from(JSON.stringify(SIDETREE_REQUEST));
+        const SIDETREE_REQUEST_BUFFER = Buffer.from(JSON.stringify(SIDETREE_REQUEST));
         
         /** Executes the Sidetree UpdateOperation 
          * @returns UpdateOperation = {operationBuffer, didUniqueSuffix, signedData, signedDataModel, encodedDelta, delta} */
-        const UPDATE_OPERATION = await UpdateOperation.parse(OPERATION_BUFFER);
+        const UPDATE_OPERATION = await UpdateOperation.parse(SIDETREE_REQUEST_BUFFER);
         
         /** Output data from a Sidetree-based `DID-update` operation */
-        const OPERATION_OUTPUT: UpdateOperationOutput = {
-            did_tyronZIL: input.did_tyronZIL,
-            sidetreeRequest: SIDETREE_REQUEST,
-            operationBuffer: OPERATION_BUFFER,
+        const OPERATION_OUTPUT: UpdateOperationModel = {
+            did: input.state.did_tyronZIL,
+            sidetreeRequest: SIDETREE_REQUEST_BUFFER,
             updateOperation: UPDATE_OPERATION,
-            didState: DID_STATE,
             privateKey: PRIVATE_KEYS,
-            updateKey: UPDATE_KEY,
-            updatePrivateKey: UPDATE_PRIVATE_KEY,
-            updateCommitment: NEW_UPDATE_COMMITMENT,
+            newUpdatePrivateKey: UPDATE_PRIVATE_KEY
         };
         return new DidUpdate(OPERATION_OUTPUT);
     }
@@ -208,30 +173,31 @@ export default class DidUpdate{
     public static async sidetreeRequest(input: RequestInput): Promise<SignedDataRequest> {
         
         /** The Update Operation Delta Object */
-        const DELTA = {
+        const DELTA_OBJECT = {
             patches: input.patches,
-            update_commitment: input.updateCommitment    // value that MUST be revealed for the next update-operation
+            update_commitment: input.newUpdateCommitment        //value that MUST be revealed for the next update-operation
         };
-        const DELTA_BUFFER = Buffer.from(JSON.stringify(DELTA));
-            const ENCODED_DELTA = Encoder.encode (DELTA_BUFFER);
-            const DELTA_HASH = Encoder.encode(Multihash.hash(DELTA_BUFFER));
+        const DELTA_BUFFER = Buffer.from(JSON.stringify(DELTA_OBJECT));
+        const DELTA = Encoder.encode(DELTA_BUFFER);
             
+        const DELTA_HASH = Encoder.encode(Multihash.hash(DELTA_BUFFER));
+        
+        const PREVIOUS_UPDATE_KEY = Cryptography.getPublicKey(input.updatePrivateKey);
+        
         /** For the Update Operation Signed Data Object */
         const SIGNED_DATA: UpdateSignedDataModel = {
             delta_hash: DELTA_HASH,
-            update_key: input.updateKey
+            update_key: PREVIOUS_UPDATE_KEY
         };
         const SIGNED_DATA_JWS = await Cryptography.signUsingEs256k(SIGNED_DATA, input.updatePrivateKey);
 
         /** DID data to generate a Sidetree UpdateOperation */
         const SIDETREE_REQUEST: SignedDataRequest = {
-            did_suffix: input.did_tyronZIL.didUniqueSuffix,
+            did_suffix: input.did,
             signed_data: SIGNED_DATA_JWS,
             type: OperationType.Update,
-            delta: ENCODED_DELTA
+            delta: DELTA
         };
-        // Printing the operation request for testing purposes
-        console.log(`The update request is: ${JSON.stringify(SIDETREE_REQUEST,null,2)}`);
         return SIDETREE_REQUEST;
     }
 
@@ -281,31 +247,25 @@ export default class DidUpdate{
 
 /** Defines input data for a Sidetree-based `DID-update` operation*/
 export interface UpdateOperationInput {
-    did_tyronZIL: TyronZILScheme;
+    state: DidState;
     updatePrivateKey: JwkEs256k;
     patch: PatchModel;
-    didState: DidState;
 }
 
 /** Defines output data of a Sidetree-based `DID-update` operation */
-interface UpdateOperationOutput {
-    did_tyronZIL: TyronZILScheme;
-    sidetreeRequest: SignedDataRequest;
-    operationBuffer: Buffer;
+interface UpdateOperationModel {
+    did: string;
+    sidetreeRequest: Buffer;
     updateOperation: UpdateOperation;
-    didState: DidState;
     privateKey?: string[];
-    updateKey: JwkEs256k;
-    updatePrivateKey: JwkEs256k;
-    updateCommitment: string;
+    newUpdatePrivateKey: JwkEs256k;
 }
 
 /** Defines input data for a Sidetree-based `DID-update` operation REQUEST*/
 interface RequestInput {
-    did_tyronZIL: TyronZILScheme;
-    updateKey: JwkEs256k;
+    did: string;
     updatePrivateKey: JwkEs256k;
-    updateCommitment: string;
+    newUpdateCommitment: string;
     patches: PatchModel[];
 }
 

@@ -32,7 +32,7 @@ yargs
         await tyronCLI.handleCreate();
       })
       .command('update', ' -> updates the given tyronZIL DID and its DID-state', async () => {
-        //await tyronCLI.handleUpdate();
+        await tyronCLI.handleUpdate();
       })
       .command('recover', ' -> recovers the given tyronZIL DID and creates a new DID-state)', async () => {
         //await tyronCLI.handleRecover();

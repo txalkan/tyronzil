@@ -15,7 +15,7 @@
 
 import { PublicKeyModel } from './verification-method-models';
 import ServiceEndpointModel from "@decentralized-identity/sidetree/dist/lib/core/versions/latest/models/ServiceEndpointModel";
-import { PublicKeyInput } from './cli-input-model';
+import { PublicKeyInput } from '../../../../../bin/cli-input-model';
 
 export interface DocumentModel {
     public_keys: PublicKeyModel[];
@@ -24,12 +24,12 @@ export interface DocumentModel {
 
 export interface PatchModel {
     action: PatchAction;
+    document?: DocumentModel;
     public_keys?: PublicKeyModel[] | string[]; // array of id strings to remove keys
     /** If the action is 'remove-service-endpoints`, then 'ids' MUST be an array of the services to remove */
     ids?: string [];
     keyInput?: PublicKeyInput[];
     service_endpoints?: ServiceEndpointModel[];
-    document?: DocumentModel;
 }
 
 export enum PatchAction {

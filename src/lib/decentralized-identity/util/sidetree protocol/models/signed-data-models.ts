@@ -35,8 +35,8 @@ export interface RecoverSignedDataModel {
 
 /** Defines model for the JWS payload object required by the Deactivate Operation Signed Data Object */
 export interface DeactivateSignedDataModel {
-    /** The unique suffix of the DID to deactivate */
-    did_suffix: string;
+    /** The unique identifier of the DID to deactivate */
+    did: string;
     /** The JCS canonicalized IETF RFC 7517 compliant JWK representation matching the previous recovery commitment value */
     recovery_key: JwkEs256k;
 }

@@ -17,16 +17,15 @@ import OperationType from '@decentralized-identity/sidetree/dist/lib/core/enums/
 import CreateOperation from '@decentralized-identity/sidetree/dist/lib/core/versions/latest/CreateOperation';
 import JwkEs256k from '@decentralized-identity/sidetree/dist/lib/core/models/JwkEs256k';
 import { Cryptography, OperationKeyPairInput } from '../util/did-keys';
-import { PublicKeyModel } from '../models/verification-method-models';
-import { CliInputModel } from '../models/cli-input-model';
+import { PublicKeyModel } from '../util/sidetree protocol/models/verification-method-models';
+import { CliInputModel } from '../../../bin/cli-input-model';
 import TyronZILScheme from '../tyronZIL-schemes/did-scheme';
 import { SchemeInputData } from '../tyronZIL-schemes/did-scheme';
 import Multihash from '@decentralized-identity/sidetree/dist/lib/core/versions/latest/Multihash';
 import Encoder from '@decentralized-identity/sidetree/dist/lib/core/versions/latest/Encoder';
 import ServiceEndpointModel from '@decentralized-identity/sidetree/dist/lib/core/versions/latest/models/ServiceEndpointModel';
-import { DocumentModel, PatchModel, PatchAction } from '../models/patch-model';
-import DeltaModel from '@decentralized-identity/sidetree/dist/lib/core/versions/latest/models/DeltaModel';
-import { SuffixDataModel } from '../util/sidetree';
+import { DocumentModel, PatchModel, PatchAction } from '../util/sidetree protocol/models/patch-model';
+import { SuffixDataModel } from '../util/sidetree protocol/sidetree';
 
 /** Generates a Sidetree-based `DID-create` operation */
 export default class DidCreate {
@@ -35,10 +34,10 @@ export default class DidCreate {
     public readonly sidetreeRequest: Buffer;
     /** The result from the Sidetree request */
     public readonly createOperation: CreateOperation;
-    /** The encoded Suffix Data Object */
-    public readonly suffixData: string;
     /** The encoded Delta Object */
     public readonly delta: string;
+    /** The encoded Suffix Data Object */
+    public readonly suffixData: string;
     public readonly privateKey: string[];
     public readonly updatePrivateKey: JwkEs256k;
     public readonly recoveryPrivateKey: JwkEs256k;
@@ -52,8 +51,8 @@ export default class DidCreate {
         this.DIDScheme = operation.DIDScheme;
         this.sidetreeRequest = operation.sidetreeRequest;
         this.createOperation = operation.createOperation;    
-        this.suffixData = this.createOperation.encodedSuffixData;
         this.delta = this.createOperation.encodedDelta;
+        this.suffixData = this.createOperation.encodedSuffixData;
         this.privateKey = operation.privateKey;
         this.updatePrivateKey = operation.updatePrivateKey;
         this.recoveryPrivateKey = operation.recoveryPrivateKey;
@@ -62,8 +61,7 @@ export default class DidCreate {
     /***            ****            ***/
    
     /** Generates a Sidetree-based `DID-create` operation with input from the CLI */
-    public static async executeCli(input: CliInputModel): Promise<DidCreate> {
-        
+    public static async execute(input: CliInputModel): Promise<DidCreate> {
         const PUBLIC_KEYS = [];
         const PRIVATE_KEYS = [];
 
@@ -145,8 +143,9 @@ export default class DidCreate {
             recoveryPrivateKey: RECOVERY_PRIVATE_KEY  
         };
         return new DidCreate(OPERATION_OUTPUT);
-
     }
+
+    /***            ****            ***/
 
     /** Generates the Sidetree data for the `DID-create` operation */
     public static async sidetreeRequest(input: RequestInput): Promise<CreateDataRequest> {
@@ -160,26 +159,28 @@ export default class DidCreate {
         };
         
         /** The Create Operation Delta Object */
-        const DELTA: DeltaModel = {
+        const DELTA_OBJECT = {
             patches: [PATCH],
             updateCommitment: input.updateCommitment
         };
-        const DELTA_BUFFER = Buffer.from(JSON.stringify(DELTA));
-            const ENCODED_DELTA = Encoder.encode(DELTA_BUFFER);    
-            const DELTA_HASH = Encoder.encode(Multihash.hash(DELTA_BUFFER));
+        
+        const DELTA_BUFFER = Buffer.from(JSON.stringify(DELTA_OBJECT));
+        const DELTA = Encoder.encode(DELTA_BUFFER);    
+        
+        const DELTA_HASH = Encoder.encode(Multihash.hash(DELTA_BUFFER));
         
         /** The Create Operation Suffix Data Object */
-        const SUFFIX_DATA: SuffixDataModel = {
+        const SUFFIX_DATA_OBJECT: SuffixDataModel = {
             delta_hash: DELTA_HASH,
             recovery_commitment: input.recoveryCommitment
         };
-        const ENCODED_SUFFIX_DATA = Encoder.encode(JSON.stringify(SUFFIX_DATA));
+        const SUFFIX_DATA = Encoder.encode(JSON.stringify(SUFFIX_DATA_OBJECT));
         
         /** DID data to generate a new Sidetree CreateOperation */
         const SIDETREE_REQUEST: CreateDataRequest = {
-            suffix_data: ENCODED_SUFFIX_DATA,
+            suffix_data: SUFFIX_DATA,
             type: OperationType.Create,
-            delta: ENCODED_DELTA
+            delta: DELTA
         };
         
         return SIDETREE_REQUEST;    

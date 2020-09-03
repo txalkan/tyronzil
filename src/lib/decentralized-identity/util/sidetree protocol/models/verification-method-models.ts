@@ -13,17 +13,23 @@
     GNU General Public License for more details.
 */
 
-import { NetworkNamespace } from '../tyronZIL-schemes/did-scheme';
-import { PublicKeyPurpose } from './verification-method-models';
-import ServiceEndpointModel from '@decentralized-identity/sidetree/dist/lib/core/versions/latest/models/ServiceEndpointModel';
+import JwkEs256k from "@decentralized-identity/sidetree/dist/lib/core/models/JwkEs256k";
 
-export interface CliInputModel {
-    network: NetworkNamespace;
-    publicKeyInput: PublicKeyInput[];
-    service: ServiceEndpointModel[];
+export interface VerificationMethodModel {
+    id: string;
+    type: string;
+    jwk: JwkEs256k;
 }
 
-export interface PublicKeyInput {
-    id: string;
-    purpose: PublicKeyPurpose[];
+export interface PublicKeyModel extends VerificationMethodModel {
+    purpose: PublicKeyPurpose[]
+}
+
+export enum PublicKeyPurpose {
+    General = 'general',
+    Auth = 'auth',
+    Agreement = 'agreement',
+    Assertion = 'assertion',
+    Delegation = 'delegation',
+    Invocation = 'invocation'
 }

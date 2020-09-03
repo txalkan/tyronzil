@@ -19,7 +19,7 @@ import DeactivateOperation from '@decentralized-identity/sidetree/dist/lib/core/
 import JwkEs256k from '@decentralized-identity/sidetree/dist/lib/core/models/JwkEs256k';
 import { Cryptography } from '../util/did-keys';
 import Jws from '@decentralized-identity/sidetree/dist/lib/core/versions/latest/util/Jws';
-import { DeactivateSignedDataModel } from '../models/signed-data-models';
+import { DeactivateSignedDataModel } from '../util/sidetree protocol/models/signed-data-models';
 
 /** Generates a Sidetree-based `DID-deactivate` operation */
 export default class DidDeactivate {
@@ -43,7 +43,7 @@ export default class DidDeactivate {
         this.didUniqueSuffix = operationOutput.deactivateOperation.didUniqueSuffix;
         this.signedDataJws = operationOutput.deactivateOperation.signedDataJws;
         this.signedData = {
-            did_suffix: operationOutput.deactivateOperation.signedData.didSuffix,
+            did: operationOutput.deactivateOperation.signedData.didSuffix,
             recovery_key: operationOutput.deactivateOperation.signedData.recoveryKey
         };
     }
@@ -53,7 +53,7 @@ export default class DidDeactivate {
         
         /** To create the Deactivate Operation Signed Data Object */
         const SIGNED_DATA: DeactivateSignedDataModel = {
-            did_suffix: input.did_tyronZIL.didUniqueSuffix,
+            did: input.did_tyronZIL.did_tyronZIL,
             recovery_key: Cryptography.getPublicKey(input.recoveryPrivateKey),
         };
         const recoveryNoKid = input.recoveryPrivateKey;

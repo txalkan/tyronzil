@@ -14,18 +14,15 @@
 */
 
 import ServiceEndpointModel from '@decentralized-identity/sidetree/dist/lib/core/versions/latest/models/ServiceEndpointModel';
-import { PublicKeyModel } from './models/verification-method-models';
+import { PublicKeyModel } from './util/sidetree protocol/models/verification-method-models';
 import * as fs from 'fs';
 import LogColors from '../../bin/log-colors';
 import TyronState from '../blockchain/tyron-state';
 import { NetworkNamespace } from './tyronZIL-schemes/did-scheme';
 import { TyronZILUrlScheme } from './tyronZIL-schemes/did-url-scheme';
-import SidetreeError from '@decentralized-identity/sidetree/dist/lib/common/SidetreeError';
-import ErrorCode from './util/ErrorCode';
-import { PatchAction, PatchModel } from './models/patch-model';
+import { PatchModel, DocumentModel } from './util/sidetree protocol/models/patch-model';
 import OperationType from '@decentralized-identity/sidetree/dist/lib/core/enums/OperationType';
-import DeltaModel from '@decentralized-identity/sidetree/dist/lib/core/versions/latest/models/DeltaModel';
-import { Sidetree } from './util/sidetree';
+import { Sidetree } from './util/sidetree protocol/sidetree';
 
 /** tyronZIL's DID-state */
 export default class DidState {
@@ -63,14 +60,32 @@ export default class DidState {
 
     /***            ****            ***/
 
+    /** Gets the DID-document from Sidetree DID State Patches */
+    public static async getDocument(patches: PatchModel[]): Promise<DocumentModel|void> {
+            for(const patch of patches) {
+            if(patch.document !== undefined) {
+                const THIS_DOCUMENT = patch.document;
+                return THIS_DOCUMENT as DocumentModel;
+            }
+        }
+    }
+
+    /**public static async patch(doc: DocumentModel, patches: PatchModel[]): Promise<DocumentModel> {
+
+    }*/
+
     /** Fetches the current DID-state for the given tyron_addr */
-    public static async fetch(network: NetworkNamespace, tyronAddr: string): Promise<DidState | void> {
+    public static async fetch(network: NetworkNamespace, tyronAddr: string): Promise<DidState|void> {
         const did_state = await TyronState.fetch(network, tyronAddr)
         .then(async tyron_state => {
             const this_state = tyron_state as TyronState;
             // Validates the tyronZIL DID-scheme
             await TyronZILUrlScheme.validate(this_state.decentralized_identifier);
-            const STATUS = this_state.status;
+            return this_state;
+        })
+        .then(async did_state => {
+            const STATUS = did_state.status;
+            const DOCUMENT = await Sidetree.parse(did_state.document);
             let PUBLIC_KEY;
             let SERVICE;
             let UPDATE_COMMITMENT;
@@ -82,37 +97,20 @@ export default class DidState {
                     UPDATE_COMMITMENT = undefined;
                     RECOVERY_COMMITMENT = undefined;
                     break;
-                default: {
-                    const DELTA_OBJECT = await Sidetree.deltaObject(this_state.delta) as DeltaModel;
-                    UPDATE_COMMITMENT = DELTA_OBJECT.updateCommitment;
-                    if(UPDATE_COMMITMENT !== this_state.update_commitment){
-                        throw new SidetreeError(ErrorCode.CommitmentMismatch)
-                    } else {
-                        RECOVERY_COMMITMENT = this_state.recovery_commitment;
-                        const PATCHES = DELTA_OBJECT.patches as PatchModel[];
-                        let DOCUMENT;
-                        for(const patch of PATCHES) {
-                            const ACTION = patch.action;
-                            switch (ACTION) {
-                                case PatchAction.Replace:
-                                    DOCUMENT = patch.document;
-                                    PUBLIC_KEY = DOCUMENT?.public_keys;
-                                    SERVICE = DOCUMENT?.service_endpoints;
-                                    break;
-                            }
-                        } 
-                    }
-                    break;
-                }
+                default:
+                    PUBLIC_KEY = DOCUMENT.public_keys;
+                    SERVICE = DOCUMENT.service_endpoints;
+                    RECOVERY_COMMITMENT = did_state.recovery_commitment;
+                    break
             }
-            const DID_STATE: DidStateModel = {
-                did_tyronZIL: this_state.decentralized_identifier,
+            const THIS_STATE: DidStateModel = {
+                did_tyronZIL: did_state.decentralized_identifier,
                 publicKey: PUBLIC_KEY,
                 service: SERVICE,
                 updateCommitment: UPDATE_COMMITMENT,
                 recoveryCommitment: RECOVERY_COMMITMENT
             }
-            return new DidState(DID_STATE);
+            return new DidState(THIS_STATE);
         })
         .catch(err => console.error(err))
         return did_state;
