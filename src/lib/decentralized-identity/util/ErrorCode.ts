@@ -39,5 +39,6 @@ export default {
     NotEnoughBalance: "The current account's balance is not enough",
     WrongTyronHash: 'The hash does not match the `tyron-smart-contract`',
     WrongContract: "The given address is not a `tyron-contract`",
-    CommitmentMismatch: "The commitment in the object does not match the contract's commitment"
+    CommitmentMismatch: "The commitment in the object does not match the contract's commitment",
+    DidDeactivated: 'The Decentralized Identifier is deactivated'
 };

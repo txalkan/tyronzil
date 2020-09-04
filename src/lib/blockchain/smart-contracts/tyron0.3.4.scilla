@@ -49,7 +49,7 @@ library Tyron
     | CodeNotTyron
     | CodeNotClient
     | CodeNotOwner
-    | DidIsDeactivated
+    | CodeWrongStatus
     | CodeWrongCommitment
     | CodeWrongSignature
     | CodeInsufficientFunds
@@ -61,7 +61,7 @@ library Tyron
             | CodeNotTyron              => Int32 -1
             | CodeNotClient             => Int32 -2
             | CodeNotOwner              => Int32 -3
-            | DidIsDeactivated          => Int32 -4
+            | CodeWrongStatus           => Int32 -4
             | CodeWrongCommitment       => Int32 -5
             | CodeWrongSignature        => Int32 -6
             | CodeInsufficientFunds     => Int32 -7
@@ -87,18 +87,23 @@ contract Tyron(
 (* Mutable fields declaration *)
 (******************************)
     field client_address: ByStr20 = 0xccDdFAD074cd608B6B43e14eb3440240f5bFf087
-  (* defined by the TyronInit contract *)
+    
+    (* defined by the TyronInit contract *)
     field operation_cost: Uint128 = Uint128 0   
     field foundation_address: ByStr20 = 0x45832badF26Bc3F66DA3b9eD242EA84AfFA024a3
     field client_commission: Uint128 = Uint128 0        (* % of the operation_cost *)       
-  (* defined by the tyronZIL DID method & Sidetree protocol *)
+    
+    (* defined by the tyronZIL DID method specification *)
     field decentralized_identifier: String = ""
     field document: String = ""
     field update_signature: String = ""
-  (* Sidetree public key commitments *)
+    field recovery_signature: String = ""
+    
+    (* Sidetree public key commitments *)
     field update_commitment: String = ""
     field recovery_commitment: String = ""
-  (* DID status & timestamp *)
+    
+    (* DID status & timestamp *)
     field status: String = ""
     field ledger_time: BNum = BNum 333
     field sidetree_transaction_number: Uint128 = Uint128 0 (* a monotonically increasing number *)
@@ -112,8 +117,8 @@ contract Tyron(
     end
 
     procedure IsTyron()
-        is_tyron = builtin eq tyron_init _sender;
-        match is_tyron with
+        did_tyron = builtin eq tyron_init _sender;
+        match did_tyron with
         | True =>
         | False =>
             err = CodeNotTyron;
@@ -121,20 +126,9 @@ contract Tyron(
         end
     end
 
-    procedure IsClient()
-        this_client <- client_address;
-        is_client = builtin eq this_client _sender;
-        match is_client with
-        | True =>
-        | False =>
-            err = CodeNotClient;
-            ThrowError err
-        end
-    end
-    
     procedure IsOwner()
-        is_owner = builtin eq contract_owner _sender;
-        match is_owner with
+        did_owner = builtin eq contract_owner _sender;
+        match did_owner with
         | True =>
         | False =>
             err = CodeNotOwner;
@@ -142,12 +136,25 @@ contract Tyron(
         end
     end
 
-    procedure IsDeactivated()
-        this_status <- status;
-        is_deactivated = builtin eq this_status deactivated;
-        match is_deactivated with
+    procedure IsClient()
+        did_client <- client_address;
+        is_client = builtin eq did_client _sender;
+        match is_client with
         | True =>
-            err = DidIsDeactivated;
+        | False =>
+            err = CodeNotClient;
+            ThrowError err
+        end
+    end
+
+    procedure IsStatus(
+        thisStatus: String
+    )
+        did_status <- status;
+        is_status = builtin eq did_status thisStatus;
+        match is_status with
+        | True =>
+            err = CodeWrongStatus;
             ThrowError err
         | False =>
         end
@@ -249,16 +256,21 @@ contract Tyron(
     end
 
     transition DidCreate(
-        did: String,
+        didtyron: String,
         doc: String,
+        updateSignature: String,
+        recoverySignature: String,
         updateCommitment: String,
         recoveryCommitment: String
     )
         IsClient;
-        IsDeactivated;
+        IsStatus created;
+        IsStatus deactivated;
         Payment;
-        decentralized_identifier := did;
+        decentralized_identifier := didtyron;
         document := doc;
+        update_signature := updateSignature;
+        recovery_signature := recoverySignature;
         update_commitment := updateCommitment;
         recovery_commitment := recoveryCommitment;
         status := created;
@@ -266,40 +278,45 @@ contract Tyron(
     end
 
     transition DidUpdate(
+        updateSignature: String,
         updateCommitment: String,
-        signature: String,
-        newUpdateCommitment: String,
-        newSignature: String,
-        newDoc: String        
+        newDoc: String,
+        newUpdateSignature: String,
+        newUpdateCommitment: String       
     )
         IsClient;
-        IsDeactivated;
+        IsStatus deactivated;
+        this_signature <- update_signature;
+        IsSigned this_signature updateSignature;
         this_commitment <- update_commitment;
         IsCommitment this_commitment updateCommitment;
-        this_signature <- update_signature;
-        IsSigned this_signature signature;
         Payment;
-        update_commitment := newUpdateCommitment;
-        update_signature := newSignature;
         document := newDoc;
+        update_signature := newUpdateSignature;
+        update_commitment := newUpdateCommitment;
         status := updated;
         Timestamp
     end
 
     transition DidRecover(
+        recoverySignature: String,
         recoveryCommitment: String,
-        signedData: String,
-        newDelta: String,
-        newUpdateCommitment: String,
-        newRecoveryCommitment: String
+        newDoc: String,
+        newRecoverySignature: String,
+        newRecoveryCommitment: String,
+        newUpdateSignature: String,
+        newUpdateCommitment: String
     )
         IsClient;
-        IsDeactivated;
+        IsStatus deactivated;
+        this_signature <- recovery_signature;
+        IsSigned this_signature recoverySignature;
         this_commitment <- recovery_commitment;
         IsCommitment this_commitment recoveryCommitment;
         Payment;
-        signed_data := signedData;
-        delta := newDelta;
+        document := newDoc;
+        update_signature := newUpdateSignature;
+        recovery_signature := newRecoverySignature;
         update_commitment := newUpdateCommitment;
         recovery_commitment := newRecoveryCommitment;
         status := recovered;
@@ -307,16 +324,19 @@ contract Tyron(
     end
 
     transition DidDeactivate(
-        recoveryCommitment: String,
-        signedData: String
+        recoverySignature: String,
+        recoveryCommitment: String
     )
         IsClient;
-        IsDeactivated;
+        IsStatus deactivated;
+        this_signature <- recovery_signature;
+        IsSigned this_signature recoverySignature;
         this_commitment <- recovery_commitment;
         IsCommitment this_commitment recoveryCommitment;
         Payment;
-        signed_data := signedData;
-        delta := undefined;
+        document := undefined;
+        update_signature := undefined;
+        recovery_signature := undefined;
         update_commitment := undefined;
         recovery_commitment := undefined;
         status := deactivated;

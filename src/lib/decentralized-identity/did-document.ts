@@ -13,15 +13,15 @@
     GNU General Public License for more details.
 */
 
+import { NetworkNamespace } from './tyronZIL-schemes/did-scheme';
 import DidState from './did-state';
-import { PublicKeyPurpose, VerificationMethodModel } from './util/sidetree protocol/models/verification-method-models';
+import { PublicKeyPurpose, VerificationMethodModel } from './sidetree-protocol/models/verification-method-models';
 import ServiceEndpointModel from '@decentralized-identity/sidetree/dist/lib/core/versions/latest/models/ServiceEndpointModel';
 import { TyronZILUrlScheme } from './tyronZIL-schemes/did-url-scheme';
 import * as fs from 'fs';
 import LogColors from '../../bin/log-colors';
 import SidetreeError from '@decentralized-identity/sidetree/dist/lib/common/SidetreeError';
 import ErrorCode from './util/ErrorCode';
-import { NetworkNamespace } from './tyronZIL-schemes/did-scheme';
 
 /** Generates a tyronZIL DID document */
 export default class DidDoc {
@@ -74,13 +74,12 @@ export default class DidDoc {
         /***            ****            ***/
 
         /** Reads the public keys */
-        const PUBLIC_KEYS = input.publicKey;
+        const PUBLIC_KEYS = input.document!.public_keys;
         const PUBLIC_KEY = [];
         const AUTHENTICATION = [];
 
         if (Array.isArray(PUBLIC_KEYS)) {
             for (const key of PUBLIC_KEYS) {
-
                 /** The key ID */
                 const DID_URL: string = ID + '#' + key.id;
                 const VERIFICATION_METHOD: VerificationMethodModel = {
@@ -111,7 +110,7 @@ export default class DidDoc {
         /***            ****            ***/
 
         /** Service property */
-        const SERVICE_INTERFACE = input.service;
+        const SERVICE_INTERFACE = input.document?.service_endpoints;
         const SERVICES = [];
         
         if (Array.isArray(SERVICE_INTERFACE)) {

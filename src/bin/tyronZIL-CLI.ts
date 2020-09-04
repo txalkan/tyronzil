@@ -16,7 +16,7 @@
 import LogColors from './log-colors';
 import * as readline from 'readline-sync';
 import * as Crypto from '@zilliqa-js/crypto';
-import DidCreate from '../lib/decentralized-identity/did-operations/did-create';
+import DidCreate from '../lib/decentralized-identity/sidetree-protocol/did-operations/did-create';
 import { CliInputModel } from './cli-input-model';
 import { NetworkNamespace } from '../lib/decentralized-identity/tyronZIL-schemes/did-scheme';
 import { LongFormDidInput, TyronZILUrlScheme } from '../lib/decentralized-identity/tyronZIL-schemes/did-url-scheme';
@@ -26,13 +26,13 @@ import Multihash from '@decentralized-identity/sidetree/dist/lib/core/versions/l
 import Encoder from '@decentralized-identity/sidetree/dist/lib/core/versions/latest/Encoder';
 import SidetreeError from '@decentralized-identity/sidetree/dist/lib/common/SidetreeError';
 import ErrorCode from '../lib/decentralized-identity/util/ErrorCode';
-import { PatchAction, PatchModel, DocumentModel } from '../lib/decentralized-identity/util/sidetree protocol/models/patch-model';
+import { PatchAction, PatchModel, DocumentModel } from '../lib/decentralized-identity/sidetree-protocol/models/patch-model';
 import TyronTransaction, { TransitionTag, DeployedContract } from '../lib/blockchain/tyron-transaction';
 import { ContractInit } from '../lib/blockchain/tyron-contract';
-import { Sidetree, SuffixDataModel } from '../lib/decentralized-identity/util/sidetree protocol/sidetree';
+import { Sidetree, SuffixDataModel } from '../lib/decentralized-identity/sidetree-protocol/sidetree';
 import DeltaModel from '@decentralized-identity/sidetree/dist/lib/core/versions/latest/models/DeltaModel';
 import Util, { PrivateKeys } from './util';
-import DidUpdate, { UpdateOperationInput } from '../lib/decentralized-identity/did-operations/did-update';
+import DidUpdate, { UpdateOperationInput } from '../lib/decentralized-identity/sidetree-protocol/did-operations/did-update';
 import DidState from '../lib/decentralized-identity/did-state';
 //import DidRecover, { RecoverOperationInput } from '../lib/sidetree/did-operations/did-recover';
 //import DidDeactivate, { DeactivateOperationInput } from '../lib/sidetree/did-operations/did-deactivate';
@@ -72,7 +72,7 @@ export default class TyronCLI {
     /** Handles the `create` subcommand */
     public static async handleCreate(): Promise<void> {
         const NETWORK = this.network();
-        this.clientInit()
+        await this.clientInit()
         .then(async client => {
             const user_privateKey = readline.question(LogColors.green(`As the user, you're the owner of your tyron-smart-contract! Which private key do you choose to have that power? - `) + LogColors.lightBlue(`Your answer: `));
             const CONTRACT_OWNER = Crypto.getAddressFromPrivateKey(user_privateKey);
@@ -105,7 +105,7 @@ export default class TyronCLI {
             /***            ****            ***/
 
             /** tyronZIL DID instance with the proper DID-scheme */
-            const DID_tyronZIL = DID_EXECUTED.DIDScheme.did_tyronZIL;
+            const DID_tyronZIL = DID_EXECUTED.didScheme.did_tyronZIL;
             
             console.log(LogColors.yellow(`Your decentralized identity on Zilliqa is: `) + LogColors.brightGreen(`${DID_tyronZIL}`)); 
             
@@ -123,7 +123,7 @@ export default class TyronCLI {
             
             /** To generate the Sidetree Long-Form DID */
             const LONG_DID_INPUT: LongFormDidInput = {
-                    schemeInput: DID_EXECUTED.DIDScheme,
+                    schemeInput: DID_EXECUTED.didScheme,
                     suffixData: DID_EXECUTED.suffixData,
                     delta: DID_EXECUTED.delta
             }
@@ -148,17 +148,18 @@ export default class TyronCLI {
                     break;
             }
 
-            const SUFFIX_OBJECT = await Sidetree.suffixObject(TYRON_CLI.operation.suffixData) as SuffixDataModel;
-            const DELTA_OBJECT = await Sidetree.deltaObject(TYRON_CLI.operation.delta) as DeltaModel;
-            const PATCHES = DELTA_OBJECT.patches;
+            const SUFFIX_OBJECT = await Sidetree.suffixModel(TYRON_CLI.operation.suffixData) as SuffixDataModel;
+            const DELTA_OBJECT = await Sidetree.deltaModel(TYRON_CLI.operation.delta) as DeltaModel;
             
-            const DOCUMENT = await DidState.getDocument(PATCHES) as DocumentModel;
+            const DOCUMENT = await Sidetree.docFromDelta(TYRON_CLI.operation.delta) as DocumentModel;
             const DOC_BUFFER = Buffer.from(JSON.stringify(DOCUMENT));
             const ENCODED_DOCUMENT = Encoder.encode(DOC_BUFFER);    
 
             const PARAMS = await TyronTransaction.create(
-                TYRON_CLI.operation.DIDScheme.did_tyronZIL,
+                TYRON_CLI.operation.didScheme.did_tyronZIL,
                 ENCODED_DOCUMENT,
+                TYRON_CLI.operation.updateSignature,
+                TYRON_CLI.operation.recoverySignature,       
                 DELTA_OBJECT.updateCommitment,
                 SUFFIX_OBJECT.recovery_commitment
             );
@@ -263,68 +264,70 @@ export default class TyronCLI {
                 console.log(LogColors.brightGreen(`Success! You will be able to update your tyronZIL DID`));
                 return {
                     state: DID_STATE,
-                    privateKey: UPDATE_PRIVATE_KEY
+                    privateKey: UPDATE_PRIVATE_KEY,
+                    update_commitment: UPDATE_COMMITMENT
                 }
             } else {
                 throw new SidetreeError(ErrorCode.CouldNotVerifyKey)
             }
         })
         .then(async TYRON_CLI => {
-            // Asks for the specific patch action to update the DID:
-            const ACTION = readline.question(LogColors.green(`You may choose one of the following actions to update your DID:
-            'add-keys'(1),
-            'remove-keys'(2),
-            'add-services'(3),
-            'remove-services'(4)`)
-            + ` - [1/2/3/4] - ` + LogColors.lightBlue(`Your answer: `));
-       
-            let PATCH_ACTION;
-            switch (ACTION) {
-                case '1':
-                    PATCH_ACTION = PatchAction.AddKeys;
-                    break;
-                case '2':
-                    PATCH_ACTION = PatchAction.RemoveKeys;
-                    break;
-                case '3':
-                    PATCH_ACTION = PatchAction.AddServices;
-                    break;
-                case '4':
-                    PATCH_ACTION = PatchAction.RemoveServices;
-                    break;
-                default:
-                    throw new SidetreeError(ErrorCode.IncorrectPatchAction);
-            }
-
-            const ID = [];
-            let PUBLIC_KEYS;
-            let SERVICE;
-            if (PATCH_ACTION === PatchAction.AddKeys) {
-                PUBLIC_KEYS = await Util.InputKeys();
-            } else if (PATCH_ACTION === PatchAction.AddServices) {
-                SERVICE = await Util.InputService();
-            } else if (PATCH_ACTION === PatchAction.RemoveServices) {
-                const SERVICE_ID = readline.question(`Provide the ID of the service that you would like to remove - ` + LogColors.lightBlue(`Your answer: `));
-                ID.push(SERVICE_ID)
-            } else if (PATCH_ACTION === PatchAction.RemoveKeys) {
-                const KEY_ID = readline.question(`Provide the ID of the service that you would like to remove - ` + LogColors.lightBlue(`Your answer: `));
-                ID.push(KEY_ID)
-            }
-            const PATCH: PatchModel = {
-                action: PATCH_ACTION,
-                keyInput: PUBLIC_KEYS,
-                service_endpoints: SERVICE,
-                ids: ID,
-                public_keys: ID
-            }
-
+            const patches_amount = readline.question(LogColors.green(`How many patches would you like to make? - `) + LogColors.lightBlue(`Your answer: `));
+            const PATCHES = [];
+            for(let i=0, t= Number(patches_amount); i<t; ++i) {
+                // Asks for the specific patch action to update the DID:
+                const action = readline.question(LogColors.green(`You may choose one of the following actions to update your DID:
+                'add-keys'(1),
+                'remove-keys'(2),
+                'add-services'(3),
+                'remove-services'(4)`)
+                + ` - [1/2/3/4] - ` + LogColors.lightBlue(`Your answer: `));
+        
+                const ID = [];
+                let PUBLIC_KEYS;
+                let SERVICE;
+                let PATCH_ACTION;
+                switch (action) {
+                    case '1':
+                        PATCH_ACTION = PatchAction.AddKeys;
+                        PUBLIC_KEYS = await Util.InputKeys();
+                        break;
+                    case '2':
+                        PATCH_ACTION = PatchAction.RemoveKeys;
+                        { const KEY_ID = readline.question(`Provide the ID of the service that you would like to remove - ` + LogColors.lightBlue(`Your answer: `));
+                        ID.push(KEY_ID)
+                        }
+                        break;
+                    case '3':
+                        PATCH_ACTION = PatchAction.AddServices;
+                        SERVICE = await Util.InputService();
+                        break;
+                    case '4':
+                        PATCH_ACTION = PatchAction.RemoveServices;
+                        { const SERVICE_ID = readline.question(`Provide the ID of the service that you would like to remove - ` + LogColors.lightBlue(`Your answer: `));
+                        ID.push(SERVICE_ID)
+                        }
+                        break;
+                    default:
+                        throw new SidetreeError(ErrorCode.IncorrectPatchAction);
+                }
+            
+                const PATCH: PatchModel = {
+                    action: PATCH_ACTION,
+                    keyInput: PUBLIC_KEYS,
+                    service_endpoints: SERVICE,
+                    ids: ID,
+                    public_keys: ID
+                }
+                PATCHES.push(PATCH)
+            }            
             const UPDATE_INPUT: UpdateOperationInput = {
                 state: TYRON_CLI.state,
                 updatePrivateKey: TYRON_CLI.privateKey,
-                patch: PATCH                
+                patches: PATCHES            
             };
 
-            const DID_EXECUTED = await DidUpdate.execute(UPDATE_INPUT);
+            const DID_EXECUTED = await DidUpdate.execute(UPDATE_INPUT) as DidUpdate;
             console.log(LogColors.green(`Success! You have updated your tyronZIL DID`));
             
             /***            ****            ***/
@@ -335,6 +338,54 @@ export default class TyronCLI {
                 updatePrivateKey: Encoder.encode(Buffer.from(JSON.stringify(DID_EXECUTED.updatePrivateKey))),
             };
             await Util.savePrivateKeys(TYRON_CLI.state.did_tyronZIL, PRIVATE_KEYS)
+
+            /** Asks if the user wants to write their tyronZIL transaction on Zilliqa */
+            const write_operation = readline.question(LogColors.green(`Would you like to update your tyronZIL DID on the Zilliqa platform now?`) + ` - [y/n] - Defaults to yes ` + LogColors.lightBlue(`Your answer: `));
+            switch (write_operation.toLowerCase()) {
+                case "n":
+                    console.log(LogColors.green(`Then, that's all for now. Enjoy your decentralized identity!`));
+                    return;
+                default:
+                    break;
+            }
+            
+            const DOCUMENT = await Sidetree.docFromDelta(DID_EXECUTED.delta) as DocumentModel;
+            const DOC_BUFFER = Buffer.from(JSON.stringify(DOCUMENT));
+            const ENCODED_DOCUMENT = Encoder.encode(DOC_BUFFER);    
+
+        const PARAMS = await TyronTransaction.update(
+            DID_EXECUTED.updateSignature,
+            TYRON_CLI.update_commitment,
+            ENCODED_DOCUMENT,
+            DID_EXECUTED.newUpdateSignature,
+            DID_EXECUTED.newUpdateCommitment
+        );
+
+        const CONTRACT_INIT: ContractInit = {
+            tyron_init: "0x75d8297b8bd2e35de1c17e19d2c13504de623793",
+            contract_owner: "0x059f722D2E94C0A6C710e628D14b18BeEe2a62db",
+            client_addr: "0xccDdFAD074cd608B6B43e14eb3440240f5bFf087",
+            tyron_stake: 100000000000000        // e.g. 100 ZIL
+        };
+
+        const gas_limit = readline.question(LogColors.green(`What is the gas limit? - `) + LogColors.lightBlue(`Your answer: `));
+        
+        console.log(LogColors.brightGreen(`Initializing your tyron-smart-contract...`));
+        
+        const INITIALIZE = await TyronTransaction.initialize(
+            NETWORK,
+            CONTRACT_INIT,
+            "8cefad33c6b2eafe6456e80cd69fda3fcd23b5c4a6719275340f340a9259c26a",
+            "5becc07a2e88636867233c4d3897b247f6aad3b317907ab5f811fa850548fd36",
+            Number(gas_limit),
+        );
+        
+        const TYRON_ADDR = readline.question(LogColors.green(`What is the user's tyron address? - `) + LogColors.lightBlue(`Your answer: `));
+        console.log(LogColors.brightGreen(`Deploying...`))
+        
+        const TAG = TransitionTag.Update;
+
+        await TyronTransaction.submit(INITIALIZE as TyronTransaction, TYRON_ADDR!, TAG, PARAMS);
         })
         .catch(err => console.error(err))
     }

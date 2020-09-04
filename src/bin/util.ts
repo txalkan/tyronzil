@@ -17,7 +17,7 @@ import * as fs from 'fs';
 import LogColors from './log-colors';
 import * as readline from 'readline-sync';
 import { PublicKeyInput } from './cli-input-model';
-import { PublicKeyPurpose } from '../lib/decentralized-identity/util/sidetree protocol/models/verification-method-models';
+import { PublicKeyPurpose } from '../lib/decentralized-identity/sidetree-protocol/models/verification-method-models';
 import ServiceEndpointModel from '@decentralized-identity/sidetree/dist/lib/core/versions/latest/models/ServiceEndpointModel';
 
 export default class Util {

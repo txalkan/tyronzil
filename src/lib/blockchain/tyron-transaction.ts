@@ -283,26 +283,42 @@ export default class TyronTransaction extends TyronContract {
     }
 
     public static async create(
-        did: string,
-        document: string,
+        didtyron: string,
+        doc: string,
+        updateSignature: string,
+        recoverySignature: string,
         updateCommitment: string,
         recoveryCommitment: string
     ): Promise<TransitionParams[]> {
-
+        
         const PARAMS = [];
         const DID: TransitionParams = {
-            vname: 'did',
+            vname: 'didtyron',
             type: 'String',
-            value: did,
+            value: didtyron,
         };
         PARAMS.push(DID);
 
         const DOCUMENT: TransitionParams = {
-            vname: 'document',
+            vname: 'doc',
             type: 'String',
-            value: document,
+            value: doc,
         };
         PARAMS.push(DOCUMENT);
+
+        const UPDATE_SIGNATURE: TransitionParams = {
+            vname: 'updateSignature',
+            type: 'String',
+            value: updateSignature,
+        };
+        PARAMS.push(UPDATE_SIGNATURE);
+
+        const RECOVERY_SIGNATURE: TransitionParams = {
+            vname: 'recoverySignature',
+            type: 'String',
+            value: recoverySignature,
+        };
+        PARAMS.push(RECOVERY_SIGNATURE);
 
         const UPDATE_COMMIT: TransitionParams = {
             vname: 'updateCommitment',
@@ -317,6 +333,54 @@ export default class TyronTransaction extends TyronContract {
             value: recoveryCommitment,
         };
         PARAMS.push(RECOVERY_COMMIT);
+
+        return PARAMS;
+    }
+
+    public static async update(
+        updateSignature: string,
+        updateCommitment: string,
+        newDoc: string,
+        newUpdateSignature: string,
+        newUpdateCommitment: string
+    ): Promise<TransitionParams[]> {
+
+        const PARAMS = [];
+
+        const UPDATE_SIGNATURE: TransitionParams = {
+            vname: 'updateSignature',
+            type: 'String',
+            value: updateSignature,
+        };
+        PARAMS.push(UPDATE_SIGNATURE);
+
+        const UPDATE_COMMIT: TransitionParams = {
+            vname: 'updateCommitment',
+            type: 'String',
+            value: updateCommitment,
+        };
+        PARAMS.push(UPDATE_COMMIT);
+
+        const DOCUMENT: TransitionParams = {
+            vname: 'newDoc',
+            type: 'String',
+            value: newDoc,
+        };
+        PARAMS.push(DOCUMENT);
+
+        const NEW_UPDATE_SIGNATURE: TransitionParams = {
+            vname: 'newUpdateSignature',
+            type: 'String',
+            value: newUpdateSignature,
+        };
+        PARAMS.push(NEW_UPDATE_SIGNATURE);
+
+        const NEW_UPDATE_COMMIT: TransitionParams = {
+            vname: 'newUpdateCommitment',
+            type: 'String',
+            value: newUpdateCommitment,
+        };
+        PARAMS.push(NEW_UPDATE_COMMIT);
 
         return PARAMS;
     }
@@ -338,7 +402,8 @@ interface Transition {
 }
 
 export enum TransitionTag {
-    Create = 'DidCreate'
+    Create = 'DidCreate',
+    Update = "DidUpdate"
 }
 
 interface TransitionParams {

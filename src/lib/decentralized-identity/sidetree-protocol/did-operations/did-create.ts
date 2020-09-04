@@ -16,21 +16,23 @@
 import OperationType from '@decentralized-identity/sidetree/dist/lib/core/enums/OperationType';
 import CreateOperation from '@decentralized-identity/sidetree/dist/lib/core/versions/latest/CreateOperation';
 import JwkEs256k from '@decentralized-identity/sidetree/dist/lib/core/models/JwkEs256k';
-import { Cryptography, OperationKeyPairInput } from '../util/did-keys';
-import { PublicKeyModel } from '../util/sidetree protocol/models/verification-method-models';
-import { CliInputModel } from '../../../bin/cli-input-model';
-import TyronZILScheme from '../tyronZIL-schemes/did-scheme';
-import { SchemeInputData } from '../tyronZIL-schemes/did-scheme';
+import { Cryptography, OperationKeyPairInput } from '../../util/did-keys';
+import { PublicKeyModel } from '../models/verification-method-models';
+import { CliInputModel } from '../../../../bin/cli-input-model';
+import TyronZILScheme from '../../tyronZIL-schemes/did-scheme';
+import { SchemeInputData } from '../../tyronZIL-schemes/did-scheme';
 import Multihash from '@decentralized-identity/sidetree/dist/lib/core/versions/latest/Multihash';
 import Encoder from '@decentralized-identity/sidetree/dist/lib/core/versions/latest/Encoder';
 import ServiceEndpointModel from '@decentralized-identity/sidetree/dist/lib/core/versions/latest/models/ServiceEndpointModel';
-import { DocumentModel, PatchModel, PatchAction } from '../util/sidetree protocol/models/patch-model';
-import { SuffixDataModel } from '../util/sidetree protocol/sidetree';
+import { DocumentModel, PatchModel, PatchAction } from '../models/patch-model';
+import { SuffixDataModel } from '../sidetree';
 
 /** Generates a Sidetree-based `DID-create` operation */
 export default class DidCreate {
     public readonly type: OperationType.Create;
-    public readonly DIDScheme: TyronZILScheme;
+    public readonly didScheme: TyronZILScheme;
+    public readonly updateSignature: string;
+    public readonly recoverySignature: string;
     public readonly sidetreeRequest: Buffer;
     /** The result from the Sidetree request */
     public readonly createOperation: CreateOperation;
@@ -48,7 +50,9 @@ export default class DidCreate {
         operation: CreateOperationModel
     ) {
         this.type = OperationType.Create;
-        this.DIDScheme = operation.DIDScheme;
+        this.didScheme = operation.didScheme;
+        this.updateSignature = operation.updateSignature;
+        this.recoverySignature = operation.recoverySignature;
         this.sidetreeRequest = operation.sidetreeRequest;
         this.createOperation = operation.createOperation;    
         this.delta = this.createOperation.encodedDelta;
@@ -130,12 +134,18 @@ export default class DidCreate {
             didUniqueSuffix: CREATE_OPERATION.didUniqueSuffix
         };
 
+        //The delta tyron signatures
+        const UPDATE_SIGNATURE = await Cryptography.signUsingEs256k(SCHEME_DATA, UPDATE_PRIVATE_KEY);
+        const RECOVERY_SIGNATURE = await Cryptography.signUsingEs256k(SCHEME_DATA, RECOVERY_PRIVATE_KEY);
+
         /** The tyronZIL DID-scheme */
         const DID_SCHEME = await TyronZILScheme.newDID(SCHEME_DATA);
 
         /** Output data from a new Sidetree-based `DID-create` operation */
         const OPERATION_OUTPUT: CreateOperationModel = {
-            DIDScheme: DID_SCHEME,
+            didScheme: DID_SCHEME,
+            updateSignature: UPDATE_SIGNATURE,
+            recoverySignature: RECOVERY_SIGNATURE,
             sidetreeRequest: SIDETREE_REQUEST_BUFFER,
             createOperation: CREATE_OPERATION,
             privateKey: PRIVATE_KEYS,
@@ -175,7 +185,7 @@ export default class DidCreate {
             recovery_commitment: input.recoveryCommitment
         };
         const SUFFIX_DATA = Encoder.encode(JSON.stringify(SUFFIX_DATA_OBJECT));
-        
+
         /** DID data to generate a new Sidetree CreateOperation */
         const SIDETREE_REQUEST: CreateDataRequest = {
             suffix_data: SUFFIX_DATA,
@@ -191,7 +201,9 @@ export default class DidCreate {
 
 /** Defines output data for a Sidetree-based `DID-create` operation */
 interface CreateOperationModel {
-    DIDScheme: TyronZILScheme;
+    didScheme: TyronZILScheme;
+    updateSignature: string,
+    recoverySignature: string,
     sidetreeRequest: Buffer;
     createOperation: CreateOperation;
     privateKey: string[];

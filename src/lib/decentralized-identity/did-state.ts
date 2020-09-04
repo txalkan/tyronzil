@@ -13,66 +13,50 @@
     GNU General Public License for more details.
 */
 
-import ServiceEndpointModel from '@decentralized-identity/sidetree/dist/lib/core/versions/latest/models/ServiceEndpointModel';
-import { PublicKeyModel } from './util/sidetree protocol/models/verification-method-models';
 import * as fs from 'fs';
 import LogColors from '../../bin/log-colors';
 import TyronState from '../blockchain/tyron-state';
 import { NetworkNamespace } from './tyronZIL-schemes/did-scheme';
 import { TyronZILUrlScheme } from './tyronZIL-schemes/did-url-scheme';
-import { PatchModel, DocumentModel } from './util/sidetree protocol/models/patch-model';
 import OperationType from '@decentralized-identity/sidetree/dist/lib/core/enums/OperationType';
-import { Sidetree } from './util/sidetree protocol/sidetree';
+import { Sidetree } from './sidetree-protocol/sidetree';
+import { PatchModel, DocumentModel } from './sidetree-protocol/models/patch-model';
+import SidetreeError from '@decentralized-identity/sidetree/dist/lib/common/SidetreeError';
+import ErrorCode from './util/ErrorCode';
 
 /** tyronZIL's DID-state */
 export default class DidState {
+    public readonly status: OperationType;
     public readonly did_tyronZIL: string;
 
-    // Verification methods
-    public readonly publicKey: PublicKeyModel[] | undefined;
+    /** The DID-document as a Sidetree Document Model */
+    public readonly document: DocumentModel | undefined;
     
-    // Services
-    public readonly service?: ServiceEndpointModel[] | undefined;
-
     // Sidetree commitments
     public readonly updateCommitment: string | undefined;
     public readonly recoveryCommitment: string | undefined;
     
     private constructor(
-        input: DidStateModel
+        state: DidStateModel
     ) {
-        this.did_tyronZIL = input.did_tyronZIL;
-        this.publicKey = input.publicKey;
-        this.updateCommitment = input.updateCommitment;
-        this.recoveryCommitment = input.recoveryCommitment
-        this.service = input.service;
+        this.status = state.status;
+        this.did_tyronZIL = state.did_tyronZIL;
+        this.document = state.document;
+        this.updateCommitment = state.updateCommitment;
+        this.recoveryCommitment = state.recoveryCommitment
     }
 
     /***            ****            ***/
 
     /** Saves the DID-state asynchronously */
-    public static async write(input: DidState): Promise<void> {
-        const PRINT_STATE = JSON.stringify(input, null, 2);
-        const FILE_NAME = `DID_STATE_${input.did_tyronZIL}.json`;
+    public static async write(state: DidState): Promise<void> {
+        const PRINT_STATE = JSON.stringify(state, null, 2);
+        const FILE_NAME = `DID_STATE_${state.did_tyronZIL}.json`;
         fs.writeFileSync(FILE_NAME, PRINT_STATE);
         console.info(LogColors.yellow(`DID-state saved as: ${LogColors.brightYellow(FILE_NAME)}`));
     }
 
     /***            ****            ***/
-
-    /** Gets the DID-document from Sidetree DID State Patches */
-    public static async getDocument(patches: PatchModel[]): Promise<DocumentModel|void> {
-            for(const patch of patches) {
-            if(patch.document !== undefined) {
-                const THIS_DOCUMENT = patch.document;
-                return THIS_DOCUMENT as DocumentModel;
-            }
-        }
-    }
-
-    /**public static async patch(doc: DocumentModel, patches: PatchModel[]): Promise<DocumentModel> {
-
-    }*/
 
     /** Fetches the current DID-state for the given tyron_addr */
     public static async fetch(network: NetworkNamespace, tyronAddr: string): Promise<DidState|void> {
@@ -83,30 +67,27 @@ export default class DidState {
             await TyronZILUrlScheme.validate(this_state.decentralized_identifier);
             return this_state;
         })
-        .then(async did_state => {
-            const STATUS = did_state.status;
-            const DOCUMENT = await Sidetree.parse(did_state.document);
-            let PUBLIC_KEY;
-            let SERVICE;
+        .then(async tyron_state => {
+            const STATUS = tyron_state.status;
+            let DOCUMENT;
             let UPDATE_COMMITMENT;
             let RECOVERY_COMMITMENT;
             switch (STATUS) {
                 case OperationType.Deactivate:
-                    PUBLIC_KEY = undefined;
-                    SERVICE = undefined;
+                    DOCUMENT = undefined;
                     UPDATE_COMMITMENT = undefined;
                     RECOVERY_COMMITMENT = undefined;
                     break;
                 default:
-                    PUBLIC_KEY = DOCUMENT.public_keys;
-                    SERVICE = DOCUMENT.service_endpoints;
-                    RECOVERY_COMMITMENT = did_state.recovery_commitment;
+                    DOCUMENT = await Sidetree.documentModel(tyron_state.document) as DocumentModel;
+                    UPDATE_COMMITMENT = tyron_state.update_commitment;
+                    RECOVERY_COMMITMENT = tyron_state.recovery_commitment;
                     break
             }
             const THIS_STATE: DidStateModel = {
-                did_tyronZIL: did_state.decentralized_identifier,
-                publicKey: PUBLIC_KEY,
-                service: SERVICE,
+                status: STATUS,
+                did_tyronZIL: tyron_state.decentralized_identifier,
+                document: DOCUMENT,
                 updateCommitment: UPDATE_COMMITMENT,
                 recoveryCommitment: RECOVERY_COMMITMENT
             }
@@ -115,15 +96,36 @@ export default class DidState {
         .catch(err => console.error(err))
         return did_state;
     }
+
+    public static async updateDoc(state: DidState, newDelta: string): Promise<DocumentModel|void> {
+        if(state.status === OperationType.Deactivate) {
+            throw new SidetreeError(ErrorCode.DidDeactivated)
+        } else {
+            const NEW_DOCUMENT = await Sidetree.docFromDelta(newDelta)
+            .then(async doc_in_delta => {
+                /** Corresponds to the recover operation */
+                const DOC = doc_in_delta as DocumentModel;
+                if(DOC !== undefined){
+                    return DOC
+                } else {
+                    const PATCHES = await Sidetree.patchesFromDelta(newDelta) as PatchModel[];
+                    const RESULT = await Sidetree.processPatches(PATCHES, state.document!)
+                    return RESULT.doc
+                }
+            })
+            .catch(err => console.error(err))
+            return NEW_DOCUMENT
+        }
+    }
 }
 
 /***            ** interfaces **            ***/
 
 /** The state model of a decentralized identifier */
 export interface DidStateModel {
+    status: OperationType;
     did_tyronZIL: string;
-    publicKey: PublicKeyModel[] | undefined;
-    service: ServiceEndpointModel[] | undefined;        // undefined after deactivation       // undefined after deactivation
+    document: DocumentModel | undefined;        // undefined after deactivation       // undefined after deactivation
     updateCommitment: string | undefined;        // undefined after deactivation
     recoveryCommitment: string | undefined;        // undefined after deactivation
 }

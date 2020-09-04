@@ -13,20 +13,20 @@
     GNU General Public License for more details.
 */
 
-import TyronZILScheme from '../tyronZIL-schemes/did-scheme';
+import TyronZILScheme from '../../tyronZIL-schemes/did-scheme';
 import OperationType from '@decentralized-identity/sidetree/dist/lib/core/enums/OperationType';
 import RecoverOperation from '@decentralized-identity/sidetree/dist/lib/core/versions/latest/RecoverOperation';
-import { PublicKeyModel } from '../util/sidetree protocol/models/verification-method-models';
+import { PublicKeyModel } from '../models/verification-method-models';
 import ServiceEndpointModel from '@decentralized-identity/sidetree/dist/lib/core/versions/latest/models/ServiceEndpointModel';
 import JwkEs256k from '@decentralized-identity/sidetree/dist/lib/core/models/JwkEs256k';
-import { Cryptography, OperationKeyPairInput } from '../util/did-keys';
+import { Cryptography, OperationKeyPairInput } from '../../util/did-keys';
 import Multihash from '@decentralized-identity/sidetree/dist/lib/core/versions/latest/Multihash';
 import Jws from '@decentralized-identity/sidetree/dist/lib/core/versions/latest/util/Jws';
-import { DocumentModel, PatchModel, PatchAction } from '../util/sidetree protocol/models/patch-model';
+import { DocumentModel, PatchModel, PatchAction } from '../models/patch-model';
 import DeltaModel from '@decentralized-identity/sidetree/dist/lib/core/versions/latest/models/DeltaModel';
 import Encoder from '@decentralized-identity/sidetree/dist/lib/core/versions/latest/Encoder';
-import { RecoverSignedDataModel } from '../util/sidetree protocol/models/signed-data-models';
-import { CliInputModel } from '../../../bin/cli-input-model';
+import { RecoverSignedDataModel } from '../models/signed-data-models';
+import { CliInputModel } from '../../../../bin/cli-input-model';
 
 /** Generates a Sidetree-based `DID-recover` operation */
 export default class DidRecover {

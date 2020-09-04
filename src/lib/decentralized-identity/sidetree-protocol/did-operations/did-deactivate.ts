@@ -13,13 +13,13 @@
     GNU General Public License for more details.
 */
 
-import TyronZILScheme from '../tyronZIL-schemes/did-scheme';
+import TyronZILScheme from '../../tyronZIL-schemes/did-scheme';
 import OperationType from '@decentralized-identity/sidetree/dist/lib/core/enums/OperationType';
 import DeactivateOperation from '@decentralized-identity/sidetree/dist/lib/core/versions/latest/DeactivateOperation';
 import JwkEs256k from '@decentralized-identity/sidetree/dist/lib/core/models/JwkEs256k';
-import { Cryptography } from '../util/did-keys';
+import { Cryptography } from '../../util/did-keys';
 import Jws from '@decentralized-identity/sidetree/dist/lib/core/versions/latest/util/Jws';
-import { DeactivateSignedDataModel } from '../util/sidetree protocol/models/signed-data-models';
+import { DeactivateSignedDataModel } from '../models/signed-data-models';
 
 /** Generates a Sidetree-based `DID-deactivate` operation */
 export default class DidDeactivate {

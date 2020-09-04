@@ -14,7 +14,7 @@
 */
 
 import { NetworkNamespace } from '../lib/decentralized-identity/tyronZIL-schemes/did-scheme';
-import { PublicKeyPurpose } from '../lib/decentralized-identity/util/sidetree protocol/models/verification-method-models';
+import { PublicKeyPurpose } from '../lib/decentralized-identity/sidetree-protocol/models/verification-method-models';
 import ServiceEndpointModel from '@decentralized-identity/sidetree/dist/lib/core/versions/latest/models/ServiceEndpointModel';
 
 export interface CliInputModel {

@@ -18,22 +18,22 @@ import ZilliqaInit from './zilliqa-init';
 import OperationType from '@decentralized-identity/sidetree/dist/lib/core/enums/OperationType';
 
 export default class TyronState {
+    public readonly status: OperationType;
     public readonly decentralized_identifier: string;
     public readonly document: string;
     public readonly update_commitment: string;
     public readonly recovery_commitment: string;
-    public readonly status: OperationType;
     public readonly ledger_time: number;
     public readonly sidetree_transaction_number: number;
     
     private constructor(
         state: TyronStateModel
     ) {
+        this.status = state.status as OperationType;
         this.decentralized_identifier = state.decentralized_identifier;
         this.document = state.document;
         this.update_commitment = state.update_commitment;
         this.recovery_commitment = state.recovery_commitment;
-        this.status = state.status as OperationType;
         this.ledger_time = state.ledger_time;
         this.sidetree_transaction_number = state.sidetree_transaction_number;
     }
@@ -46,12 +46,13 @@ export default class TyronState {
         const tyron_state = await ZIL_INIT.API.blockchain.getSmartContractState(tyronAddr)
         .then(async SMART_CONTRACT_STATE => {
             const STATE: TyronStateModel = {
+                status: String(SMART_CONTRACT_STATE.result.status),
                 decentralized_identifier: String(SMART_CONTRACT_STATE.result.decentralized_identifier),
                 document: String(SMART_CONTRACT_STATE.result.document),
                 update_signature: String(SMART_CONTRACT_STATE.result.update_signature),
+                recovery_signature: String(SMART_CONTRACT_STATE.result.recovery_commitment),
                 update_commitment: String(SMART_CONTRACT_STATE.result.update_commitment),
                 recovery_commitment: String(SMART_CONTRACT_STATE.result.recovery_commitment),
-                status: String(SMART_CONTRACT_STATE.result.status),
                 ledger_time: Number(SMART_CONTRACT_STATE.result.ledger_time),
                 sidetree_transaction_number: Number(SMART_CONTRACT_STATE.result.sidetree_transaction_number),
             };
@@ -69,6 +70,7 @@ export interface TyronStateModel {
     decentralized_identifier: string;
     document: string;
     update_signature: string;
+    recovery_signature: string;
     update_commitment: string;
     recovery_commitment: string;
     status: string;
