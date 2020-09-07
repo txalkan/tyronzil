@@ -19,6 +19,7 @@ import * as readline from 'readline-sync';
 import { PublicKeyInput } from './cli-input-model';
 import { PublicKeyPurpose } from '../lib/decentralized-identity/sidetree-protocol/models/verification-method-models';
 import ServiceEndpointModel from '@decentralized-identity/sidetree/dist/lib/core/versions/latest/models/ServiceEndpointModel';
+import SidetreeError from '@decentralized-identity/sidetree/dist/lib/common/SidetreeError';
 
 export default class Util {
     public static async fetch(did: string): Promise<any> {
@@ -37,64 +38,64 @@ export default class Util {
 
     /** Generates the keys' input */
     public static async InputKeys(): Promise<PublicKeyInput[]> {
-        // Creates the first verification method used with a general purpose as the primary public key and for authentication as verification relationship:
-        console.log(LogColors.brightGreen(`Let's create a primary signing key for your DID. It's a general-purpose verification method, also used for authentication as the verification relationship.`));
-        
-        let PRIMARY_KEY_ID = readline.question(LogColors.green(`Choose a name for your key`) + ` - Defaults to 'primarySigningKey' - ` + LogColors.lightBlue(`Your answer: `));
-        if (PRIMARY_KEY_ID === "") {
-            PRIMARY_KEY_ID = 'primarySigningKey';
+        console.log(LogColors.brightGreen(`Cryptographic keys for your Decentralized Identifier: `))
+        const amount = readline.question(LogColors.green(`How many keys would you like to have? - `) + LogColors.lightBlue(`Your answer: `));
+        if(!Number(amount)){
+            throw new SidetreeError("WrongAmount", "It must be a number");
         }
-
-        const PRIMARY_PUBLIC_KEY: PublicKeyInput = {
-            id: PRIMARY_KEY_ID,
-            purpose: [PublicKeyPurpose.General, PublicKeyPurpose.Auth]
-        };
-    
-        const PUBLIC_KEYS: PublicKeyInput[] = [PRIMARY_PUBLIC_KEY];
-    
-        // Asks if the user wants a secondary key-pair, and its purpose:
-        const MORE_KEYS = readline.question(LogColors.green(`Would you like to have a secondary public keys?`) + ` [y] - Defaults to 'no' - ` + LogColors.lightBlue(`Your answer: `));
-
-        if (MORE_KEYS.toLowerCase() === 'y') {
-            let SECONDARY_KEY_ID = readline.question(LogColors.green(`Choose a name for your key`) + ` - Defaults to 'secondarySigningKey' - ` + LogColors.lightBlue(`Your answer: `));
-            if (SECONDARY_KEY_ID === "") {
-                SECONDARY_KEY_ID = 'secondarySigningKey';
+        const KEYS = [];
+        for(let i=0, t= Number(amount); i<t; ++i) {
+            const id = readline.question(LogColors.green(`Write down your key ID - `) + LogColors.lightBlue(`Your answer: `));
+            if (id === "") {
+                throw new SidetreeError("InvalidID", `To register a key you must provide its ID`);
             }
-
-            let SECONDARY_PURPOSE = [PublicKeyPurpose.Auth];
-            const WHICH_PURPOSE = readline.question(LogColors.green(`What is the secondary purpose: general(1), authentication(2) or both(3)?`) + ` [1/2/3] - Defaults to authentication - ` + LogColors.lightBlue(`Your answer: `));
-            if (WHICH_PURPOSE === '1') {
-                SECONDARY_PURPOSE = [PublicKeyPurpose.General]
-            } else if (WHICH_PURPOSE === '3') {
-                SECONDARY_PURPOSE = [PublicKeyPurpose.General, PublicKeyPurpose.Auth]
+            const purpose = readline.question(LogColors.green(`What is the key purpose: general(1), authentication(2) or both(3)?`) + ` [1/2/3] - Defaults to authentication - ` + LogColors.lightBlue(`Your answer: `));
+            let PURPOSE;
+            switch (Number(purpose)) {
+                case 1:
+                    PURPOSE = [PublicKeyPurpose.General];
+                    break;
+                case 3:
+                    PURPOSE = [PublicKeyPurpose.General, PublicKeyPurpose.Auth];
+                    break;
+                default:
+                    PURPOSE = [PublicKeyPurpose.Auth];
+                    break;
             }
-            
-            const SECONDARY_PUBLIC_KEY: PublicKeyInput = {
-                id: SECONDARY_KEY_ID,
-                purpose: SECONDARY_PURPOSE
-            };
-            PUBLIC_KEYS.push(SECONDARY_PUBLIC_KEY);
+            const KEY: PublicKeyInput = {
+                id: id,
+                purpose: PURPOSE
+            }
+            KEYS.push(KEY);
         }
-        return PUBLIC_KEYS
+        return KEYS;
     }
 
     /***            ****            ***/
 
     /** Generates the services' input */
     public static async InputService(): Promise<ServiceEndpointModel[]> {
-        console.log(LogColors.brightGreen(`Let's create service endpoints for your DID!`));
+        console.log(LogColors.brightGreen(`Service endpoints for your Decentralized Identifier:`));
         const SERVICE = [];
-        let WEBSITE_ENDPOINT = readline.question(LogColors.green(`Write down your website`) + ` - [https://yourwebsite.com] - Defaults to 'https://tyronZIL.com' - ` + LogColors.lightBlue(`Your answer: `));
-        if (WEBSITE_ENDPOINT === "") {
-            WEBSITE_ENDPOINT = 'https://tyronZIL.com';
+        const amount = readline.question(LogColors.green(`How many service endpoints would you like to have? - `) + LogColors.lightBlue(`Your answer: `));
+        if(!Number(amount)){
+            throw new SidetreeError("WrongAmount", "It must be a number");
         }
-        const SERVICE_WEBSITE: ServiceEndpointModel = {
-            id: 'main-website',
-            type: 'website',
-            endpoint: WEBSITE_ENDPOINT
+        for(let i=0, t= Number(amount); i<t; ++i) {
+            const id = readline.question(LogColors.green(`Write down your service ID - `) + LogColors.lightBlue(`Your answer: `));
+            const type = readline.question(LogColors.green(`Write down your service type - `) + ` - [e.g. website] - ` + LogColors.lightBlue(`Your answer: `));
+            const endpoint = readline.question(LogColors.green(`Write down your service URL - `) + ` - [https://yourwebsite.com] - ` + LogColors.lightBlue(`Your answer: `));
+            if (id === "" || endpoint === "" || type === "") {
+                throw new SidetreeError("Invalid parameter", "To register a service-endpoint you must provide its ID, type and URL");
+            }
+            const SERVICE_ENDPOINT: ServiceEndpointModel = {
+                id: id,
+                type: type,
+                endpoint: endpoint
+            }
+            SERVICE.push(SERVICE_ENDPOINT);
         }
-        SERVICE.push(SERVICE_WEBSITE);
-        return SERVICE
+        return SERVICE;
     }
 
     /** Saves the private keys */

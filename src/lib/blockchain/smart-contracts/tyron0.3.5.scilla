@@ -51,7 +51,6 @@ library Tyron
     | CodeNotOwner
     | CodeWrongStatus
     | CodeWrongCommitment
-    | CodeWrongSignature
     | CodeInsufficientFunds
     
     let make_error =
@@ -63,8 +62,7 @@ library Tyron
             | CodeNotOwner              => Int32 -3
             | CodeWrongStatus           => Int32 -4
             | CodeWrongCommitment       => Int32 -5
-            | CodeWrongSignature        => Int32 -6
-            | CodeInsufficientFunds     => Int32 -7
+            | CodeInsufficientFunds     => Int32 -6
             end
         in
         { _exception : "Error"; code : result_code }
@@ -96,8 +94,6 @@ contract Tyron(
     (* defined by the tyronZIL DID method specification *)
     field decentralized_identifier: String = ""
     field document: String = ""
-    field update_signature: String = ""
-    field recovery_signature: String = ""
     
     (* Sidetree public key commitments *)
     field update_commitment: String = ""
@@ -169,19 +165,6 @@ contract Tyron(
         | True =>
         | False =>
             err = CodeWrongCommitment;
-            ThrowError err
-        end
-    end
-
-    procedure IsSigned(        (* Checks the validity of a signature *)
-        thisSignature: String,
-        givenSignature: String
-    )
-        signature_is_correct = builtin eq thisSignature givenSignature;
-        match signature_is_correct with
-        | True =>
-        | False =>
-            err = CodeWrongSignature;
             ThrowError err
         end
     end
@@ -258,8 +241,6 @@ contract Tyron(
     transition DidCreate(
         didtyron: String,
         doc: String,
-        updateSignature: String,
-        recoverySignature: String,
         updateCommitment: String,
         recoveryCommitment: String
     )
@@ -269,8 +250,6 @@ contract Tyron(
         Payment;
         decentralized_identifier := didtyron;
         document := doc;
-        update_signature := updateSignature;
-        recovery_signature := recoverySignature;
         update_commitment := updateCommitment;
         recovery_commitment := recoveryCommitment;
         status := created;
@@ -278,45 +257,34 @@ contract Tyron(
     end
 
     transition DidUpdate(
-        updateSignature: String,
         updateCommitment: String,
         newDoc: String,
-        newUpdateSignature: String,
         newUpdateCommitment: String       
     )
         IsClient;
         IsStatus deactivated;
-        this_signature <- update_signature;
-        IsSigned this_signature updateSignature;
         this_commitment <- update_commitment;
         IsCommitment this_commitment updateCommitment;
         Payment;
         document := newDoc;
-        update_signature := newUpdateSignature;
         update_commitment := newUpdateCommitment;
         status := updated;
         Timestamp
     end
 
     transition DidRecover(
-        recoverySignature: String,
         recoveryCommitment: String,
         newDoc: String,
-        newRecoverySignature: String,
         newRecoveryCommitment: String,
         newUpdateSignature: String,
         newUpdateCommitment: String
     )
         IsClient;
         IsStatus deactivated;
-        this_signature <- recovery_signature;
-        IsSigned this_signature recoverySignature;
         this_commitment <- recovery_commitment;
         IsCommitment this_commitment recoveryCommitment;
         Payment;
         document := newDoc;
-        update_signature := newUpdateSignature;
-        recovery_signature := newRecoverySignature;
         update_commitment := newUpdateCommitment;
         recovery_commitment := newRecoveryCommitment;
         status := recovered;
@@ -329,14 +297,10 @@ contract Tyron(
     )
         IsClient;
         IsStatus deactivated;
-        this_signature <- recovery_signature;
-        IsSigned this_signature recoverySignature;
         this_commitment <- recovery_commitment;
         IsCommitment this_commitment recoveryCommitment;
         Payment;
         document := undefined;
-        update_signature := undefined;
-        recovery_signature := undefined;
         update_commitment := undefined;
         recovery_commitment := undefined;
         status := deactivated;
@@ -352,3 +316,4 @@ contract Tyron(
         };
         event e
     end
+    

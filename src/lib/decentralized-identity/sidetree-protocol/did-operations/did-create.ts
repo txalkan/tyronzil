@@ -31,8 +31,6 @@ import { SuffixDataModel } from '../sidetree';
 export default class DidCreate {
     public readonly type: OperationType.Create;
     public readonly didScheme: TyronZILScheme;
-    public readonly updateSignature: string;
-    public readonly recoverySignature: string;
     public readonly sidetreeRequest: Buffer;
     /** The result from the Sidetree request */
     public readonly createOperation: CreateOperation;
@@ -51,8 +49,6 @@ export default class DidCreate {
     ) {
         this.type = OperationType.Create;
         this.didScheme = operation.didScheme;
-        this.updateSignature = operation.updateSignature;
-        this.recoverySignature = operation.recoverySignature;
         this.sidetreeRequest = operation.sidetreeRequest;
         this.createOperation = operation.createOperation;    
         this.delta = this.createOperation.encodedDelta;
@@ -70,33 +66,17 @@ export default class DidCreate {
         const PRIVATE_KEYS = [];
 
         const PUBLIC_KEY_INPUT = input.publicKeyInput;
-        
-        const PRIMARY_KEY_INPUT = PUBLIC_KEY_INPUT[0];
-
-        /** To create the DID primary public key */
-        const KEY_PAIR_INPUT: OperationKeyPairInput = {
-            id: PRIMARY_KEY_INPUT.id,
-            purpose: PRIMARY_KEY_INPUT.purpose
-        }
-        // Creates DID primary key-pair:
-        const [PRIMARY_KEY, PRIMARY_PRIVATE_KEY] = await Cryptography.operationKeyPair(KEY_PAIR_INPUT);
-        PUBLIC_KEYS.push(PRIMARY_KEY);
-        PRIVATE_KEYS.push(Encoder.encode(Buffer.from(JSON.stringify(PRIMARY_PRIVATE_KEY))));
-
-        if (PUBLIC_KEY_INPUT.length === 2) {
-            const SECONDARY_KEY_INPUT = PUBLIC_KEY_INPUT[1];
-            
-            /** To create the DID secondary public key */
+        for(const key_input of PUBLIC_KEY_INPUT) {
+            // Creates the cryptographic key pair
             const KEY_PAIR_INPUT: OperationKeyPairInput = {
-                id: SECONDARY_KEY_INPUT.id,
-                purpose: SECONDARY_KEY_INPUT.purpose
+                id: key_input.id,
+                purpose: key_input.purpose
             }
-            // Creates DID secondary key-pair:
-            const [SECONDARY_KEY, SECONDARY_PRIVATE_KEY] = await Cryptography.operationKeyPair(KEY_PAIR_INPUT);
-            PUBLIC_KEYS.push(SECONDARY_KEY);
-            PRIVATE_KEYS.push(Encoder.encode(Buffer.from(JSON.stringify(SECONDARY_PRIVATE_KEY))));
+            const [PUBLIC_KEY, PRIVATE_KEY] = await Cryptography.operationKeyPair(KEY_PAIR_INPUT);
+            PUBLIC_KEYS.push(PUBLIC_KEY);
+            PRIVATE_KEYS.push(Encoder.encode(Buffer.from(JSON.stringify(PRIVATE_KEY))));
         }
-
+        
         // Creates key-pair for the updateCommitment (save private key for next update operation)
         const [UPDATE_KEY, UPDATE_PRIVATE_KEY] = await Cryptography.jwkPair();
         /** Utilizes the UPDATE_KEY to make the `update reveal value` for the next update operation */
@@ -106,16 +86,11 @@ export default class DidCreate {
         const [RECOVERY_KEY, RECOVERY_PRIVATE_KEY] = await Cryptography.jwkPair();
         /** Utilizes the RECOVERY_KEY to make the next recovery commitment hash */
         const RECOVERY_COMMITMENT = Multihash.canonicalizeThenHashThenEncode(RECOVERY_KEY);
-
-        /***            ****            ****/
-
-        // Add service endpoints:
-        const SERVICE = input.service;
         
         /** Input data for the Sidetree request */
         const SIDETREE_REQUEST_INPUT: RequestInput = {
             publicKey: PUBLIC_KEYS,
-            service: SERVICE,
+            service: input.service,
             updateCommitment: UPDATE_COMMITMENT,
             recoveryCommitment: RECOVERY_COMMITMENT
         };
@@ -134,18 +109,12 @@ export default class DidCreate {
             didUniqueSuffix: CREATE_OPERATION.didUniqueSuffix
         };
 
-        //The delta tyron signatures
-        const UPDATE_SIGNATURE = await Cryptography.signUsingEs256k(SCHEME_DATA, UPDATE_PRIVATE_KEY);
-        const RECOVERY_SIGNATURE = await Cryptography.signUsingEs256k(SCHEME_DATA, RECOVERY_PRIVATE_KEY);
-
         /** The tyronZIL DID-scheme */
         const DID_SCHEME = await TyronZILScheme.newDID(SCHEME_DATA);
 
         /** Output data from a new Sidetree-based `DID-create` operation */
         const OPERATION_OUTPUT: CreateOperationModel = {
             didScheme: DID_SCHEME,
-            updateSignature: UPDATE_SIGNATURE,
-            recoverySignature: RECOVERY_SIGNATURE,
             sidetreeRequest: SIDETREE_REQUEST_BUFFER,
             createOperation: CREATE_OPERATION,
             privateKey: PRIVATE_KEYS,
@@ -173,10 +142,8 @@ export default class DidCreate {
             patches: [PATCH],
             updateCommitment: input.updateCommitment
         };
-        
         const DELTA_BUFFER = Buffer.from(JSON.stringify(DELTA_OBJECT));
         const DELTA = Encoder.encode(DELTA_BUFFER);    
-        
         const DELTA_HASH = Encoder.encode(Multihash.hash(DELTA_BUFFER));
         
         /** The Create Operation Suffix Data Object */
@@ -202,8 +169,6 @@ export default class DidCreate {
 /** Defines output data for a Sidetree-based `DID-create` operation */
 interface CreateOperationModel {
     didScheme: TyronZILScheme;
-    updateSignature: string,
-    recoverySignature: string,
     sidetreeRequest: Buffer;
     createOperation: CreateOperation;
     privateKey: string[];
@@ -225,4 +190,3 @@ export interface CreateDataRequest {
     type: OperationType.Create;
     delta: string;
 }
-

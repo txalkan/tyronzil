@@ -20,9 +20,7 @@ import { NetworkNamespace } from './tyronZIL-schemes/did-scheme';
 import { TyronZILUrlScheme } from './tyronZIL-schemes/did-url-scheme';
 import OperationType from '@decentralized-identity/sidetree/dist/lib/core/enums/OperationType';
 import { Sidetree } from './sidetree-protocol/sidetree';
-import { PatchModel, DocumentModel } from './sidetree-protocol/models/patch-model';
-import SidetreeError from '@decentralized-identity/sidetree/dist/lib/common/SidetreeError';
-import ErrorCode from './util/ErrorCode';
+import { DocumentModel } from './sidetree-protocol/models/patch-model';
 
 /** tyronZIL's DID-state */
 export default class DidState {
@@ -95,27 +93,6 @@ export default class DidState {
         })
         .catch(err => console.error(err))
         return did_state;
-    }
-
-    public static async updateDoc(state: DidState, newDelta: string): Promise<DocumentModel|void> {
-        if(state.status === OperationType.Deactivate) {
-            throw new SidetreeError(ErrorCode.DidDeactivated)
-        } else {
-            const NEW_DOCUMENT = await Sidetree.docFromDelta(newDelta)
-            .then(async doc_in_delta => {
-                /** Corresponds to the recover operation */
-                const DOC = doc_in_delta as DocumentModel;
-                if(DOC !== undefined){
-                    return DOC
-                } else {
-                    const PATCHES = await Sidetree.patchesFromDelta(newDelta) as PatchModel[];
-                    const RESULT = await Sidetree.processPatches(PATCHES, state.document!)
-                    return RESULT.doc
-                }
-            })
-            .catch(err => console.error(err))
-            return NEW_DOCUMENT
-        }
     }
 }
 

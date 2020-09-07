@@ -66,7 +66,7 @@ export default class TyronTransaction extends TyronContract {
         clientPrivateKey: string,
         userPrivateKey: string,
         gasLimit: number
-    ): Promise<TyronTransaction | void> {
+    ): Promise<TyronTransaction|void> {
         const ZIL_INIT = new ZilliqaInit(network);
         const transaction_init = await ZIL_INIT.API.blockchain.getMinimumGasPrice()
         .then(min_gas_price => {
@@ -76,7 +76,7 @@ export default class TyronTransaction extends TyronContract {
                 price: GAS_PRICE,
                 limit: GAS_LIMIT
             };
-            return GAS
+            return GAS;
         })
         .then(async gas => {
             const CLIENT_ADDR = Crypto.getAddressFromPrivateKey(clientPrivateKey);
@@ -133,16 +133,16 @@ export default class TyronTransaction extends TyronContract {
     /** Deploys the `tyron-smart-contract` by version
      * & calls the ContractInit transition with the client_addr to set the operation_cost, the foundation_addr & client_commission from the TyronInit contract 
     */
-    public static async deploy(init: TyronTransaction, version: string): Promise<DeployedContract | void> {
+    public static async deploy(init: TyronTransaction, version: string): Promise<DeployedContract|void> {
         const deployed_contract = await SmartUtil.decode(init.API, init.tyron_init, version)
         .then(contract_code => {
             const CODE = contract_code as string;
 
             const CONTRACT_INIT = [
                 {
-                  vname: '_scilla_version',
-                  type: 'Uint32',
-                  value: '0',
+                    vname: '_scilla_version',
+                    type: 'Uint32',
+                    value: '0',
                 },
                 {
                     vname: 'tyron_init',
@@ -150,9 +150,9 @@ export default class TyronTransaction extends TyronContract {
                     value: `${init.tyron_init}`,
                 },
                 {
-                  vname: 'contract_owner',
-                  type: 'ByStr20',
-                  value: `${init.contract_owner}`,
+                    vname: 'contract_owner',
+                    type: 'ByStr20',
+                    value: `${init.contract_owner}`,
                 },
             ];
 
@@ -163,25 +163,25 @@ export default class TyronTransaction extends TyronContract {
             init.API.wallet.addByPrivateKey(init.user_privateKey);
             const [deployTx, tyron_smart_contract] = await contract.deploy(
                 {
-                version: init.version,
-                gasPrice: init.gas_price,
-                gasLimit: init.gas_limit,
-                nonce: init.user_nonce + 1,
+                    version: init.version,
+                    gasPrice: init.gas_price,
+                    gasLimit: init.gas_limit,
+                    nonce: init.user_nonce + 1,
                 },
                 33,
                 1000,
                 false,
             );
+            console.log(LogColors.yellow(`Your tyron-smart-contract is deployed: `) + LogColors.brightYellow(`${deployTx.isConfirmed()}`));
+            console.log(LogColors.yellow(`Its Zilliqa address is: `) + LogColors.brightGreen(`${tyron_smart_contract.address}`));
             console.log(LogColors.yellow(`Deployment Transaction ID: `) + LogColors.brightYellow(`${deployTx.id}`));
-            
-            console.log(LogColors.yellow(`Your tyron-smart-contract address is: `) + LogColors.brightGreen(`${tyron_smart_contract.address}`));
+            const CUMULATIVE_GAS = (deployTx.getReceipt())!.cumulative_gas;
+            console.log(LogColors.yellow(`The total gas consumed by deploying your tyron-smart-contract was: `) + LogColors.brightYellow(`${CUMULATIVE_GAS}`));
             
             const DEPLOYED_CONTRACT = {
                 transaction: deployTx,
                 contract: tyron_smart_contract
             };
-            const CUMULATIVE_GAS = (deployTx.getReceipt())!.cumulative_gas;
-            console.log(LogColors.yellow(`The total gas consumed by deploying your tyron-smart-contract was: `) + LogColors.brightYellow(`${CUMULATIVE_GAS}`));
             return DEPLOYED_CONTRACT;
         })
         .then(async deployed_contract => {
@@ -205,6 +205,7 @@ export default class TyronTransaction extends TyronContract {
                 1000,
                 false
             );
+            console.log(LogColors.yellow(`Your tyron-smart-contract is initialized: `) + LogColors.brightYellow(`${CALL.isConfirmed()}`));
             const CUMULATIVE_GAS = (CALL.getReceipt())!.cumulative_gas;
             console.log(LogColors.yellow(`The total gas consumed by the ContractInit transition was: `) + LogColors.brightYellow(`${CUMULATIVE_GAS}`));
             return deployed_contract;
@@ -222,14 +223,11 @@ export default class TyronTransaction extends TyronContract {
         })
         .then(async operation_cost => {
             const AMOUNT = new Util.BN(operation_cost);
-            const MIN_GAS_PRICE = await init.API.blockchain.getMinimumGasPrice();
-            const GAS_PRICE = new Util.BN(MIN_GAS_PRICE.result!);
-            const GAS_LIMIT = new Util.Long(15000);
             const PUB_KEY = Crypto.getPubKeyFromPrivateKey(init.client_privateKey);
         
             const TRANSITION: Transition = {
                 _tag: tag,
-                _amount: String(operation_cost),
+                _amount: String(AMOUNT),
                 _sender: init.client_addr,
                 params: params
             };
@@ -238,13 +236,12 @@ export default class TyronTransaction extends TyronContract {
                 version: init.version,
                 amount: AMOUNT,
                 nonce: init.client_nonce + 1,
-                gasLimit: GAS_LIMIT,
-                gasPrice: GAS_PRICE,
+                gasLimit: init.gas_limit,
+                gasPrice: init.gas_price,
                 toAddr: tyronAddr,
                 pubKey: PUB_KEY,
                 data: JSON.stringify(TRANSITION),
             };
-
             const RAW_TX = init.API.transactions.new(TX_OBJECT);
             return RAW_TX;
         })
@@ -285,8 +282,6 @@ export default class TyronTransaction extends TyronContract {
     public static async create(
         didtyron: string,
         doc: string,
-        updateSignature: string,
-        recoverySignature: string,
         updateCommitment: string,
         recoveryCommitment: string
     ): Promise<TransitionParams[]> {
@@ -306,20 +301,6 @@ export default class TyronTransaction extends TyronContract {
         };
         PARAMS.push(DOCUMENT);
 
-        const UPDATE_SIGNATURE: TransitionParams = {
-            vname: 'updateSignature',
-            type: 'String',
-            value: updateSignature,
-        };
-        PARAMS.push(UPDATE_SIGNATURE);
-
-        const RECOVERY_SIGNATURE: TransitionParams = {
-            vname: 'recoverySignature',
-            type: 'String',
-            value: recoverySignature,
-        };
-        PARAMS.push(RECOVERY_SIGNATURE);
-
         const UPDATE_COMMIT: TransitionParams = {
             vname: 'updateCommitment',
             type: 'String',
@@ -338,21 +319,12 @@ export default class TyronTransaction extends TyronContract {
     }
 
     public static async update(
-        updateSignature: string,
         updateCommitment: string,
         newDoc: string,
-        newUpdateSignature: string,
         newUpdateCommitment: string
     ): Promise<TransitionParams[]> {
 
         const PARAMS = [];
-
-        const UPDATE_SIGNATURE: TransitionParams = {
-            vname: 'updateSignature',
-            type: 'String',
-            value: updateSignature,
-        };
-        PARAMS.push(UPDATE_SIGNATURE);
 
         const UPDATE_COMMIT: TransitionParams = {
             vname: 'updateCommitment',
@@ -367,13 +339,6 @@ export default class TyronTransaction extends TyronContract {
             value: newDoc,
         };
         PARAMS.push(DOCUMENT);
-
-        const NEW_UPDATE_SIGNATURE: TransitionParams = {
-            vname: 'newUpdateSignature',
-            type: 'String',
-            value: newUpdateSignature,
-        };
-        PARAMS.push(NEW_UPDATE_SIGNATURE);
 
         const NEW_UPDATE_COMMIT: TransitionParams = {
             vname: 'newUpdateCommitment',

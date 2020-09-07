@@ -23,21 +23,17 @@ import { PatchModel } from '../models/patch-model';
 import { UpdateSignedDataModel } from '../models/signed-data-models';
 import DidState from '../../did-state';
 import { Sidetree } from '../sidetree';
-import { NetworkNamespace, SchemeInputData } from '../../tyronZIL-schemes/did-scheme';
 
 /** Generates a Sidetree-based `DID-update` operation */
 export default class DidUpdate{
     public readonly type: OperationType.Update;
-    public readonly did: string;
-    public readonly newUpdateSignature: string;
+    public readonly did_tyronZIL: string;
     public readonly newUpdateCommitment: string;
     public readonly sidetreeRequest: Buffer;
     /** The result from the Sidetree request */
     public readonly updateOperation: UpdateOperation;
     /** The encoded Delta Object */
     public readonly delta: string;
-    /** The signature from the previous Signed Data Object */
-    public readonly updateSignature: string;
     public readonly privateKey?: string[];
     public readonly updatePrivateKey: JwkEs256k;
     
@@ -45,13 +41,11 @@ export default class DidUpdate{
         operation: UpdateOperationModel
     ) {
         this.type = OperationType.Update;
-        this.did = operation.did;
-        this.newUpdateSignature = operation.newUpdateSignature;
+        this.did_tyronZIL = operation.did_tyronZIL;
         this.newUpdateCommitment = operation.newUpdateCommitment;
         this.sidetreeRequest = operation.sidetreeRequest;
         this.updateOperation = operation.updateOperation;
         this.delta = this.updateOperation.encodedDelta!;
-        this.updateSignature = this.updateOperation.signedDataJws.signature;
         this.privateKey = operation.privateKey;
         this.updatePrivateKey = operation.newUpdatePrivateKey;
     }
@@ -61,11 +55,11 @@ export default class DidUpdate{
     /** Generates a Sidetree-based `DID-update` operation with input from the CLI */
     public static async execute(input: UpdateOperationInput): Promise<DidUpdate|void> {
         const did_executed = await Sidetree.processPatches(input.patches, input.state.document!)
-        .then(async result => {
+        .then(async update => {
             // Creates key-pair for the updateCommitment (save private key for next update operation)
-            const [UPDATE_KEY, UPDATE_PRIVATE_KEY] = await Cryptography.jwkPair();
+            const [NEW_UPDATE_KEY, NEW_UPDATE_PRIVATE_KEY] = await Cryptography.jwkPair();
             /** Utilizes the UPDATE_KEY to make the `update reveal value` for the next update operation */
-            const NEW_UPDATE_COMMITMENT = Multihash.canonicalizeThenHashThenEncode((UPDATE_KEY));
+            const NEW_UPDATE_COMMITMENT = Multihash.canonicalizeThenHashThenEncode((NEW_UPDATE_KEY));
             
             /***            ****            ***/
 
@@ -74,7 +68,7 @@ export default class DidUpdate{
                 did: input.state.did_tyronZIL,
                 updatePrivateKey: input.updatePrivateKey,
                 newUpdateCommitment: NEW_UPDATE_COMMITMENT,
-                patches: result.patches
+                patches: update.patches
             };
 
             /** Sidetree data to generate a `DID-update` operation */
@@ -85,28 +79,19 @@ export default class DidUpdate{
              * @returns UpdateOperation = {operationBuffer, didUniqueSuffix, signedData, signedDataModel, encodedDelta, delta} */
             const UPDATE_OPERATION = await UpdateOperation.parse(SIDETREE_REQUEST_BUFFER);
             
-            const SCHEME_DATA: SchemeInputData = {
-                network: NetworkNamespace.Testnet,
-                didUniqueSuffix: input.state.did_tyronZIL
-            };
-    
-            //The delta tyron signature
-            const NEW_UPDATE_SIGNATURE = await Cryptography.signUsingEs256k(SCHEME_DATA, UPDATE_PRIVATE_KEY);
-    
-            /** Output data from a Sidetree-based `DID-update` operation */
+            //** Output data from a Sidetree-based `DID-update` operation */
             const OPERATION_OUTPUT: UpdateOperationModel = {
-                did: input.state.did_tyronZIL,
-                newUpdateSignature: NEW_UPDATE_SIGNATURE,
+                did_tyronZIL: input.state.did_tyronZIL,
                 newUpdateCommitment: NEW_UPDATE_COMMITMENT,
                 sidetreeRequest: SIDETREE_REQUEST_BUFFER,
                 updateOperation: UPDATE_OPERATION,
-                privateKey: result.privateKey,
-                newUpdatePrivateKey: UPDATE_PRIVATE_KEY
+                privateKey: update.privateKey,
+                newUpdatePrivateKey: NEW_UPDATE_PRIVATE_KEY
             };
             return new DidUpdate(OPERATION_OUTPUT);
         })
         .catch(err => console.error(err))
-        return did_executed
+        return did_executed;
     }
 
     /***            ****            ***/
@@ -121,15 +106,12 @@ export default class DidUpdate{
         };
         const DELTA_BUFFER = Buffer.from(JSON.stringify(DELTA_OBJECT));
         const DELTA = Encoder.encode(DELTA_BUFFER);
-            
         const DELTA_HASH = Encoder.encode(Multihash.hash(DELTA_BUFFER));
-        
-        const PREVIOUS_UPDATE_KEY = Cryptography.getPublicKey(input.updatePrivateKey);
         
         /** For the Update Operation Signed Data Object */
         const SIGNED_DATA: UpdateSignedDataModel = {
             delta_hash: DELTA_HASH,
-            update_key: PREVIOUS_UPDATE_KEY
+            update_key: Cryptography.getPublicKey(input.updatePrivateKey)
         };
         const SIGNED_DATA_JWS = await Cryptography.signUsingEs256k(SIGNED_DATA, input.updatePrivateKey);
 
@@ -155,8 +137,7 @@ export interface UpdateOperationInput {
 
 /** Defines output data of a Sidetree-based `DID-update` operation */
 interface UpdateOperationModel {
-    did: string;
-    newUpdateSignature: string;
+    did_tyronZIL: string;
     newUpdateCommitment: string;
     sidetreeRequest: Buffer;
     updateOperation: UpdateOperation;

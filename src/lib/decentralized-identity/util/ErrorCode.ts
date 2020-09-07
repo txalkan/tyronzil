@@ -23,6 +23,8 @@ export default {
     JwkEs256kMissingOrInvalidTypeY: 'jwk_es256k_missing_or_invalid_type_y',
     JwkEs256kMissingOrInvalidTypeKid: 'jwk_es256k_missing_or_invalid_type_kid',
     DidInvalidUrl: 'The_given_DID_is_not_a_URL',
+    DocumentPublicKeyIdDuplicated: 'document_public_key_id_duplicated',
+    DocumentServiceIdDuplicated: 'document_service_id_duplicated',
     IncorrectDidPrefix: 'The_given_DID_does_not_have_the_right_prefix',
     IncorrectNetwork: 'The_network_namespace_is_invalid',
     CouldNotSave: 'Could not save the DID file',
