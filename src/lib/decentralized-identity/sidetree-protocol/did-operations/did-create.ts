@@ -18,7 +18,7 @@ import CreateOperation from '@decentralized-identity/sidetree/dist/lib/core/vers
 import JwkEs256k from '@decentralized-identity/sidetree/dist/lib/core/models/JwkEs256k';
 import { Cryptography, OperationKeyPairInput } from '../../util/did-keys';
 import { PublicKeyModel } from '../models/verification-method-models';
-import { CliInputModel } from '../../../../bin/cli-input-model';
+import { CliInputModel } from '../../../../bin/util';
 import TyronZILScheme from '../../tyronZIL-schemes/did-scheme';
 import { SchemeInputData } from '../../tyronZIL-schemes/did-scheme';
 import Multihash from '@decentralized-identity/sidetree/dist/lib/core/versions/latest/Multihash';
@@ -29,7 +29,7 @@ import { SuffixDataModel } from '../sidetree';
 
 /** Generates a Sidetree-based `DID-create` operation */
 export default class DidCreate {
-    public readonly type: OperationType.Create;
+    public readonly type = OperationType.Create;
     public readonly didScheme: TyronZILScheme;
     public readonly sidetreeRequest: Buffer;
     /** The result from the Sidetree request */
@@ -47,11 +47,10 @@ export default class DidCreate {
     private constructor (
         operation: CreateOperationModel
     ) {
-        this.type = OperationType.Create;
         this.didScheme = operation.didScheme;
         this.sidetreeRequest = operation.sidetreeRequest;
         this.createOperation = operation.createOperation;    
-        this.delta = this.createOperation.encodedDelta;
+        this.delta = this.createOperation.encodedDelta!;
         this.suffixData = this.createOperation.encodedSuffixData;
         this.privateKey = operation.privateKey;
         this.updatePrivateKey = operation.updatePrivateKey;

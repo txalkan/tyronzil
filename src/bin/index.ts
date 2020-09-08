@@ -35,13 +35,13 @@ yargs
         await tyronCLI.handleUpdate();
       })
       .command('recover', ' -> recovers the given tyronZIL DID and creates a new DID-state)', async () => {
-        //await tyronCLI.handleRecover();
+        await tyronCLI.handleRecover();
       })
       .command('deactivate', ' -> deactivates the given tyronZIL DID and its DID-state', async () => {
-        //await tyronCLI.handleDeactivate();
+        await tyronCLI.handleDeactivate();
       })
       .wrap(null)
-      .strict(); // the sub-command must be one of the explicitly defined sub-commands
+      .strict(); //the sub-command must be one of the explicitly defined sub-commands
   })
   .command('resolve', ' -> resolves the given tyronZIL DID into its DID-document (read operation)', async () => {
     await tyronCLI.handleResolve();

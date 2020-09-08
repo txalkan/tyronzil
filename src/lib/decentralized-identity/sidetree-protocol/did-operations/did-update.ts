@@ -19,15 +19,16 @@ import Multihash from '@decentralized-identity/sidetree/dist/lib/core/versions/l
 import Encoder from '@decentralized-identity/sidetree/dist/lib/core/versions/latest/Encoder';
 import OperationType from '@decentralized-identity/sidetree/dist/lib/core/enums/OperationType';
 import UpdateOperation from '@decentralized-identity/sidetree/dist/lib/core/versions/latest/UpdateOperation';
-import { PatchModel } from '../models/patch-model';
+import { PatchModel, DocumentModel } from '../models/patch-model';
 import { UpdateSignedDataModel } from '../models/signed-data-models';
 import DidState from '../../did-state';
 import { Sidetree } from '../sidetree';
 
 /** Generates a Sidetree-based `DID-update` operation */
 export default class DidUpdate{
-    public readonly type: OperationType.Update;
+    public readonly type = OperationType.Update;
     public readonly did_tyronZIL: string;
+    public readonly newDoc: DocumentModel;
     public readonly newUpdateCommitment: string;
     public readonly sidetreeRequest: Buffer;
     /** The result from the Sidetree request */
@@ -35,19 +36,19 @@ export default class DidUpdate{
     /** The encoded Delta Object */
     public readonly delta: string;
     public readonly privateKey?: string[];
-    public readonly updatePrivateKey: JwkEs256k;
+    public readonly newUpdatePrivateKey: JwkEs256k;
     
     private constructor (
         operation: UpdateOperationModel
     ) {
-        this.type = OperationType.Update;
         this.did_tyronZIL = operation.did_tyronZIL;
+        this.newDoc = operation.newDoc;
         this.newUpdateCommitment = operation.newUpdateCommitment;
         this.sidetreeRequest = operation.sidetreeRequest;
         this.updateOperation = operation.updateOperation;
         this.delta = this.updateOperation.encodedDelta!;
         this.privateKey = operation.privateKey;
-        this.updatePrivateKey = operation.newUpdatePrivateKey;
+        this.newUpdatePrivateKey = operation.newUpdatePrivateKey;
     }
 
     /***            ****            ***/
@@ -79,9 +80,10 @@ export default class DidUpdate{
              * @returns UpdateOperation = {operationBuffer, didUniqueSuffix, signedData, signedDataModel, encodedDelta, delta} */
             const UPDATE_OPERATION = await UpdateOperation.parse(SIDETREE_REQUEST_BUFFER);
             
-            //** Output data from a Sidetree-based `DID-update` operation */
+            /** Output data from a Sidetree-based `DID-update` operation */
             const OPERATION_OUTPUT: UpdateOperationModel = {
                 did_tyronZIL: input.state.did_tyronZIL,
+                newDoc: update.doc,
                 newUpdateCommitment: NEW_UPDATE_COMMITMENT,
                 sidetreeRequest: SIDETREE_REQUEST_BUFFER,
                 updateOperation: UPDATE_OPERATION,
@@ -90,7 +92,7 @@ export default class DidUpdate{
             };
             return new DidUpdate(OPERATION_OUTPUT);
         })
-        .catch(err => console.error(err))
+        .catch(err => { throw err })
         return did_executed;
     }
 
@@ -138,6 +140,7 @@ export interface UpdateOperationInput {
 /** Defines output data of a Sidetree-based `DID-update` operation */
 interface UpdateOperationModel {
     did_tyronZIL: string;
+    newDoc: DocumentModel;
     newUpdateCommitment: string;
     sidetreeRequest: Buffer;
     updateOperation: UpdateOperation;

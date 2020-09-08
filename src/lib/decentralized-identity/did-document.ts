@@ -22,6 +22,7 @@ import * as fs from 'fs';
 import LogColors from '../../bin/log-colors';
 import SidetreeError from '@decentralized-identity/sidetree/dist/lib/common/SidetreeError';
 import ErrorCode from './util/ErrorCode';
+import OperationType from '@decentralized-identity/sidetree/dist/lib/core/enums/OperationType';
 
 /** Generates a tyronZIL DID document */
 export default class DidDoc {
@@ -61,80 +62,76 @@ export default class DidDoc {
     /***            ****            ***/
 
     /** Generates a 'DID-read' operation, resolving any tyronZIL DID-state into its DID-document */
-    public static async read(input: DidState): Promise<DidDoc> {
-        /** Validates tyronZIL's DID-scheme */
-        let ID;
-        try {
-            const DID_SCHEME = await TyronZILUrlScheme.validate(input.did_tyronZIL);
-            ID = DID_SCHEME.did_tyronZIL;
-        } catch (error) {
-            throw new SidetreeError(ErrorCode.InvalidDID);
-        }
+    public static async read(state: DidState): Promise<DidDoc> {
+        const DID_DOC = await TyronZILUrlScheme.validate(state.did_tyronZIL)
+        .then(async did_scheme => {
+            const ID = did_scheme.did_tyronZIL;
+            
+            /** Reads the public keys */
+            const PUBLIC_KEYS = state.document!.public_keys;
+            const PUBLIC_KEY = [];
+            const AUTHENTICATION = [];
 
-        /***            ****            ***/
+            if(Array.isArray(PUBLIC_KEYS)) {
+                for(const key of PUBLIC_KEYS) {
+                    /** The key ID */
+                    const DID_URL: string = ID + '#' + key.id;
+                    const VERIFICATION_METHOD: VerificationMethodModel = {
+                        id: DID_URL,
+                        type: key.type,
+                        jwk: key.jwk
+                    };
 
-        /** Reads the public keys */
-        const PUBLIC_KEYS = input.document!.public_keys;
-        const PUBLIC_KEY = [];
-        const AUTHENTICATION = [];
+                    /** The verification relationship for the key */
+                    const PURPOSE: Set<string> = new Set(key.purpose);
 
-        if (Array.isArray(PUBLIC_KEYS)) {
-            for (const key of PUBLIC_KEYS) {
-                /** The key ID */
-                const DID_URL: string = ID + '#' + key.id;
-                const VERIFICATION_METHOD: VerificationMethodModel = {
-                    id: DID_URL,
-                    type: key.type,
-                    jwk: key.jwk
-                };
-
-                /** The verification relationship for the key */
-                const PURPOSE: Set<string> = new Set(key.purpose);
-
-                if (PURPOSE.has(PublicKeyPurpose.General)) {
-                    PUBLIC_KEY.push(VERIFICATION_METHOD);
+                    if (PURPOSE.has(PublicKeyPurpose.General)) {
+                        PUBLIC_KEY.push(VERIFICATION_METHOD);
+                        
+                        // The authentication property
+                        // referenced key:
+                        if (PURPOSE.has(PublicKeyPurpose.Auth)) {
+                            AUTHENTICATION.push(DID_URL); 
+                        }
                     
-                    // The authentication property
-                    // referenced key:
-                    if (PURPOSE.has(PublicKeyPurpose.Auth)) {
-                        AUTHENTICATION.push(DID_URL); 
+                    // embedded key, when is not a general key
+                    } else if (PURPOSE.has(PublicKeyPurpose.Auth)) {
+                        AUTHENTICATION.push(VERIFICATION_METHOD); 
                     }
-                
-                // embedded key, when is not a general key
-                } else if (PURPOSE.has(PublicKeyPurpose.Auth)) {
-                    AUTHENTICATION.push(VERIFICATION_METHOD); 
                 }
             }
-        }
 
-        /***            ****            ***/
+            /***            ****            ***/
 
-        /** Service property */
-        const SERVICE_INTERFACE = input.document?.service_endpoints;
-        const SERVICES = [];
-        
-        if (Array.isArray(SERVICE_INTERFACE)) {
-            for (const service of SERVICE_INTERFACE) {
-                const SERVICE: ServiceEndpointModel = {
-                    id: ID + '#' + service.id,
-                    type: service.type,
-                    endpoint: service.endpoint
-                };
-                SERVICES.push(SERVICE);
+            /** Service property */
+            const SERVICE_INTERFACE = state.document?.service_endpoints;
+            const SERVICES = [];
+            
+            if (Array.isArray(SERVICE_INTERFACE)) {
+                for (const service of SERVICE_INTERFACE) {
+                    const SERVICE: ServiceEndpointModel = {
+                        id: ID + '#' + service.id,
+                        type: service.type,
+                        endpoint: service.endpoint
+                    };
+                    SERVICES.push(SERVICE);
+                }
             }
-        }
 
-        /** The tyronZIL DID-document */
-        const OPERATION_OUTPUT: DidDocScheme = {
-            id: ID,
-            publicKey: PUBLIC_KEY,
-            authentication: AUTHENTICATION
-        };
-         
-        if (SERVICES.length !== 0) {
-            OPERATION_OUTPUT.service = SERVICES;
-        }
-        return new DidDoc(OPERATION_OUTPUT);
+            /** The tyronZIL DID-document */
+            const OPERATION_OUTPUT: DidDocScheme = {
+                id: ID,
+                publicKey: PUBLIC_KEY,
+                authentication: AUTHENTICATION
+            };
+            
+            if (SERVICES.length !== 0) {
+                OPERATION_OUTPUT.service = SERVICES;
+            }
+            return new DidDoc(OPERATION_OUTPUT);
+        })
+        .catch(err => { throw err })
+        return DID_DOC;
     }
 
     /***            ****            ***/
@@ -149,23 +146,32 @@ export default class DidDoc {
             if(DID_STATE.did_tyronZIL !== DID_tyronZIL){
                 throw new SidetreeError(ErrorCode.DidMismatch)
             }
-            const DID_DOC = await DidDoc.read(DID_STATE);
-            switch (ACCEPT) {
-                case Accept.contentType:
-                    return DID_DOC;
-                case Accept.Result: {
-                    const RESOLUTION_RESULT: ResolutionResult = {
-                        document: DID_DOC,
-                        metadata: {
-                            updateCommitment: DID_STATE.updateCommitment,
-                            recoveryCommitment: DID_STATE.recoveryCommitment,
+            switch (DID_STATE.status) {
+                case OperationType.Deactivate:
+                    {
+                        throw new SidetreeError("DidDeactivated", "The requested DID is deactivated")
+                    }
+                default:
+                    {
+                        const DID_DOC = await DidDoc.read(DID_STATE);
+                        switch (ACCEPT) {
+                            case Accept.contentType:
+                                return DID_DOC;
+                            case Accept.Result: {
+                                const RESOLUTION_RESULT: ResolutionResult = {
+                                    document: DID_DOC,
+                                    metadata: {
+                                        updateCommitment: DID_STATE.updateCommitment,
+                                        recoveryCommitment: DID_STATE.recoveryCommitment,
+                                    }
+                                }
+                                return RESOLUTION_RESULT;
+                            }
                         }
                     }
-                    return RESOLUTION_RESULT;
-                }
             }
         })
-        .catch(err => console.error(err))
+        .catch(err => { throw err })
         return DID_RESOLVED;
     }
 }

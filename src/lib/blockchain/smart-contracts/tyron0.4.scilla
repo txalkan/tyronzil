@@ -37,10 +37,10 @@ library Tyron
     (*************)    
     let zero = Uint128 0
     let hundred = Uint128 100
-    let created = "created"
-    let updated = "updated"
-    let recovered = "recovered"
-    let deactivated = "deactivated"
+    let create = "create"
+    let update = "update"
+    let recover = "recover"
+    let deactivate = "deactivate"
     let undefined = "undefined"
   
     (* Error events *)
@@ -245,15 +245,15 @@ contract Tyron(
         recoveryCommitment: String
     )
         IsClient;
-        IsStatus created;
-        IsStatus deactivated;
+        IsStatus create;
+        IsStatus deactivate;
         Payment;
         decentralized_identifier := didtyron;
         document := doc;
         update_commitment := updateCommitment;
         recovery_commitment := recoveryCommitment;
-        status := created;
-        Timestamp   
+        status := create;
+        Timestamp
     end
 
     transition DidUpdate(
@@ -262,48 +262,46 @@ contract Tyron(
         newUpdateCommitment: String       
     )
         IsClient;
-        IsStatus deactivated;
+        IsStatus deactivate;
         this_commitment <- update_commitment;
         IsCommitment this_commitment updateCommitment;
         Payment;
         document := newDoc;
         update_commitment := newUpdateCommitment;
-        status := updated;
+        status := update;
         Timestamp
     end
 
     transition DidRecover(
         recoveryCommitment: String,
         newDoc: String,
-        newRecoveryCommitment: String,
-        newUpdateSignature: String,
-        newUpdateCommitment: String
+        newUpdateCommitment: String,
+        newRecoveryCommitment: String
     )
         IsClient;
-        IsStatus deactivated;
+        IsStatus deactivate;
         this_commitment <- recovery_commitment;
         IsCommitment this_commitment recoveryCommitment;
         Payment;
         document := newDoc;
         update_commitment := newUpdateCommitment;
         recovery_commitment := newRecoveryCommitment;
-        status := recovered;
+        status := recover;
         Timestamp
     end
 
     transition DidDeactivate(
-        recoverySignature: String,
         recoveryCommitment: String
     )
         IsClient;
-        IsStatus deactivated;
+        IsStatus deactivate;
         this_commitment <- recovery_commitment;
         IsCommitment this_commitment recoveryCommitment;
         Payment;
         document := undefined;
         update_commitment := undefined;
         recovery_commitment := undefined;
-        status := deactivated;
+        status := deactivate;
         Timestamp
     end
 
@@ -316,4 +314,3 @@ contract Tyron(
         };
         event e
     end
-    
