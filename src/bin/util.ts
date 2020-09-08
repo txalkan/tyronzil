@@ -16,50 +16,37 @@
 import * as fs from 'fs';
 import LogColors from './log-colors';
 import * as readline from 'readline-sync';
-import { PublicKeyInput } from './cli-input-model';
+import { NetworkNamespace } from '../lib/decentralized-identity/tyronZIL-schemes/did-scheme';
 import { PublicKeyPurpose } from '../lib/decentralized-identity/sidetree-protocol/models/verification-method-models';
 import ServiceEndpointModel from '@decentralized-identity/sidetree/dist/lib/core/versions/latest/models/ServiceEndpointModel';
 import SidetreeError from '@decentralized-identity/sidetree/dist/lib/common/SidetreeError';
 
 export default class Util {
-    public static async fetch(did: string): Promise<any> {
-        const FILE_NAME = `DID_RESOLVED_${did}.json`;
-        let OBJECT: any;
-        try {
-            const FILE = fs.readFileSync(FILE_NAME);
-            OBJECT = await JSON.parse(FILE.toString());
-        } catch (error) {
-            console.log(LogColors.red(`Could not parse the file into an object`));
-        }
-        return OBJECT;
-    }
-
-    /***            ****            ***/
 
     /** Generates the keys' input */
     public static async InputKeys(): Promise<PublicKeyInput[]> {
         console.log(LogColors.brightGreen(`Cryptographic keys for your Decentralized Identifier: `))
-        const amount = readline.question(LogColors.green(`How many keys would you like to have? - `) + LogColors.lightBlue(`Your answer: `));
+        const amount = readline.question(LogColors.green(`How many keys would you like to add? - `) + LogColors.lightBlue(`Your answer: `));
         if(!Number(amount)){
-            throw new SidetreeError("WrongAmount", "It must be a number");
+            throw new SidetreeError("WrongAmount", "It must be a number > 0");
         }
         const KEYS = [];
         for(let i=0, t= Number(amount); i<t; ++i) {
-            const id = readline.question(LogColors.green(`Write down your key ID - `) + LogColors.lightBlue(`Your answer: `));
+            const id = readline.question(LogColors.green(`Next, write down your key ID - `) + LogColors.lightBlue(`Your answer: `));
             if (id === "") {
                 throw new SidetreeError("InvalidID", `To register a key you must provide its ID`);
             }
-            const purpose = readline.question(LogColors.green(`What is the key purpose: general(1), authentication(2) or both(3)?`) + ` [1/2/3] - Defaults to authentication - ` + LogColors.lightBlue(`Your answer: `));
+            const purpose = readline.question(LogColors.green(`What is the key purpose: general(1), authentication(2) or both(3)?`) + ` [1/2/3] - Defaults to both - ` + LogColors.lightBlue(`Your answer: `));
             let PURPOSE;
             switch (Number(purpose)) {
                 case 1:
                     PURPOSE = [PublicKeyPurpose.General];
                     break;
-                case 3:
-                    PURPOSE = [PublicKeyPurpose.General, PublicKeyPurpose.Auth];
+                case 2:
+                    PURPOSE = [PublicKeyPurpose.Auth];
                     break;
                 default:
-                    PURPOSE = [PublicKeyPurpose.Auth];
+                    PURPOSE = [PublicKeyPurpose.General, PublicKeyPurpose.Auth];
                     break;
             }
             const KEY: PublicKeyInput = {
@@ -77,21 +64,27 @@ export default class Util {
     public static async InputService(): Promise<ServiceEndpointModel[]> {
         console.log(LogColors.brightGreen(`Service endpoints for your Decentralized Identifier:`));
         const SERVICE = [];
-        const amount = readline.question(LogColors.green(`How many service endpoints would you like to have? - `) + LogColors.lightBlue(`Your answer: `));
-        if(!Number(amount)){
+        const amount = readline.question(LogColors.green(`How many service endpoints would you like to add? - `) + LogColors.lightBlue(`Your answer: `));
+        if(!Number(amount) && Number(amount) !== 0){
             throw new SidetreeError("WrongAmount", "It must be a number");
         }
         for(let i=0, t= Number(amount); i<t; ++i) {
             const id = readline.question(LogColors.green(`Write down your service ID - `) + LogColors.lightBlue(`Your answer: `));
-            const type = readline.question(LogColors.green(`Write down your service type - `) + ` - [e.g. website] - ` + LogColors.lightBlue(`Your answer: `));
-            const endpoint = readline.question(LogColors.green(`Write down your service URL - `) + ` - [https://yourwebsite.com] - ` + LogColors.lightBlue(`Your answer: `));
-            if (id === "" || endpoint === "" || type === "") {
+            const type = readline.question(LogColors.green(`Write down your service type - `) + ` - Defaults to 'website' - ` + LogColors.lightBlue(`Your answer: `));
+            const endpoint = readline.question(LogColors.green(`Write down your service URL - `) + ` - [yourwebsite.com] - ` + LogColors.lightBlue(`Your answer: `));
+            if (id === "" || endpoint === "") {
                 throw new SidetreeError("Invalid parameter", "To register a service-endpoint you must provide its ID, type and URL");
+            }
+            let TYPE;
+            if(type !== "") {
+                TYPE = type;
+            } else {
+                TYPE = "website"
             }
             const SERVICE_ENDPOINT: ServiceEndpointModel = {
                 id: id,
-                type: type,
-                endpoint: endpoint
+                type: TYPE,
+                endpoint: "https://" + endpoint
             }
             SERVICE.push(SERVICE_ENDPOINT);
         }
@@ -106,8 +99,19 @@ export default class Util {
     }
 }
 
+export interface CliInputModel {
+    network: NetworkNamespace;
+    publicKeyInput: PublicKeyInput[];
+    service: ServiceEndpointModel[];
+}
+  
+export interface PublicKeyInput {
+    id: string;
+    purpose: PublicKeyPurpose[];
+}
+
 export interface PrivateKeys {
     privateKeys?: string[],        //encoded strings
     updatePrivateKey?: string,
     recoveryPrivateKey?: string,
-  }
+}

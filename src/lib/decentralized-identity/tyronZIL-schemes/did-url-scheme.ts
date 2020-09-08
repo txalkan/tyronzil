@@ -56,14 +56,6 @@ export class TyronZILUrlScheme extends TyronZILScheme {
 
     /** Validates if the given DID is a proper tyronZIL DID */
     public static async validate(did: string): Promise<TyronZILUrlScheme> {
-        /*
-        let IS_URL = undefined;
-        try {
-            IS_URL = new URL(did);
-        } catch {
-            throw new SidetreeError(ErrorCode.DidInvalidUrl);
-        }
-        */
         const PREFIX = this.schemeIdentifier + this.methodName + this.blockchain;
 
         if (!did.startsWith(PREFIX)) {

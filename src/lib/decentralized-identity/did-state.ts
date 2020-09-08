@@ -13,8 +13,6 @@
     GNU General Public License for more details.
 */
 
-import * as fs from 'fs';
-import LogColors from '../../bin/log-colors';
 import TyronState from '../blockchain/tyron-state';
 import { NetworkNamespace } from './tyronZIL-schemes/did-scheme';
 import { TyronZILUrlScheme } from './tyronZIL-schemes/did-url-scheme';
@@ -25,6 +23,7 @@ import { DocumentModel } from './sidetree-protocol/models/patch-model';
 /** tyronZIL's DID-state */
 export default class DidState {
     public readonly status: OperationType;
+    public readonly contract_owner: string;
     public readonly did_tyronZIL: string;
 
     /** The DID-document as a Sidetree Document Model */
@@ -38,20 +37,11 @@ export default class DidState {
         state: DidStateModel
     ) {
         this.status = state.status;
+        this.contract_owner = state.contract_owner;
         this.did_tyronZIL = state.did_tyronZIL;
         this.document = state.document;
         this.updateCommitment = state.updateCommitment;
         this.recoveryCommitment = state.recoveryCommitment
-    }
-
-    /***            ****            ***/
-
-    /** Saves the DID-state asynchronously */
-    public static async write(state: DidState): Promise<void> {
-        const PRINT_STATE = JSON.stringify(state, null, 2);
-        const FILE_NAME = `DID_STATE_${state.did_tyronZIL}.json`;
-        fs.writeFileSync(FILE_NAME, PRINT_STATE);
-        console.info(LogColors.yellow(`DID-state saved as: ${LogColors.brightYellow(FILE_NAME)}`));
     }
 
     /***            ****            ***/
@@ -67,6 +57,7 @@ export default class DidState {
         })
         .then(async tyron_state => {
             const STATUS = tyron_state.status;
+            const CONTRACT_OWNER = tyron_state.contract_owner;
             let DOCUMENT;
             let UPDATE_COMMITMENT;
             let RECOVERY_COMMITMENT;
@@ -84,6 +75,7 @@ export default class DidState {
             }
             const THIS_STATE: DidStateModel = {
                 status: STATUS,
+                contract_owner: CONTRACT_OWNER,
                 did_tyronZIL: tyron_state.decentralized_identifier,
                 document: DOCUMENT,
                 updateCommitment: UPDATE_COMMITMENT,
@@ -101,8 +93,9 @@ export default class DidState {
 /** The state model of a decentralized identifier */
 export interface DidStateModel {
     status: OperationType;
+    contract_owner: string;
     did_tyronZIL: string;
-    document: DocumentModel | undefined;        // undefined after deactivation       // undefined after deactivation
-    updateCommitment: string | undefined;        // undefined after deactivation
-    recoveryCommitment: string | undefined;        // undefined after deactivation
+    document: DocumentModel|undefined;        // undefined after deactivation
+    updateCommitment: string|undefined;        // undefined after deactivation
+    recoveryCommitment: string|undefined;        // undefined after deactivation
 }

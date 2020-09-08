@@ -35,9 +35,9 @@ export default class TyronTransaction extends TyronContract {
     private readonly client_nonce: number;
     
     /** The user's private key */
-    private readonly user_privateKey: string;
+    private readonly user_privateKey?: string;
     /** The user's current nonce */
-    private readonly user_nonce: number;
+    private readonly user_nonce?: number;
 
     private constructor(
         network: NetworkNamespace,
@@ -46,8 +46,8 @@ export default class TyronTransaction extends TyronContract {
         gas_limit: Util.Long,
         client_key: string,
         client_nonce: number,
-        user_key: string,
-        user_nonce: number
+        user_key?: string,
+        user_nonce?: number
     ) {
         super(network, init);
         this.gas_price = gas_price;
@@ -64,13 +64,14 @@ export default class TyronTransaction extends TyronContract {
         network: NetworkNamespace,
         init: ContractInit,
         clientPrivateKey: string,
-        userPrivateKey: string,
-        gasLimit: number
-    ): Promise<TyronTransaction|void> {
+        gasLimit: number,
+        userPrivateKey?: string
+    ): Promise<TyronTransaction> {
         const ZIL_INIT = new ZilliqaInit(network);
         const transaction_init = await ZIL_INIT.API.blockchain.getMinimumGasPrice()
         .then(min_gas_price => {
             const GAS_PRICE = new Util.BN(min_gas_price.result!);
+            console.log(LogColors.yellow(`The minimum gas price retrieved from the network is: `) + LogColors.brightYellow(`${Number(GAS_PRICE)/1000000000000} ZIL`))
             const GAS_LIMIT = new Util.Long(gasLimit);
             const GAS = {
                 price: GAS_PRICE,
@@ -90,7 +91,7 @@ export default class TyronTransaction extends TyronContract {
 
             // The account's balance MUST be greater than a minimum stake amount
             if (Number(BALANCE_RESULT.balance) < init.tyron_stake) {
-            throw new SidetreeError(ErrorCode.NotEnoughBalance)
+            throw new SidetreeError("NotEnoughBalance", `The client's balance must be more than the tyron_stake of 100ZIL - Current balance: ${Number(BALANCE_RESULT.balance)/1000000000000} ZIL`)
             }
             const PARAMETERS = {
                 gas: gas,
@@ -99,20 +100,23 @@ export default class TyronTransaction extends TyronContract {
             return PARAMETERS;
         })
         .then(async parameters => {
-            const USER_ADDRESS = Crypto.getAddressFromPrivateKey(userPrivateKey);
-            if (USER_ADDRESS !== init.contract_owner) {
-                throw new SidetreeError(ErrorCode.WrongKey);
-            }
-            /** Gets the current balance of the account (in Qa = 10^-12 ZIL as string)
-            * & the current nonce of the account (as number) */
-            const GET_BALANCE = await ZIL_INIT.API.blockchain.getBalance(USER_ADDRESS);
-            const BALANCE_RESULT = GET_BALANCE.result;
+            let USER_NONCE;
+            if(userPrivateKey !== undefined) {
+                const USER_ADDRESS = Crypto.getAddressFromPrivateKey(userPrivateKey);
+                if (USER_ADDRESS !== init.contract_owner) {
+                    throw new SidetreeError(ErrorCode.WrongKey);
+                }
+                /** Gets the current balance of the account (in Qa = 10^-12 ZIL as string)
+                * & the current nonce of the account (as number) */
+                const GET_BALANCE = await ZIL_INIT.API.blockchain.getBalance(USER_ADDRESS);
+                const BALANCE_RESULT = GET_BALANCE.result;
 
-            // The account's balance MUST be greater than the cost to initialize the `tyron-smart-contract`, e.g. 100ZIL
-            if (Number(BALANCE_RESULT.balance) < 100000000000000) {
-            throw new SidetreeError(ErrorCode.NotEnoughBalance)
+                // The account's balance MUST be greater than the cost to initialize the `tyron-smart-contract`
+                if (Number(BALANCE_RESULT.balance) < 20000000000000) {
+                    throw new SidetreeError("NotEnoughBalance", `The user's balance must be more than the cost to initialize their contract (~20ZIL) - Current balance: ${Number(BALANCE_RESULT.balance)/1000000000000} ZIL`)
+                }
+                USER_NONCE = Number(BALANCE_RESULT.nonce);
             }
-            const USER_NONCE = Number(BALANCE_RESULT.nonce);
 
             return new TyronTransaction(
                 network,
@@ -124,7 +128,7 @@ export default class TyronTransaction extends TyronContract {
                 userPrivateKey,
                 USER_NONCE);
         })
-        .catch(error => console.error(error));
+        .catch(err => {throw err});
         return transaction_init;
     }
 
@@ -160,13 +164,13 @@ export default class TyronTransaction extends TyronContract {
             return CONTRACT;
         })
         .then(async contract => {
-            init.API.wallet.addByPrivateKey(init.user_privateKey);
+            init.API.wallet.addByPrivateKey(init.user_privateKey!);
             const [deployTx, tyron_smart_contract] = await contract.deploy(
                 {
                     version: init.version,
                     gasPrice: init.gas_price,
                     gasLimit: init.gas_limit,
-                    nonce: init.user_nonce + 1,
+                    nonce: init.user_nonce! + 1,
                 },
                 33,
                 1000,
@@ -259,7 +263,7 @@ export default class TyronTransaction extends TyronContract {
             const TRAN_ID = TX_RESULT.TranID;
             
             const TRANSACTION = await signed_tx.confirm(TRAN_ID, 33, 1000)
-            console.log(LogColors.yellow(`The ${tag} tyronZIL transaction is: `) + LogColors.brightYellow(`${JSON.stringify(TRANSACTION, null, 2)}`));
+            console.log(LogColors.yellow(`For testing purposes, disclosing the ${tag} tyronZIL transaction: `) + LogColors.brightYellow(`${JSON.stringify(TRANSACTION, null, 2)}`));
             const STATUS = signed_tx.isConfirmed();
             console.log(LogColors.yellow(`The transaction is confirmed: `) + LogColors.brightYellow(`${STATUS}`));
             if(STATUS){
@@ -349,6 +353,62 @@ export default class TyronTransaction extends TyronContract {
 
         return PARAMS;
     }
+
+    public static async recover(
+        recoveryCommitment: string,
+        newDoc: string,
+        newUpdateCommitment: string,
+        newRecoveryCommitment: string
+    ): Promise<TransitionParams[]> {
+
+        const PARAMS = [];
+
+        const RECOVERY_COMMIT: TransitionParams = {
+            vname: 'recoveryCommitment',
+            type: 'String',
+            value: recoveryCommitment,
+        };
+        PARAMS.push(RECOVERY_COMMIT);
+        
+        const DOCUMENT: TransitionParams = {
+            vname: 'newDoc',
+            type: 'String',
+            value: newDoc,
+        };
+        PARAMS.push(DOCUMENT);
+
+        const NEW_UPDATE_COMMIT: TransitionParams = {
+            vname: 'newUpdateCommitment',
+            type: 'String',
+            value: newUpdateCommitment,
+        };
+        PARAMS.push(NEW_UPDATE_COMMIT);
+
+        const NEW_RECOVERY_COMMIT: TransitionParams = {
+            vname: 'newRecoveryCommitment',
+            type: 'String',
+            value: newRecoveryCommitment,
+        };
+        PARAMS.push(NEW_RECOVERY_COMMIT);
+
+        return PARAMS;
+    }
+
+    public static async deactivate(
+        recoveryCommitment: string
+    ): Promise<TransitionParams[]> {
+
+        const PARAMS = [];
+
+        const RECOVERY_COMMIT: TransitionParams = {
+            vname: 'recoveryCommitment',
+            type: 'String',
+            value: recoveryCommitment,
+        };
+        PARAMS.push(RECOVERY_COMMIT);
+
+        return PARAMS;
+    }
 }
 
 /***            ****            ***/
@@ -368,7 +428,9 @@ interface Transition {
 
 export enum TransitionTag {
     Create = 'DidCreate',
-    Update = "DidUpdate"
+    Update = "DidUpdate",
+    Recover = "DidRecover",
+    Deactivate = "DidDeactivate"
 }
 
 interface TransitionParams {

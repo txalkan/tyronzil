@@ -1,3 +1,5 @@
+#!/usr/bin/env node --max-old-space-size=8192
+
 /*
     TyronZIL-js: Decentralized identity client for the Zilliqa blockchain platform
     Copyright (C) 2020 Julio Cesar Cabrapan Duarte
@@ -17,7 +19,6 @@ import LogColors from './log-colors';
 import * as readline from 'readline-sync';
 import * as Crypto from '@zilliqa-js/crypto';
 import DidCreate from '../lib/decentralized-identity/sidetree-protocol/did-operations/did-create';
-import { CliInputModel } from './cli-input-model';
 import { NetworkNamespace } from '../lib/decentralized-identity/tyronZIL-schemes/did-scheme';
 import { LongFormDidInput, TyronZILUrlScheme } from '../lib/decentralized-identity/tyronZIL-schemes/did-url-scheme';
 import DidDoc, {ResolutionInput, Accept, ResolutionResult} from '../lib/decentralized-identity/did-document';
@@ -35,9 +36,10 @@ import Util, { PrivateKeys } from './util';
 import DidUpdate, { UpdateOperationInput } from '../lib/decentralized-identity/sidetree-protocol/did-operations/did-update';
 import DidState from '../lib/decentralized-identity/did-state';
 import OperationType from '@decentralized-identity/sidetree/dist/lib/core/enums/OperationType';
-
-//import DidRecover, { RecoverOperationInput } from '../lib/sidetree/did-operations/did-recover';
-//import DidDeactivate, { DeactivateOperationInput } from '../lib/sidetree/did-operations/did-deactivate';
+import { PublicKeyPurpose } from '../lib/decentralized-identity/sidetree-protocol/models/verification-method-models';
+import ServiceEndpointModel from '@decentralized-identity/sidetree/dist/lib/core/versions/latest/models/ServiceEndpointModel';
+import DidRecover, { RecoverOperationInput } from '../lib/decentralized-identity/sidetree-protocol/did-operations/did-recover';
+import DidDeactivate, { DeactivateOperationInput } from '../lib/decentralized-identity/sidetree-protocol/did-operations/did-deactivate';
 
 /** Handles the command-line interface DID operations */
 export default class TyronCLI {
@@ -83,13 +85,31 @@ export default class TyronCLI {
                 privateKey: user_privateKey
             };
 
-            const ACCOUNTS = {
-                client: client,
-                user: USER
+            console.log(LogColors.brightGreen(`Initializing your tyron-smart-contract...`));
+            const CONTRACT_INIT: ContractInit = {
+                tyron_init: "0x75d8297b8bd2e35de1c17e19d2c13504de623793",
+                contract_owner: USER.addr,
+                client_addr: client.addr,
+                tyron_stake: 100000000000000        //e.g. 100 ZIL
             };
-            return ACCOUNTS;
+
+            const gas_limit = readline.question(LogColors.green(`What is the gas limit?`) + ` - [Recommended value: 20,000] - ` + LogColors.lightBlue(`Your answer: `));
+            
+            const INITIALIZE = await TyronTransaction.initialize(
+                NETWORK,
+                CONTRACT_INIT,
+                client.privateKey,
+                Number(gas_limit),
+                USER.privateKey,
+            );
+            
+            return {
+                client: client,
+                user: USER,
+                init: INITIALIZE as TyronTransaction
+            };
         })
-        .then(async accounts => {
+        .then(async didInit => {
             // Adds public keys and service endpoints:
             const PUBLIC_KEYS = await Util.InputKeys();
             const SERVICE = await Util.InputService();
@@ -98,14 +118,19 @@ export default class TyronCLI {
                 network: NETWORK,
                 publicKeyInput: PUBLIC_KEYS,
                 service: SERVICE
-            }
+            };
 
             /** Executes the DID-create operation */
             const DID_EXECUTED = await DidCreate.execute(CLI_INPUT);
+            const TAG = TransitionTag.Create;
+            if(DID_EXECUTED !== undefined) {
+                console.log(LogColors.brightGreen(`Your Sidetree ${TAG} request was accepted!`));
+            } else {
+                throw new SidetreeError("RequestUnsuccessful", "Wrong choice. Try again.")
+            }
 
             /** tyronZIL DID instance with the proper DID-scheme */
             const DID_tyronZIL = DID_EXECUTED.didScheme.did_tyronZIL;
-            
             console.log(LogColors.yellow(`Your decentralized identity on Zilliqa is: `) + LogColors.brightGreen(`${DID_tyronZIL}`)); 
             
             /***            ****            ***/
@@ -118,8 +143,6 @@ export default class TyronCLI {
             };
             await Util.savePrivateKeys(DID_tyronZIL, PRIVATE_KEYS);
             
-            /***            ****            ***/
-            
             /** To generate the Sidetree Long-Form DID */
             const LONG_DID_INPUT: LongFormDidInput = {
                     schemeInput: DID_EXECUTED.didScheme,
@@ -128,15 +151,17 @@ export default class TyronCLI {
             }
             const LONG_FORM_DID = await TyronZILUrlScheme.longFormDid(LONG_DID_INPUT);
             const LONG_DID_tyronZIL = LONG_FORM_DID.longFormDid;
-
             console.log(LogColors.yellow(`In case you want to submit the transaction at a later stage, your Sidetree Long-Form DID is: `) + LogColors.brightYellow(`${LONG_DID_tyronZIL}`));
             
+            /***            ****            ***/
+
             return {
-                accounts: accounts,
-                operation: DID_EXECUTED
+                didInit: didInit,
+                operation: DID_EXECUTED,
+                tag: TAG
             };
         })
-        .then(async TYRON_CLI => {
+        .then(async didCreate => {
             /** Asks if the user wants to write their tyronZIL DID on Zilliqa */
             const write_did = readline.question(LogColors.green(`Would you like to write your tyronZIL DID on the Zilliqa platform now?`) + ` - [y/n] - Defaults to yes - ` + LogColors.lightBlue(`Your answer: `));
             switch (write_did.toLowerCase()) {
@@ -147,54 +172,30 @@ export default class TyronCLI {
                     break;
             }
 
-            const SUFFIX_OBJECT = await Sidetree.suffixModel(TYRON_CLI.operation.suffixData) as SuffixDataModel;
-            const DELTA_OBJECT = await Sidetree.deltaModel(TYRON_CLI.operation.delta) as DeltaModel;
+            const SUFFIX_OBJECT = await Sidetree.suffixModel(didCreate.operation.suffixData) as SuffixDataModel;
+            const DELTA_OBJECT = await Sidetree.deltaModel(didCreate.operation.delta) as DeltaModel;
             
-            const DOCUMENT = await Sidetree.docFromDelta(TYRON_CLI.operation.type, TYRON_CLI.operation.delta) as DocumentModel;
-            console.log(JSON.stringify(DOCUMENT, null, 2));
+            const DOCUMENT = await Sidetree.docFromDelta(didCreate.operation.delta) as DocumentModel;
             const DOC_BUFFER = Buffer.from(JSON.stringify(DOCUMENT));
             const ENCODED_DOCUMENT = Encoder.encode(DOC_BUFFER);  
             
             const PARAMS = await TyronTransaction.create(
-                TYRON_CLI.operation.didScheme.did_tyronZIL,
+                didCreate.operation.didScheme.did_tyronZIL,
                 ENCODED_DOCUMENT,       
                 DELTA_OBJECT.updateCommitment,
                 SUFFIX_OBJECT.recovery_commitment
             );
 
-            const CONTRACT_INIT: ContractInit = {
-                tyron_init: "0x75d8297b8bd2e35de1c17e19d2c13504de623793",
-                contract_owner: TYRON_CLI.accounts.user.addr,
-                client_addr: TYRON_CLI.accounts.client.addr,
-                tyron_stake: 100000000000000        // e.g. 100 ZIL
-            };
-
-            const gas_limit = readline.question(LogColors.green(`What is the gas limit? - `) + LogColors.lightBlue(`Your answer: `));
-            
-            console.log(LogColors.brightGreen(`Initializing your tyron-smart-contract...`));
-            
-            const INITIALIZE = await TyronTransaction.initialize(
-                NETWORK,
-                CONTRACT_INIT,
-                TYRON_CLI.accounts.client.privateKey,
-                TYRON_CLI.accounts.user.privateKey,
-                Number(gas_limit),
-            );
-            
-            const INIT = INITIALIZE as TyronTransaction;
-            const version = readline.question(LogColors.green(`What version of the tyron-smart-contract would you like to deploy? - `) + LogColors.lightBlue(`Your answer: `));
+            const version = readline.question(LogColors.green(`What version of the tyron-smart-contract would you like to deploy?`)+` - [0.4] - Versions currently supported: 0.4 - ` + LogColors.lightBlue(`Your answer: `));
             
             // The user deploys their tyron-smart-contract and calls the ContractInit transition
             console.log(LogColors.brightGreen(`Deploying...`));
-            const DEPLOYED_CONTRACT = await TyronTransaction.deploy(INIT, version);
-            
+            const DEPLOYED_CONTRACT = await TyronTransaction.deploy(didCreate.didInit.init, version);
             const TYRON_ADDR = (DEPLOYED_CONTRACT as DeployedContract).contract.address;
-            
-            const TAG = TransitionTag.Create;
-    
-            await TyronTransaction.submit(INIT, TYRON_ADDR!, TAG, PARAMS);
+
+            await TyronTransaction.submit(didCreate.didInit.init, TYRON_ADDR!, didCreate.tag, PARAMS);
         })
-        .catch(error => console.error(error))            
+        .catch(err => console.error(LogColors.red(err)))            
     }
 
     /***            ****            ****/
@@ -237,12 +238,12 @@ export default class TyronCLI {
             // Saves the DID-document
             await DidDoc.write(DID, DID_RESOLVED);
         })
-        .catch(err => console.error(err))
+        .catch(err => console.error(LogColors.red(err)))
     }
 
     /***            ****            ****/
 
-    /** Handles the update subcommand */
+    /** Handles the `update` subcommand */
     public static async handleUpdate(): Promise<void> {
         console.log(LogColors.brightGreen(`To update your tyronZIL DID, let's fetch its current state from the Zilliqa blockchain platform!`));
         const NETWORK = this.network();
@@ -253,9 +254,10 @@ export default class TyronCLI {
         .then(async did_state => {
             const DID_STATE = did_state as DidState;
             if(DID_STATE.status === OperationType.Deactivate) {
-                throw new SidetreeError(ErrorCode.DidDeactivated) }
+                throw new SidetreeError(ErrorCode.DidDeactivated)
+            }
             const UPDATE_COMMITMENT = DID_STATE.updateCommitment;
-            const INPUT_PRIVATE_KEY = readline.question(LogColors.brightGreen(`DID state retrieved - Provide your update private key - `) + LogColors.lightBlue(`Your answer: `));
+            const INPUT_PRIVATE_KEY = readline.question(LogColors.brightGreen(`DID state retrieved!`) + LogColors.green(` - Provide your update private key - `) + LogColors.lightBlue(`Your answer: `));
             const UPDATE_PRIVATE_KEY = await JSON.parse(Encoder.decodeAsString(INPUT_PRIVATE_KEY));
             const UPDATE_KEY = Cryptography.getPublicKey(UPDATE_PRIVATE_KEY);
             const COMMITMENT = Multihash.canonicalizeThenHashThenEncode(UPDATE_KEY);
@@ -270,7 +272,15 @@ export default class TyronCLI {
                 throw new SidetreeError(ErrorCode.CouldNotVerifyKey)
             }
         })
-        .then(async TYRON_CLI => {
+        .then(async didInit => {
+            const CLIENT = await this.clientInit();
+            
+            return {
+                didInit: didInit,
+                client: CLIENT
+            };
+        })
+        .then(async didRequest => {
             const patches_amount = readline.question(LogColors.green(`How many patches would you like to make? - `) + LogColors.lightBlue(`Your answer: `));
             const PATCHES = [];
             for(let i=0, t= Number(patches_amount); i<t; ++i) {
@@ -283,18 +293,22 @@ export default class TyronCLI {
                 + ` - [1/2/3/4] - ` + LogColors.lightBlue(`Your answer: `));
         
                 const ID = [];
-                let PUBLIC_KEYS;
+                let KEYS;
                 let SERVICE;
                 let PATCH_ACTION;
                 switch (action) {
                     case '1':
                         PATCH_ACTION = PatchAction.AddKeys;
-                        PUBLIC_KEYS = await Util.InputKeys();
+                        KEYS = await Util.InputKeys();
                         break;
                     case '2':
                         PATCH_ACTION = PatchAction.RemoveKeys;
-                        { const KEY_ID = readline.question(LogColors.green(`Provide the ID of the key that you would like to remove - `) + LogColors.lightBlue(`Your answer: `));
-                        ID.push(KEY_ID)
+                        {
+                            const amount = readline.question(LogColors.green(`How many keys would you like to remove? - `) + LogColors.lightBlue(`Your answer: `));
+                            for(let i=0, t= Number(amount); i<t; ++i) {
+                                const KEY_ID = readline.question(LogColors.green(`Next, provide the ID of the key that you would like to remove - `) + LogColors.lightBlue(`Your answer: `));
+                                ID.push(KEY_ID)
+                            }
                         }
                         break;
                     case '3':
@@ -303,8 +317,12 @@ export default class TyronCLI {
                         break;
                     case '4':
                         PATCH_ACTION = PatchAction.RemoveServices;
-                        { const SERVICE_ID = readline.question(LogColors.green(`Provide the ID of the service that you would like to remove - `) + LogColors.lightBlue(`Your answer: `));
-                        ID.push(SERVICE_ID)
+                        {
+                            const amount = readline.question(LogColors.green(`How many services would you like to remove? - `) + LogColors.lightBlue(`Your answer: `));
+                            for(let i=0, t= Number(amount); i<t; ++i) {
+                                const SERVICE_ID = readline.question(LogColors.green(`Next, provide the ID of the service that you would like to remove - `) + LogColors.lightBlue(`Your answer: `));
+                                ID.push(SERVICE_ID)
+                            }
                         }
                         break;
                     default:
@@ -313,7 +331,7 @@ export default class TyronCLI {
             
                 const PATCH: PatchModel = {
                     action: PATCH_ACTION,
-                    keyInput: PUBLIC_KEYS,
+                    keyInput: KEYS,
                     service_endpoints: SERVICE,
                     ids: ID,
                     public_keys: ID
@@ -321,16 +339,17 @@ export default class TyronCLI {
                 PATCHES.push(PATCH)
             }            
             const UPDATE_INPUT: UpdateOperationInput = {
-                state: TYRON_CLI.state,
-                updatePrivateKey: TYRON_CLI.updatePrivateKey,
+                state: didRequest.didInit.state,
+                updatePrivateKey: didRequest.didInit.updatePrivateKey,
                 patches: PATCHES            
             };
 
             const DID_EXECUTED = await DidUpdate.execute(UPDATE_INPUT) as DidUpdate;
+            const TAG = TransitionTag.Update;
             if(DID_EXECUTED !== undefined) {
-                console.log(LogColors.brightGreen(`Success! Your Sidetree update request was accepted`));
+                console.log(LogColors.brightGreen(`Your Sidetree ${TAG} request was accepted!`));
             } else {
-                console.error(LogColors.red("Wrong choice. Try again."))
+                throw new SidetreeError("RequestUnsuccessful", "Wrong choice. Try again.")
             }
             
             /***            ****            ***/
@@ -338,52 +357,261 @@ export default class TyronCLI {
             // To save the private keys:
             const PRIVATE_KEYS: PrivateKeys = {
                 privateKeys: DID_EXECUTED.privateKey,
-                updatePrivateKey: Encoder.encode(Buffer.from(JSON.stringify(DID_EXECUTED.updatePrivateKey))),
+                updatePrivateKey: Encoder.encode(Buffer.from(JSON.stringify(DID_EXECUTED.newUpdatePrivateKey))),
             };
-            await Util.savePrivateKeys(TYRON_CLI.state.did_tyronZIL, PRIVATE_KEYS)
-
-            /***            ****            ***/
-
-            console.log(LogColors.brightGreen(`Next, let's save your DID update on the Zilliqa blockchain platform, so it stays immutable!`));
+            await Util.savePrivateKeys(DID_EXECUTED.did_tyronZIL, PRIVATE_KEYS)
             
-            const DOCUMENT = await Sidetree.docFromDelta(DID_EXECUTED.type, DID_EXECUTED.delta, TYRON_CLI.state.document) as DocumentModel;
+            return {
+                didInit: didRequest.didInit,
+                client: didRequest.client,
+                operation: DID_EXECUTED,
+                tag: TAG
+            };
+        })
+        .then(async didUpdate => {
+            console.log(LogColors.brightGreen(`Next, let's save your DID-update operation on the Zilliqa blockchain platform, so it stays immutable!`));
+            
+            const DOCUMENT = didUpdate.operation.newDoc;
             const DOC_BUFFER = Buffer.from(JSON.stringify(DOCUMENT));
             const ENCODED_DOCUMENT = Encoder.encode(DOC_BUFFER);
             
             const PARAMS = await TyronTransaction.update(
-                TYRON_CLI.updateCommitment,
+                didUpdate.didInit.updateCommitment,
                 ENCODED_DOCUMENT,
-                DID_EXECUTED.newUpdateCommitment
+                didUpdate.operation.newUpdateCommitment
             );
 
             const CONTRACT_INIT: ContractInit = {
                 tyron_init: "0x75d8297b8bd2e35de1c17e19d2c13504de623793",
-                contract_owner: "0x0DBA45B0E1Cce172D84450Fc60e831F0A455d91d",
-                client_addr: "0xccDdFAD074cd608B6B43e14eb3440240f5bFf087",
-                tyron_stake: 100000000000000        // e.g. 100 ZIL
+                contract_owner: didUpdate.didInit.state.contract_owner,
+                client_addr: didUpdate.client.addr,
+                tyron_stake: 100000000000000        //e.g. 100 ZIL
             };
 
-            const gas_limit = readline.question(LogColors.green(`What is the gas limit? - `) + LogColors.lightBlue(`Your answer: `));
+            const gas_limit = readline.question(LogColors.green(`What is the gas limit? - `) + ` - [Recommended value: 10,000] - ` + LogColors.lightBlue(`Your answer: `));
             
             const INITIALIZE = await TyronTransaction.initialize(
                 NETWORK,
                 CONTRACT_INIT,
-                "8cefad33c6b2eafe6456e80cd69fda3fcd23b5c4a6719275340f340a9259c26a",
-                "e7129809b0262abc43b73dc473f2daa14830a92b8f14c4b6b9aabde3b379b690",
+                didUpdate.client.privateKey,
                 Number(gas_limit),
             );
             
-            console.log(LogColors.brightGreen(`Deploying...`))
-            
-            const TAG = TransitionTag.Update;
-
-            await TyronTransaction.submit(INITIALIZE as TyronTransaction, tyronAddr, TAG, PARAMS);
+            await TyronTransaction.submit(INITIALIZE as TyronTransaction, tyronAddr, didUpdate.tag, PARAMS);
         })
-        .catch(err => console.error(err))
+        .catch(err => console.error(LogColors.red(err)))
+    }
+
+    /***            ****            ***/
+
+    /** Handles the `recover` subcommand */
+    public static async handleRecover(): Promise<void> {
+        console.log(LogColors.brightGreen(`To recover your tyronZIL DID, let's fetch its current state from the Zilliqa blockchain platform!`));
+        const NETWORK = this.network();
+        /** Asks for the user's `tyron address` */
+        const tyronAddr = readline.question(LogColors.green(`What is the address of the user's tyron-smart-contract? - `) + LogColors.lightBlue(`Your answer: `));
+        
+        await DidState.fetch(NETWORK, tyronAddr)
+        .then(async did_state => {
+            const DID_STATE = did_state as DidState;
+            if(DID_STATE.status === OperationType.Deactivate) {
+                throw new SidetreeError(ErrorCode.DidDeactivated)
+            }
+            const RECOVERY_COMMITMENT = DID_STATE.recoveryCommitment;
+            const INPUT_PRIVATE_KEY = readline.question(LogColors.brightGreen(`DID state retrieved!`) + LogColors.green(` - Provide your recovery private key - `) + LogColors.lightBlue(`Your answer: `));
+            const RECOVERY_PRIVATE_KEY = await JSON.parse(Encoder.decodeAsString(INPUT_PRIVATE_KEY));
+            const RECOVERY_KEY = Cryptography.getPublicKey(RECOVERY_PRIVATE_KEY);
+            const COMMITMENT = Multihash.canonicalizeThenHashThenEncode(RECOVERY_KEY);
+            if(RECOVERY_COMMITMENT === COMMITMENT) {
+                console.log(LogColors.brightGreen(`Sidetree public-key commitment matched! You will be able to recover your tyronZIL DID`));
+                return {
+                    state: DID_STATE,
+                    recoveryPrivateKey: RECOVERY_PRIVATE_KEY,
+                    recoveryCommitment: RECOVERY_COMMITMENT
+                }
+            } else {
+                throw new SidetreeError(ErrorCode.CouldNotVerifyKey)
+            }
+        })
+        .then(async didInit => {
+            const CLIENT = await this.clientInit();
+
+            return {
+                didInit: didInit,
+                client: CLIENT
+            };
+        })
+        .then(async didRequest => {
+            // Adds public keys and service endpoints:
+            const PUBLIC_KEYS = await Util.InputKeys();
+            const SERVICE = await Util.InputService();
+
+            const CLI_INPUT: CliInputModel = {
+                network: NETWORK,
+                publicKeyInput: PUBLIC_KEYS,
+                service: SERVICE
+            };
+            const RECOVER_INPUT: RecoverOperationInput = {
+                did_tyronZIL: didRequest.didInit.state.did_tyronZIL,
+                recoveryPrivateKey: didRequest.didInit.recoveryPrivateKey,
+                cliInput: CLI_INPUT
+            };
+
+            const DID_EXECUTED = await DidRecover.execute(RECOVER_INPUT) as DidRecover;
+            const TAG = TransitionTag.Recover;
+            if(DID_EXECUTED !== undefined) {
+                console.log(LogColors.brightGreen(`Your Sidetree ${TAG} request was accepted!`));
+            } else {
+                throw new SidetreeError("RequestUnsuccessful", "Wrong choice. Try again.")
+            }
+
+            /***            ****            ***/
+            
+            // To save the private keys:
+            const PRIVATE_KEYS: PrivateKeys = {
+                privateKeys: DID_EXECUTED.privateKey,
+                updatePrivateKey: Encoder.encode(Buffer.from(JSON.stringify(DID_EXECUTED.newUpdatePrivateKey))),
+                recoveryPrivateKey: Encoder.encode(Buffer.from(JSON.stringify(DID_EXECUTED.newRecoveryPrivateKey))),
+            };
+            await Util.savePrivateKeys(DID_EXECUTED.did_tyronZIL, PRIVATE_KEYS);
+
+            return {
+                didInit: didRequest.didInit,
+                client: didRequest.client,
+                operation: DID_EXECUTED,
+                tag: TAG
+            };
+        })
+        .then(async didRecover => {
+            console.log(LogColors.brightGreen(`Next, let's save your DID-recovery operation on the Zilliqa blockchain platform, so it stays immutable!`));
+            
+            const DOCUMENT = await Sidetree.docFromDelta(didRecover.operation.delta) as DocumentModel;
+            const DOC_BUFFER = Buffer.from(JSON.stringify(DOCUMENT));
+            const ENCODED_DOCUMENT = Encoder.encode(DOC_BUFFER);
+            
+            const PARAMS = await TyronTransaction.recover(
+                didRecover.didInit.recoveryCommitment,
+                ENCODED_DOCUMENT,
+                didRecover.operation.newUpdateCommitment,
+                didRecover.operation.newRecoveryCommitment
+            );
+
+            const CONTRACT_INIT: ContractInit = {
+                tyron_init: "0x75d8297b8bd2e35de1c17e19d2c13504de623793",
+                contract_owner: didRecover.didInit.state.contract_owner,
+                client_addr: didRecover.client.addr,
+                tyron_stake: 100000000000000        //e.g. 100 ZIL
+            };
+
+            const gas_limit = readline.question(LogColors.green(`What is the gas limit? - `) + ` - [Recommended value: 10,000] - ` + LogColors.lightBlue(`Your answer: `));
+            
+            const INITIALIZE = await TyronTransaction.initialize(
+                NETWORK,
+                CONTRACT_INIT,
+                didRecover.client.privateKey,
+                Number(gas_limit),
+            );
+            
+            await TyronTransaction.submit(INITIALIZE as TyronTransaction, tyronAddr, didRecover.tag, PARAMS);
+        })
+        .catch(err => console.error(LogColors.red(err)))
+    }
+    
+    /***            ****            ***/
+
+    /** Handles the `deactivate` subcommand */
+    public static async handleDeactivate(): Promise<void> {
+        console.log(LogColors.brightGreen(`To deactivate your tyronZIL DID, let's fetch its current state from the Zilliqa blockchain platform!`));
+        const NETWORK = this.network();
+        /** Asks for the user's `tyron address` */
+        const tyronAddr = readline.question(LogColors.green(`What is the address of the user's tyron-smart-contract? - `) + LogColors.lightBlue(`Your answer: `));
+        
+        await DidState.fetch(NETWORK, tyronAddr)
+        .then(async did_state => {
+            const DID_STATE = did_state as DidState;
+            if(DID_STATE.status === OperationType.Deactivate) {
+                throw new SidetreeError(ErrorCode.DidDeactivated)
+            }
+            const RECOVERY_COMMITMENT = DID_STATE.recoveryCommitment;
+            const INPUT_PRIVATE_KEY = readline.question(LogColors.brightGreen(`DID state retrieved!`) + LogColors.green(` - Provide your recovery private key - `) + LogColors.lightBlue(`Your answer: `));
+            const RECOVERY_PRIVATE_KEY = await JSON.parse(Encoder.decodeAsString(INPUT_PRIVATE_KEY));
+            const RECOVERY_KEY = Cryptography.getPublicKey(RECOVERY_PRIVATE_KEY);
+            const COMMITMENT = Multihash.canonicalizeThenHashThenEncode(RECOVERY_KEY);
+            if(RECOVERY_COMMITMENT === COMMITMENT) {
+                console.log(LogColors.brightGreen(`Sidetree public-key commitment matched! You will be able to deactivate your tyronZIL DID`));
+                return {
+                    state: DID_STATE,
+                    recoveryPrivateKey: RECOVERY_PRIVATE_KEY,
+                    recoveryCommitment: RECOVERY_COMMITMENT
+                }
+            } else {
+                throw new SidetreeError(ErrorCode.CouldNotVerifyKey)
+            }
+        })
+        .then(async didRequest => {
+            const DEACTIVATE_INPUT: DeactivateOperationInput = {
+                did_tyronZIL: didRequest.state.did_tyronZIL,
+                recoveryPrivateKey: didRequest.recoveryPrivateKey
+            };
+
+            const DID_EXECUTED = await DidDeactivate.execute(DEACTIVATE_INPUT);
+            const TAG = TransitionTag.Deactivate;
+            if(DID_EXECUTED !== undefined) {
+                console.log(LogColors.brightGreen(`Your Sidetree ${TAG} request was accepted!`));
+            } else {
+                throw new SidetreeError("RequestUnsuccessful", "Wrong choice. Try again.")
+            }
+            
+            return {
+                didRequest: didRequest,
+                operation: DID_EXECUTED,
+                tag: TAG
+            };
+        })
+        .then(async didDeactivate => {
+            console.log(LogColors.brightGreen(`Next, let's save your DID-deactivate operation on the Zilliqa blockchain platform, so it stays immutable!`));
+            const CLIENT = await this.clientInit();
+            const PARAMS = await TyronTransaction.deactivate(
+                didDeactivate.didRequest.recoveryCommitment,
+            );
+
+            const CONTRACT_INIT: ContractInit = {
+                tyron_init: "0x75d8297b8bd2e35de1c17e19d2c13504de623793",
+                contract_owner: didDeactivate.didRequest.state.contract_owner,
+                client_addr: CLIENT.addr,
+                tyron_stake: 100000000000000        //e.g. 100 ZIL
+            };
+
+            const gas_limit = readline.question(LogColors.green(`What is the gas limit? - `) + ` - [Recommended value: 10,000] - ` + LogColors.lightBlue(`Your answer: `));
+            
+            const INITIALIZE = await TyronTransaction.initialize(
+                NETWORK,
+                CONTRACT_INIT,
+                CLIENT.privateKey,
+                Number(gas_limit),
+            );
+            
+            await TyronTransaction.submit(INITIALIZE as TyronTransaction, tyronAddr, didDeactivate.tag, PARAMS);
+        })
+        .catch(err => console.error(LogColors.red(err)))
     }
 }
 
+/***            ****            ***/
+
+/** Represent a Zilliqa account */
 interface Account {
     addr: string;
     privateKey: string;
+}
+
+export interface CliInputModel {
+    network: NetworkNamespace;
+    publicKeyInput: PublicKeyInput[];
+    service: ServiceEndpointModel[];
+}
+
+export interface PublicKeyInput {
+    id: string;
+    purpose: PublicKeyPurpose[];
 }

@@ -19,17 +19,15 @@ import JsonAsync from '@decentralized-identity/sidetree/dist/lib/core/versions/l
 import { PatchModel, DocumentModel, PatchAction } from './models/patch-model';
 import { PublicKeyModel } from './models/verification-method-models';
 import { Cryptography, OperationKeyPairInput } from '../util/did-keys';
-import { PublicKeyInput } from '../../../bin/cli-input-model';
+import { PublicKeyInput } from '../../../bin/util';
 import SidetreeError from '@decentralized-identity/sidetree/dist/lib/common/SidetreeError';
 import ErrorCode from '../util/ErrorCode';
-import OperationType from '@decentralized-identity/sidetree/dist/lib/core/enums/OperationType';
-import LogColors from '../../../bin/log-colors';
 
 export class Sidetree {
-    private static async parse(encoded: string): Promise<any> {
+    private static async parse(encoded: string): Promise<unknown> {
         const MODEL = JsonAsync.parse(Encoder.decodeBase64UrlAsString(encoded))
         .then(model => { return model })
-        .catch(err => console.error(err))
+        .catch(err => { throw err })
         return MODEL;
     }
 
@@ -39,7 +37,7 @@ export class Sidetree {
             const SUFFIX_MODEL = model as SuffixDataModel;
             return SUFFIX_MODEL;
         })
-        .catch(err => console.error(err))
+        .catch(err => { throw err })
         return MODEL;
     }
 
@@ -49,7 +47,7 @@ export class Sidetree {
             const DELTA_MODEL = model as DeltaModel;
             return DELTA_MODEL;
         })
-        .catch(err => console.error(err))
+        .catch(err => { throw err })
         return MODEL;
     }
 
@@ -59,45 +57,34 @@ export class Sidetree {
             const DOCUMENT_MODEL = model as DocumentModel;
             return DOCUMENT_MODEL;
         })
-        .catch(err => console.error(err))
+        .catch(err => { throw err })
         return MODEL;
     }
 
-    public static async patchesFromDelta(delta: string): Promise<PatchModel[]|void> {
+    private static async patchesFromDelta(delta: string): Promise<PatchModel[]|void> {
         const PATCHES = await this.deltaModel(delta)
         .then(async delta_model => {
             const DELTA_MODEL = delta_model as DeltaModel;
             const PATCHES = DELTA_MODEL.patches as PatchModel[];
             return PATCHES
         })
-        .catch(err => console.error(err))
+        .catch(err => { throw err })
         return PATCHES
     }
 
-    public static async docFromDelta(type: OperationType, delta: string, doc?: DocumentModel): Promise<DocumentModel|void> {
+    /** Retrieves the DID-document from the encoded delta - Used for the create & recover operations */
+    public static async docFromDelta(delta: string): Promise<DocumentModel|void> {
         const DOC_MODEL = await this.patchesFromDelta(delta)
         .then(async patches => {
             const PATCHES = patches as PatchModel[];
-            switch (type) {
-                case OperationType.Update:
-                    if(doc === undefined) {
-                        throw new SidetreeError("DocUndefined", "A DID-document MUST exist in order to update it.")
-                    } else {
-                        const UPDATE = await this.processPatches(PATCHES, doc!);
-                        return UPDATE.doc;
-                    }
-                default:    
-                    {   // For the create and recovery operations
-                        const DOC: DocumentModel = {
-                            public_keys: [],
-                            service_endpoints: []
-                        }
-                        const RESULT = await this.processPatches(PATCHES, DOC);
-                        return RESULT.doc;
-                    }
+            const DOC: DocumentModel = {
+                public_keys: [],
+                service_endpoints: []
             }
+            const RESULT = await this.processPatches(PATCHES, DOC);
+            return RESULT.doc;
         })
-        .catch(err => console.error(err))
+        .catch(err => { throw err})
         return DOC_MODEL
     }
 
@@ -107,10 +94,11 @@ export class Sidetree {
         const KEY_ID_SET: Set<string> = new Set();
         for(const key of PUBLIC_KEYS) {
             // IDs must be unique
-            if (KEY_ID_SET.has(key.id)) {
-              throw new SidetreeError(ErrorCode.DocumentPublicKeyIdDuplicated);
+            if(!KEY_ID_SET.has(key.id)) {
+                KEY_ID_SET.add(key.id);
+            } else {
+                throw new SidetreeError(ErrorCode.DocumentPublicKeyIdDuplicated);
             }
-            KEY_ID_SET.add(key.id);
         }
         let SERVICES = doc.service_endpoints;
         const SERVICE_ID_SET: Set<string> = new Set();
@@ -123,9 +111,8 @@ export class Sidetree {
         }
         const PATCHES = [];
         const PRIVATE_KEYS: string[] = [];
+        
         for(const patch of patches) {
-            /** Maps the public keys to their IDs */
-            const KEY_MAP = new Map(PUBLIC_KEYS.map(publicKey => [publicKey.id, publicKey]));
             switch (patch.action) {
                 case PatchAction.Replace: {
                     PUBLIC_KEYS = patch.document!.public_keys;
@@ -134,21 +121,44 @@ export class Sidetree {
                 break;
                 case PatchAction.AddKeys: {
                     if(patch.keyInput !== undefined) {
-                        await this.addKeys(patch.keyInput, KEY_ID_SET)
+                        await this.addKeys(patch.keyInput!, KEY_ID_SET)
                         .then(new_keys => {
                             PATCHES.push(new_keys.patch);
-                            if (Array.isArray(new_keys.publicKey)) {
-                                for (const key of new_keys.publicKey) {
-                                    PUBLIC_KEYS.push(key)
-                                }
-                                for (const key of new_keys.privateKey) {
-                                    PRIVATE_KEYS.push(key)
-                                }
+                            for (const key of new_keys.publicKey) {
+                                PUBLIC_KEYS.push(key)
+                            }
+                            for (const key of new_keys.privateKey) {
+                                PRIVATE_KEYS.push(key)
                             }
                         })
-                        .catch(err => console.log(err))                  
+                        .catch(err => { throw err })
+                    } else {
+                        throw new SidetreeError("Missing", "No key in AddKeys patch")
                     }
                 }
+                break;
+                case PatchAction.RemoveKeys:
+                    if (patch.public_keys !== undefined) {
+                        const ID = patch.public_keys as string[];
+                        const key_ids = [];
+                        for(const id of ID) {
+                            if (typeof id === 'string' && KEY_ID_SET.has(id)) {
+                                   key_ids.push(id);
+                                } else {
+                                    throw new SidetreeError("NotFound", "The key ID does not exist");
+                                }
+                        }
+                        const IDs = new Set(key_ids);
+                        PUBLIC_KEYS = PUBLIC_KEYS.filter(key => !IDs.has(key.id));
+
+                        if(PUBLIC_KEYS.length === 0) {
+                            throw new SidetreeError("Insufficient", "The DID-document must have at least one public key.")
+                        }
+                        PATCHES.push({
+                            action: PatchAction.RemoveKeys,
+                            public_keys: key_ids
+                        });
+                    }
                 break;
                 case PatchAction.AddServices: {
                     const SERVICES = patch.service_endpoints;
@@ -184,28 +194,6 @@ export class Sidetree {
                         SERVICES = SERVICES.filter(service => !IDs.has(service.id))
                     }
                 break;
-                case PatchAction.RemoveKeys:
-                    if (patch.public_keys !== undefined) {
-                        PATCHES.push({
-                            action: PatchAction.RemoveKeys,
-                            public_keys: patch.public_keys
-                        });
-                        const ID = patch.public_keys as string[];
-                        for(const id of ID) {
-                            if (typeof id === 'string' || KEY_ID_SET.has(id)) {
-                                const KEY = KEY_MAP.get(id);
-                                if (KEY !== undefined) {
-                                    KEY_MAP.delete(id)
-                                } else {
-                                    console.error(LogColors.red("The key ID does not exist"))
-                                }
-                            }
-                        }
-                        for(const value of KEY_MAP.values()){
-                            PUBLIC_KEYS.push(value)
-                        }
-                    }
-                break;
                 default:
                     throw new SidetreeError(ErrorCode.IncorrectPatchAction);
             }
@@ -231,14 +219,13 @@ export class Sidetree {
                 id: KEY_INPUT.id,
                 purpose: KEY_INPUT.purpose
             }
-            if(idSet?.has(KEY_PAIR_INPUT.id)) {
-                throw new SidetreeError("RepeatedID", "The key ID must be unique");
-            } else {
-                // Creates the DID key-pair:
-                const [PUBLIC_KEY, PRIVATE_KEY] = await Cryptography.operationKeyPair(KEY_PAIR_INPUT);
-                PUBLIC_KEYS.push(PUBLIC_KEY);
-                PRIVATE_KEYS.push(Encoder.encode(Buffer.from(JSON.stringify(PRIVATE_KEY))));
+            if(idSet?.has(KEY_INPUT.id)) {
+                throw new SidetreeError("RepeatedID", "The key ID must be unique.");
             }
+            // Creates the DID key-pair:
+            const [PUBLIC_KEY, PRIVATE_KEY] = await Cryptography.operationKeyPair(KEY_PAIR_INPUT);
+            PUBLIC_KEYS.push(PUBLIC_KEY);
+            PRIVATE_KEYS.push(Encoder.encode(Buffer.from(JSON.stringify(PRIVATE_KEY))));
         }
         const PATCH: PatchModel = {
             action: PatchAction.AddKeys,
