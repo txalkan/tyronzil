@@ -17,20 +17,7 @@ import TyronZILScheme, { SchemeInputData, NetworkNamespace } from "./did-scheme"
 import SidetreeError from "@decentralized-identity/sidetree/dist/lib/common/SidetreeError";
 // import { ParsedUrlQueryInput } from "querystring";
 //import { URL } from 'url';
-import ErrorCode from '../../ErrorCode';
-
-export interface UrlInput {
-    schemeInput: SchemeInputData;
-    path?: string;
-    query?: string;
-    fragment?: string;
-}
-
-export interface LongFormDidInput {
-    schemeInput: SchemeInputData;
-    encodedSuffixData: string;
-    encodedDelta: string;
-}
+import ErrorCode from '../util/ErrorCode';
 
 export class TyronZILUrlScheme extends TyronZILScheme {
     public readonly didUrl?: string;
@@ -52,7 +39,7 @@ export class TyronZILUrlScheme extends TyronZILScheme {
 
     /** Generates the Sidetree Long-Form DID URI with the initial-state URL parameter */
     public static async longFormDid(input: LongFormDidInput): Promise<TyronZILUrlScheme> {
-        const INITIAL_STATE_VALUE = input.encodedSuffixData + '.' + input.encodedDelta;
+        const INITIAL_STATE_VALUE = input.suffixData + '.' + input.delta;
         
         const QUERY: Query = {
             urlParameter: UrlParameters.InitialState,
@@ -69,15 +56,6 @@ export class TyronZILUrlScheme extends TyronZILScheme {
 
     /** Validates if the given DID is a proper tyronZIL DID */
     public static async validate(did: string): Promise<TyronZILUrlScheme> {
-        
-        /*
-        let IS_URL = undefined;
-        try {
-            IS_URL = new URL(did);
-        } catch {
-            throw new SidetreeError(ErrorCode.DidInvalidUrl);
-        }
-        */
         const PREFIX = this.schemeIdentifier + this.methodName + this.blockchain;
 
         if (!did.startsWith(PREFIX)) {
@@ -102,6 +80,18 @@ export class TyronZILUrlScheme extends TyronZILScheme {
     }
 }
 
+export interface UrlInput {
+    schemeInput: SchemeInputData;
+    path?: string;
+    query?: string;
+    fragment?: string;
+}
+
+export interface LongFormDidInput {
+    schemeInput: SchemeInputData;
+    suffixData: string;
+    delta: string;
+}
 
 export interface Query {
     urlParameter: UrlParameters;
@@ -109,9 +99,9 @@ export interface Query {
 }
 
 export enum UrlParameters {
-    Hl = 'hl',      // resource hash of the DID-document to add integrity protection
-    Service = 'service',        // identifies a service from the DID-document by service ID
-    VersionId = 'version-id',       // identifies a specific version of the DID-document to be resolved
-    VersionTime = 'version-time',       // identifies a specific version timestamp of the DID-document to be resolved (the doc that was valid at that particular time)
-    InitialState = 'sidetree-initial-state'     // initial self-certifying state, to use the DID immediately after generation without being anchored (unpublished DID)
+    Hl = 'hl',        //resource hash of the DID-document to add integrity protection
+    Service = 'service',        //identifies a service from the DID-document by service ID
+    VersionId = 'version-id',        //identifies a specific version of the DID-document to be resolved
+    VersionTime = 'version-time',        //identifies a specific version timestamp of the DID-document to be resolved (the doc that was valid at that particular time)
+    InitialState = 'sidetree-initial-state'        //initial self-certifying state, to use the DID immediately after generation without being anchored (unpublished DID)
 }

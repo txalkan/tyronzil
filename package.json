@@ -1,15 +1,13 @@
 {
   "name": "tyronzil-js",
-  "version": "0.0.1",
+  "version": "0.4.0",
   "description": "Decentralized identity client for the Zilliqa blockchain platform",
   "main": "dist/src/core.js",
   "bin": {
     "tyronzil": "./dist/src/bin/index.js"
   },
   "scripts": {
-    "build": "tsc && copyfiles \"config/**/*.json\" dist && copyfiles \"package.json\" dist",
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "start": "node dist/src/core.js",
+    "build": "tsc && copyfiles \"package.json\" dist",
     "lint": "eslint . --ext .ts"
   },
   "repository": {
@@ -43,9 +41,7 @@
   },
   "devDependencies": {
     "@types/bitcore-lib": "^0.15.2",
-    "@types/koa": "^2.11.3",
-    "@types/koa-router": "^7.4.1",
-    "@types/node": "^14.0.27",
+    "@types/node": "^14.6.3",
     "@types/readline-sync": "^1.4.3",
     "@types/yargs": "^15.0.5",
     "@typescript-eslint/eslint-plugin": "^3.8.0",

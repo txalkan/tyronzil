@@ -41,7 +41,7 @@ yargs
         await tyronCLI.handleDeactivate();
       })
       .wrap(null)
-      .strict(); // the sub-command must be one of the explicitly defined sub-commands
+      .strict(); //the sub-command must be one of the explicitly defined sub-commands
   })
   .command('resolve', ' -> resolves the given tyronZIL DID into its DID-document (read operation)', async () => {
     await tyronCLI.handleResolve();

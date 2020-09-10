@@ -13,71 +13,57 @@
     GNU General Public License for more details.
 */
 
-import TyronZILScheme from '../tyronZIL-schemes/did-scheme';
 import OperationType from '@decentralized-identity/sidetree/dist/lib/core/enums/OperationType';
 import DeactivateOperation from '@decentralized-identity/sidetree/dist/lib/core/versions/latest/DeactivateOperation';
-import { Cryptography, JwkEs256k } from '../did-keys';
-import Jws from '@decentralized-identity/sidetree/dist/lib/core/versions/latest/util/Jws';
+import JwkEs256k from '@decentralized-identity/sidetree/dist/lib/core/models/JwkEs256k';
+import { Cryptography } from '../../util/did-keys';
 import { DeactivateSignedDataModel } from '../models/signed-data-models';
 
 /** Generates a Sidetree-based `DID-deactivate` operation */
 export default class DidDeactivate {
-    public readonly did_tyronZIL: TyronZILScheme;
-    public readonly operationRequest: SignedDataRequest;
-    public readonly operationBuffer: Buffer;
+    public readonly type = OperationType.Deactivate;
+    public readonly did_tyronZIL: string;
+    public readonly sidetreeRequest: Buffer;
     public readonly deactivateOperation: DeactivateOperation;
-    public readonly type: OperationType.Deactivate;
-    public readonly didUniqueSuffix: string;
-    public readonly signedDataJws: Jws;
-    public readonly signedData: DeactivateSignedDataModel;
     
+    /***            ****            ***/
+
     private constructor (
-        operationOutput: DeactivateOperationOutput
+        operation: DeactivateOperationModel
     ) {
-        this.did_tyronZIL = operationOutput.did_tyronZIL;
-        this.operationRequest = operationOutput.operationRequest;
-        this.operationBuffer = operationOutput.operationBuffer;
-        this.deactivateOperation = operationOutput.deactivateOperation;
-        this.type = OperationType.Deactivate;
-        this.didUniqueSuffix = operationOutput.deactivateOperation.didUniqueSuffix;
-        this.signedDataJws = operationOutput.deactivateOperation.signedDataJws;
-        this.signedData = {
-            did_suffix: operationOutput.deactivateOperation.signedData.didSuffix,
-            recovery_key: operationOutput.deactivateOperation.signedData.recoveryKey
-        };
+        this.did_tyronZIL = operation.did_tyronZIL;
+        this.sidetreeRequest = operation.sidetreeRequest;
+        this.deactivateOperation = operation.deactivateOperation;
     }
 
     /** Generates a Sidetree-based `DID-deactivate` operation */
     public static async execute(input: DeactivateOperationInput): Promise<DidDeactivate> {
         
-        /** To create the Deactivate Operation Signed Data Object */
+        /** For the Deactivate Operation Signed Data Object */
         const SIGNED_DATA: DeactivateSignedDataModel = {
-            did_suffix: input.did_tyronZIL.didUniqueSuffix,
-            recovery_key: Cryptography.getPublicKeyNoKid(input.recoveryPrivateKey),
+            did_suffix: input.did_tyronZIL,
+            recovery_key: Cryptography.getPublicKey(input.recoveryPrivateKey),
         };
-        const recoveryNoKid = Cryptography.removeKid(input.recoveryPrivateKey);
-        const SIGNED_DATA_JWS = await Cryptography.signUsingEs256k(SIGNED_DATA, recoveryNoKid);
+        const SIGNED_DATA_JWS = await Cryptography.signUsingEs256k(SIGNED_DATA, input.recoveryPrivateKey);
         
         /** DID data to generate a Sidetree DeactivateOperation */
-        const OPERATION_REQUEST: SignedDataRequest = {
-            did_suffix: input.did_tyronZIL.didUniqueSuffix,
+        const SIDETREE_REQUEST: SignedDataRequest = {
+            did_suffix: input.did_tyronZIL,
             signed_data: SIGNED_DATA_JWS,
             type: OperationType.Deactivate
         };
 
-        const OPERATION_BUFFER = Buffer.from(JSON.stringify(OPERATION_REQUEST));
+        const SIDETREE_REQUEST_BUFFER = Buffer.from(JSON.stringify(SIDETREE_REQUEST));
               
         /** Executes the Sidetree DeactivateOperation */
-        const DEACTIVATE_OPERATION = await DeactivateOperation.parse(OPERATION_BUFFER);
+        const DEACTIVATE_OPERATION = await DeactivateOperation.parse(SIDETREE_REQUEST_BUFFER);
         
         /** Output data from a Sidetree-based `DID-deactivate` operation */
-        const OPERATION_OUTPUT: DeactivateOperationOutput = {
+        const OPERATION_OUTPUT: DeactivateOperationModel = {
             did_tyronZIL: input.did_tyronZIL,
-            operationRequest: OPERATION_REQUEST,
-            operationBuffer: OPERATION_BUFFER,
+            sidetreeRequest: SIDETREE_REQUEST_BUFFER,
             deactivateOperation: DEACTIVATE_OPERATION,    
         };
-
         return new DidDeactivate(OPERATION_OUTPUT);
     }
 }
@@ -86,15 +72,14 @@ export default class DidDeactivate {
 
 /** Defines input data for a Sidetree-based `DID-deactivate` operation */
 export interface DeactivateOperationInput {
-    did_tyronZIL: TyronZILScheme;
+    did_tyronZIL: string;
     recoveryPrivateKey: JwkEs256k;
 }
 
 /** Defines output data of a Sidetree-based `DID-deactivate` operation */
-interface DeactivateOperationOutput {
-    did_tyronZIL: TyronZILScheme;
-    operationRequest: SignedDataRequest;
-    operationBuffer: Buffer;
+interface DeactivateOperationModel {
+    did_tyronZIL: string;
+    sidetreeRequest: Buffer;
     deactivateOperation: DeactivateOperation;
 }
 

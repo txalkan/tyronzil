@@ -1,7 +1,7 @@
 # Install tyronZIL-js
 
 > Getting ready:  
-> - Recommended to use [nvm](https://github.com/nvm-sh/nvm) & set node.js to version 10: ```nvm install 10```  
+> - Recommended to use [nvm](https://github.com/nvm-sh/nvm) to install node.js
 > - Make sure to have the latest version of npm: ```npm install -g npm```  
 > - Also, install [node-gyp](https://github.com/nodejs/node-gyp): ```npm install -g node-gyp```  
 On macOS ```xcode-select --install``` as well
