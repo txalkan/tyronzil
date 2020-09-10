@@ -4,7 +4,7 @@
 
 Decentralized identity client for the [Zilliqa blockchain platform](https://zilliqa.com)
 
-For the management of your Decentralized Identifier (DID), `tyron` implements [Sidetree delta-based operations](https://identity.foundation/sidetree/spec/#did-operations) and saves the state in a [Scilla smart-contract](https://scilla-lang.org/) that is owned by you, the user.
+For the management of your Decentralized Identifier (DID), `Tyron` implements [Sidetree delta-based operations](https://identity.foundation/sidetree/spec/#did-operations) and saves the state in a [Scilla smart-contract](https://scilla-lang.org/) that is owned by you, the user.
 
 > Read the method specification at tyronZIL.com
 
@@ -12,7 +12,7 @@ For the management of your Decentralized Identifier (DID), `tyron` implements [S
 
 Identities on the internet remain centralized, mainly by identity providers such as Facebook, Google or PayPal. Thus, when people shop online and login with these accounts, they don't have enough control nor understanding of how their data is used and shared with third parties.
 
-Decentralized identity enables you to prove who you are without a middleman, by anchoring your decentralized identifiers (DIDs) on distributed ledgers as a shared root of trust. However, most DLTs still can't provide decentralized identity at scale. The `tyron protocol` aims to solve this issue, and tyronZIL implements it for the Zilliqa blockchain platform.
+Decentralized identity enables you to prove who you are without a middleman, by anchoring your decentralized identifiers (DIDs) on distributed ledgers as a shared root of trust. However, most DLTs still can't provide decentralized identity at scale. The `Tyron Protocol` aims to solve this issue, and tyronZIL implements it for the Zilliqa blockchain platform.
 
 ## Contributing
 
