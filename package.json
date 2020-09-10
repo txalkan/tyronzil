@@ -8,7 +8,8 @@
   },
   "scripts": {
     "build": "tsc && copyfiles \"package.json\" dist",
-    "lint": "eslint . --ext .ts"
+    "lint": "eslint . --ext .ts",
+    "typedoc": "typedoc --out typedocs"
   },
   "repository": {
     "type": "git",

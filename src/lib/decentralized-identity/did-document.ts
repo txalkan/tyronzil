@@ -22,7 +22,6 @@ import * as fs from 'fs';
 import LogColors from '../../bin/log-colors';
 import SidetreeError from '@decentralized-identity/sidetree/dist/lib/common/SidetreeError';
 import ErrorCode from './util/ErrorCode';
-import OperationType from '@decentralized-identity/sidetree/dist/lib/core/enums/OperationType';
 
 /** Generates a tyronZIL DID document */
 export default class DidDoc {
@@ -137,7 +136,7 @@ export default class DidDoc {
     /***            ****            ***/
 
     /** The tyronZIL DID resolution function */
-    public static async resolution(network: NetworkNamespace, tyronAddr: string, input: ResolutionInput): Promise<ResolutionResult | DidDoc | void> {
+    public static async resolution(network: NetworkNamespace, tyronAddr: string, input: ResolutionInput): Promise<ResolutionResult|DidDoc> {
         const ACCEPT = input.metadata.accept;
         const DID_tyronZIL = input.did;
         const DID_RESOLVED = await DidState.fetch(network, tyronAddr)
@@ -146,30 +145,23 @@ export default class DidDoc {
             if(DID_STATE.did_tyronZIL !== DID_tyronZIL){
                 throw new SidetreeError(ErrorCode.DidMismatch)
             }
-            switch (DID_STATE.status) {
-                case OperationType.Deactivate:
-                    {
-                        throw new SidetreeError("DidDeactivated", "The requested DID is deactivated")
-                    }
-                default:
-                    {
-                        const DID_DOC = await DidDoc.read(DID_STATE);
-                        switch (ACCEPT) {
-                            case Accept.contentType:
-                                return DID_DOC;
-                            case Accept.Result: {
-                                const RESOLUTION_RESULT: ResolutionResult = {
-                                    document: DID_DOC,
-                                    metadata: {
-                                        updateCommitment: DID_STATE.updateCommitment,
-                                        recoveryCommitment: DID_STATE.recoveryCommitment,
-                                    }
+            const DID_DOC = await DidDoc.read(DID_STATE);
+                switch (ACCEPT) {
+                    case Accept.contentType:
+                        return DID_DOC;
+                    case Accept.Result:
+                        {
+                            const RESOLUTION_RESULT: ResolutionResult = {
+                                document: DID_DOC,
+                                metadata: {
+                                    contentType: "application/did+json",
+                                    updateCommitment: DID_STATE.updateCommitment!,
+                                    recoveryCommitment: DID_STATE.recoveryCommitment!,
                                 }
-                                return RESOLUTION_RESULT;
                             }
+                            return RESOLUTION_RESULT;
                         }
-                    }
-            }
+                }
         })
         .catch(err => { throw err })
         return DID_RESOLVED;
@@ -218,6 +210,7 @@ export interface ResolutionResult {
 }
 
 interface DocumentMetadata {
-    updateCommitment: string | undefined;        //both commitments are undefined after deactivation
-    recoveryCommitment: string | undefined;
+    contentType: string;
+    updateCommitment: string;
+    recoveryCommitment: string;
 }

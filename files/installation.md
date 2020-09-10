@@ -10,19 +10,21 @@ On macOS ```xcode-select --install``` as well
 
 2. ```cd tyronZIL-js```
 
-3. ```git status```     // if you wanna start contributing, then create your topic branch: ```git checkout -b tyron```
+3. ```git status```
+> To start contributing, create your topic branch: ```git checkout -b yourTyron```
 
 4. ```npm install```
 
 5. ```npm run build```
 
-6. ```npm install -g .```       // to get the CLI ready
+6. To get the CLI ready:
+```npm install -g .```
 
 ## tyronZIL-CLI
 
 ### DID-create
 
-Create your brand new tyronZIL DID and resolve it into its corresponding DID-document:
+Create your brand new tyronZIL DID and save it on the Zilliqa blockchain platform, forever.
 
 ```tyronzil did create``` and follow the instructions :zap:
 
@@ -30,17 +32,15 @@ Create your brand new tyronZIL DID and resolve it into its corresponding DID-doc
 
 ### DID-resolve
 
-Resolve any DID into its corresponding DID-document with:
+Resolve any DID into its corresponding DID-document or DID-resolution-result with:
 
 ```tyronzil resolve```
-
-You have to provide the DID that you want to resolve.
 
 > More info [here](https://www.tyronzil.com/operations/CRUD/did-resolve/)
 
 ### DID-recover
 
-In case you want to reset your DID-state while keeping the same identifier. You only need your recovery private key, and the DID itself:
+In case you want to reset your DID-state while keeping the same identifier, you need your recovery private key.
 
 ```tyronzil did recover``` and follow the instructions
 
@@ -48,7 +48,7 @@ In case you want to reset your DID-state while keeping the same identifier. You 
 
 ### DID-update
 
-To update your tyronZIL DID you need your update private key, and the DID itself:
+To update your tyronZIL DID you need your update private key:
 
 ```tyronzil did update``` and follow the instructions
 
@@ -60,7 +60,7 @@ To fully deactivate your DID:
 
 ```tyronzil did deactivate``` and follow the instructions
 
-> After deactivation, the DID will not be useful anymore, nor able to be resolved
+> After deactivation, the DID will not be useful anymore, and trying to resolve it must throw a 'DidDeactivated' error.
 
 > More info [here](https://www.tyronzil.com/operations/CRUD/did-deactivate/)
 
@@ -68,4 +68,4 @@ To fully deactivate your DID:
 
 Build the project documentation with:
 
-```typedoc --out```
+```npm run typedoc```

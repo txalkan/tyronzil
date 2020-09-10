@@ -114,29 +114,31 @@ export class Sidetree {
         
         for(const patch of patches) {
             switch (patch.action) {
-                case PatchAction.Replace: {
-                    PUBLIC_KEYS = patch.document!.public_keys;
-                    SERVICES = patch.document?.service_endpoints;                    
-                }
-                break;
-                case PatchAction.AddKeys: {
-                    if(patch.keyInput !== undefined) {
-                        await this.addKeys(patch.keyInput!, KEY_ID_SET)
-                        .then(new_keys => {
-                            PATCHES.push(new_keys.patch);
-                            for (const key of new_keys.publicKey) {
-                                PUBLIC_KEYS.push(key)
-                            }
-                            for (const key of new_keys.privateKey) {
-                                PRIVATE_KEYS.push(key)
-                            }
-                        })
-                        .catch(err => { throw err })
-                    } else {
-                        throw new SidetreeError("Missing", "No key in AddKeys patch")
+                case PatchAction.Replace: 
+                    {
+                        PUBLIC_KEYS = patch.document!.public_keys;
+                        SERVICES = patch.document?.service_endpoints;        
                     }
-                }
-                break;
+                    break;
+                case PatchAction.AddKeys: 
+                    {
+                        if(patch.keyInput !== undefined) {
+                            await this.addKeys(patch.keyInput!, KEY_ID_SET)
+                            .then(new_keys => {
+                                PATCHES.push(new_keys.patch);
+                                for (const key of new_keys.publicKey) {
+                                    PUBLIC_KEYS.push(key)
+                                }
+                                for (const key of new_keys.privateKey) {
+                                    PRIVATE_KEYS.push(key)
+                                }
+                            })
+                            .catch(err => { throw err })
+                        } else {
+                            throw new SidetreeError("Missing", "No key in AddKeys patch")
+                        }
+                    }
+                    break;
                 case PatchAction.RemoveKeys:
                     if (patch.public_keys !== undefined) {
                         const ID = patch.public_keys as string[];
@@ -159,22 +161,23 @@ export class Sidetree {
                             public_keys: key_ids
                         });
                     }
-                break;
-                case PatchAction.AddServices: {
-                    const SERVICES = patch.service_endpoints;
-                    const NEW_SERVICES = [];
-                    for(const service of SERVICES!) {
-                            if(!SERVICE_ID_SET.has(service.id)) {
-                                NEW_SERVICES.push(service)
-                                SERVICES!.push(service);
-                            }
+                    break;
+                case PatchAction.AddServices: 
+                    {
+                        const SERVICES = patch.service_endpoints;
+                        const NEW_SERVICES = [];
+                        for(const service of SERVICES!) {
+                                if(!SERVICE_ID_SET.has(service.id)) {
+                                    NEW_SERVICES.push(service)
+                                    SERVICES!.push(service);
+                                }
+                        }
+                        PATCHES.push({
+                            action: PatchAction.AddServices,
+                            service_endpoints: NEW_SERVICES
+                        })
                     }
-                    PATCHES.push({
-                        action: PatchAction.AddServices,
-                        service_endpoints: NEW_SERVICES
-                    })
-                }
-                break;
+                    break;
                 case PatchAction.RemoveServices:
                     if (SERVICES !== undefined && patch.ids !== undefined) {
                         const ID = [];
@@ -193,7 +196,7 @@ export class Sidetree {
                         const IDs = new Set(ID);
                         SERVICES = SERVICES.filter(service => !IDs.has(service.id))
                     }
-                break;
+                    break;
                 default:
                     throw new SidetreeError(ErrorCode.IncorrectPatchAction);
             }

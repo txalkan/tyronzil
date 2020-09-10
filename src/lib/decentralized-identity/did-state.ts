@@ -19,6 +19,7 @@ import { TyronZILUrlScheme } from './tyronZIL-schemes/did-url-scheme';
 import OperationType from '@decentralized-identity/sidetree/dist/lib/core/enums/OperationType';
 import { Sidetree } from './sidetree-protocol/sidetree';
 import { DocumentModel } from './sidetree-protocol/models/patch-model';
+import SidetreeError from '@decentralized-identity/sidetree/dist/lib/common/SidetreeError';
 
 /** tyronZIL's DID-state */
 export default class DidState {
@@ -63,10 +64,7 @@ export default class DidState {
             let RECOVERY_COMMITMENT;
             switch (STATUS) {
                 case OperationType.Deactivate:
-                    DOCUMENT = undefined;
-                    UPDATE_COMMITMENT = undefined;
-                    RECOVERY_COMMITMENT = undefined;
-                    break;
+                    throw new SidetreeError("DidDeactivated", "The requested DID is deactivated, and therefore the Resolver must throw an error.");
                 default:
                     DOCUMENT = await Sidetree.documentModel(tyron_state.document) as DocumentModel;
                     UPDATE_COMMITMENT = tyron_state.update_commitment;
@@ -83,7 +81,7 @@ export default class DidState {
             }
             return new DidState(THIS_STATE);
         })
-        .catch(err => console.error(err))
+        .catch(err => { throw err })
         return did_state;
     }
 }
@@ -95,7 +93,7 @@ export interface DidStateModel {
     status: OperationType;
     contract_owner: string;
     did_tyronZIL: string;
-    document: DocumentModel|undefined;        // undefined after deactivation
-    updateCommitment: string|undefined;        // undefined after deactivation
-    recoveryCommitment: string|undefined;        // undefined after deactivation
+    document: DocumentModel;
+    updateCommitment: string;
+    recoveryCommitment: string;
 }
