@@ -6,8 +6,6 @@ Decentralized identity client powered by [Zilliqa](https://zilliqa.com)
 
 For the management of your Decentralized Identifier (DID), `Tyron` implements [Sidetree delta-based DID-operations](https://identity.foundation/sidetree/spec/#did-operations) and saves the state in a [Scilla smart-contract](https://scilla-lang.org/) that is owned by you, the user.
 
-> Read the [DID-Method specification](https://tyronzil.com)
-
 ## Problem summary
 
 Identities on the internet remain centralized, mainly by identity providers such as Facebook, Google or PayPal. Thus, when people shop online and login with these accounts, they don't have enough control nor understanding of how their data is used and shared with third parties.
