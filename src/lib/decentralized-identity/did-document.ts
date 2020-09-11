@@ -22,8 +22,9 @@ import * as fs from 'fs';
 import LogColors from '../../bin/log-colors';
 import SidetreeError from '@decentralized-identity/sidetree/dist/lib/common/SidetreeError';
 import ErrorCode from './util/ErrorCode';
+import ZilliqaInit from '../blockchain/zilliqa-init';
 
-/** Generates a tyronZIL DID document */
+/** Generates a tyronZIL DID-Document */
 export default class DidDoc {
     public readonly id: string;
     public readonly publicKey: VerificationMethodModel[];
@@ -41,26 +42,44 @@ export default class DidDoc {
 
     /***            ****            ***/
 
-    /** Saves the DID-document */
-    public static async write(did: string, input: DidDoc | ResolutionResult): Promise<void> {
-        try {
-            const PRINT_STATE = JSON.stringify(input, null, 2);
-            let FILE_NAME;
-            if(input instanceof DidDoc) {
-                FILE_NAME = `DID_DOCUMENT_${did}.json`;        
-            } else {
-                FILE_NAME = `DID_RESOLVED_${did}.json`;
+    /** The tyronZIL DID-Resolution method */
+    public static async resolution(network: NetworkNamespace, tyronAddr: string, input: ResolutionInput): Promise<ResolutionResult|DidDoc> {
+        const ACCEPT = input.metadata.accept;
+        const DID_tyronZIL = input.did;
+        const ZIL_INIT = new ZilliqaInit(network);
+        const BLOCKCHAIN_INFO = await ZIL_INIT.API.blockchain.getBlockChainInfo();        
+        const DID_RESOLVED = await DidState.fetch(network, tyronAddr)
+        .then(async did_state => {
+            const DID_STATE = did_state as DidState;
+            if(DID_STATE.did_tyronZIL !== DID_tyronZIL){
+                throw new SidetreeError(ErrorCode.DidMismatch)
             }
-            fs.writeFileSync(FILE_NAME, PRINT_STATE);
-            console.info(LogColors.yellow(`DID resolved as: ${LogColors.brightYellow(FILE_NAME)}`));
-        } catch (error) {
-            throw new SidetreeError(ErrorCode.CouldNotSave);            
-        }
+            const DID_DOC = await DidDoc.read(DID_STATE);
+                switch (ACCEPT) {
+                    case Accept.contentType:
+                        return DID_DOC;
+                    case Accept.Result:
+                        {
+                            const RESOLUTION_RESULT: ResolutionResult = {
+                                resolutionMetadata: BLOCKCHAIN_INFO,
+                                document: DID_DOC,
+                                metadata: {
+                                    contentType: "application/did+json",
+                                    updateCommitment: DID_STATE.updateCommitment!,
+                                    recoveryCommitment: DID_STATE.recoveryCommitment!,
+                                }
+                            }
+                            return RESOLUTION_RESULT;
+                        }
+                }
+        })
+        .catch(err => { throw err })
+        return DID_RESOLVED;
     }
 
     /***            ****            ***/
 
-    /** Generates a 'DID-read' operation, resolving any tyronZIL DID-state into its DID-document */
+    /** Generates a 'DID-read' operation, resolving any tyronZIL DID-state into its DID-Document */
     public static async read(state: DidState): Promise<DidDoc> {
         const DID_DOC = await TyronZILUrlScheme.validate(state.did_tyronZIL)
         .then(async did_scheme => {
@@ -117,7 +136,7 @@ export default class DidDoc {
                 }
             }
 
-            /** The tyronZIL DID-document */
+            /** The tyronZIL DID-Document */
             const OPERATION_OUTPUT: DidDocScheme = {
                 id: ID,
                 publicKey: PUBLIC_KEY,
@@ -135,42 +154,27 @@ export default class DidDoc {
 
     /***            ****            ***/
 
-    /** The tyronZIL DID resolution function */
-    public static async resolution(network: NetworkNamespace, tyronAddr: string, input: ResolutionInput): Promise<ResolutionResult|DidDoc> {
-        const ACCEPT = input.metadata.accept;
-        const DID_tyronZIL = input.did;
-        const DID_RESOLVED = await DidState.fetch(network, tyronAddr)
-        .then(async did_state => {
-            const DID_STATE = did_state as DidState;
-            if(DID_STATE.did_tyronZIL !== DID_tyronZIL){
-                throw new SidetreeError(ErrorCode.DidMismatch)
+    /** Saves the DID-Document */
+    public static async write(did: string, input: DidDoc | ResolutionResult): Promise<void> {
+        try {
+            const PRINT_STATE = JSON.stringify(input, null, 2);
+            let FILE_NAME;
+            if(input instanceof DidDoc) {
+                FILE_NAME = `DID_DOCUMENT_${did}.json`;        
+            } else {
+                FILE_NAME = `DID_RESOLVED_${did}.json`;
             }
-            const DID_DOC = await DidDoc.read(DID_STATE);
-                switch (ACCEPT) {
-                    case Accept.contentType:
-                        return DID_DOC;
-                    case Accept.Result:
-                        {
-                            const RESOLUTION_RESULT: ResolutionResult = {
-                                document: DID_DOC,
-                                metadata: {
-                                    contentType: "application/did+json",
-                                    updateCommitment: DID_STATE.updateCommitment!,
-                                    recoveryCommitment: DID_STATE.recoveryCommitment!,
-                                }
-                            }
-                            return RESOLUTION_RESULT;
-                        }
-                }
-        })
-        .catch(err => { throw err })
-        return DID_RESOLVED;
+            fs.writeFileSync(FILE_NAME, PRINT_STATE);
+            console.info(LogColors.yellow(`DID resolved as: ${LogColors.brightYellow(FILE_NAME)}`));
+        } catch (error) {
+            throw new SidetreeError(ErrorCode.CouldNotSave);            
+        }
     }
 }
 
 /***            ****            ***/
 
-/** The scheme of a `tyron-did-document` */
+/** The scheme of a `tyron DID-Document` */
 interface DidDocScheme {
     id: string;
     publicKey: VerificationMethodModel[];
@@ -187,20 +191,20 @@ export interface ResolutionInput {
 
 export interface ResolutionInputMetadata {
     accept: Accept;        //to request a certain type of result
-    versionId?: string;        //to request a specific version of the DID-document - mutually exclusive with versionTime
+    versionId?: string;        //to request a specific version of the DID-Document - mutually exclusive with versionTime
     versionTime?: string;        //idem versionId - an RFC3339 combined date and time representing when the DID-doc was current for the input DID
     noCache?: boolean;        //to request a certain kind of caching behavior - 'true': caching is disabled and a fresh DID-doc is retrieved from the registry
     dereferencingInput?: DereferencingInputMetadata;
 }
 
 interface DereferencingInputMetadata {
-    serviceType?: string;        //to select a specific service from the DID-document
+    serviceType?: string;        //to select a specific service from the DID-Document
     followRedirect?: boolean;        //to instruct whether redirects should be followed
 }
 
 export enum Accept {
-    contentType = "application/did+json",        //requests a DId-document as output
-    Result = "application/did+json;profile='https://w3c-ccg.github.io/did-resolution'"        //requests a DID resolution result as output
+    contentType = "application/did+json",        //requests a DID-Document as output
+    Result = "application/did+json;profile='https://w3c-ccg.github.io/did-resolution'"        //requests a DID-Resolution-Result as output
 }
 
 export interface ResolutionResult {
