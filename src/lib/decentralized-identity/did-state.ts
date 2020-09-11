@@ -21,7 +21,7 @@ import { Sidetree } from './sidetree-protocol/sidetree';
 import { DocumentModel } from './sidetree-protocol/models/patch-model';
 import SidetreeError from '@decentralized-identity/sidetree/dist/lib/common/SidetreeError';
 
-/** tyronZIL's DID-state */
+/** tyronZIL's DID-State */
 export default class DidState {
     public readonly status: OperationType;
     public readonly contract_owner: string;
@@ -47,7 +47,7 @@ export default class DidState {
 
     /***            ****            ***/
 
-    /** Fetches the current DID-state for the given tyron_addr */
+    /** Fetches the current DID-State for the given tyron_addr */
     public static async fetch(network: NetworkNamespace, tyronAddr: string): Promise<DidState|void> {
         const did_state = await TyronState.fetch(network, tyronAddr)
         .then(async tyron_state => {

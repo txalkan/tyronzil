@@ -78,7 +78,7 @@ export default class TyronCLI {
         const NETWORK = this.network();
         await this.clientInit()
         .then(async client => {
-            const user_privateKey = readline.question(LogColors.green(`As the user, you're the owner of your Tyron-Smart-Contract! Which private key do you choose to have that power? - `) + LogColors.lightBlue(`Your answer: `));
+            const user_privateKey = readline.question(LogColors.green(`As the user, you're the owner of your Tyron-Smart-Contract(TSM)! Which private key do you choose to have that power? - `) + LogColors.lightBlue(`Your answer: `));
             const CONTRACT_OWNER = Crypto.getAddressFromPrivateKey(user_privateKey);
             const USER: Account = {
                 addr: CONTRACT_OWNER,
@@ -186,9 +186,9 @@ export default class TyronCLI {
                 SUFFIX_OBJECT.recovery_commitment
             );
 
-            const version = readline.question(LogColors.green(`What version of the Tyron-Smart-Contract would you like to deploy?`)+` - [0.4] - Versions currently supported: 0.4 - ` + LogColors.lightBlue(`Your answer: `));
+            const version = readline.question(LogColors.green(`What version of the Tyron-Smart-Contract(TSM) would you like to deploy?`)+` - [0.4] - Versions currently supported: 0.4 - ` + LogColors.lightBlue(`Your answer: `));
             
-            // The user deploys their Tyron-Smart-Contract and calls the ContractInit transition
+            // The user deploys their TSM and calls the ContractInit transition
             console.log(LogColors.brightGreen(`Deploying...`));
             const DEPLOYED_CONTRACT = await TyronTransaction.deploy(didCreate.didInit.init, version);
             const TYRON_ADDR = (DEPLOYED_CONTRACT as DeployedContract).contract.address;
@@ -205,7 +205,7 @@ export default class TyronCLI {
         const NETWORK = this.network();
         const DID = readline.question(LogColors.green(`Which tyronZIL DID would you like to resolve? - `) + LogColors.lightBlue(`Your answer: `));
         /** Asks for the user's `tyron address` */
-        const tyronAddr = readline.question(LogColors.green(`What is the address of the user's Tyron-Smart-Contract - `) + LogColors.lightBlue(`Your answer: `));
+        const tyronAddr = readline.question(LogColors.green(`What is the address of the user's Tyron-Smart-Contract(TSM) - `) + LogColors.lightBlue(`Your answer: `));
         
         /** Whether to resolve the DID as a document or resolution result */
         const RESOLUTION_CHOICE = readline.question(LogColors.green(`Would you like to resolve your DID as a document(1) or as a resolution result(2)? `) + `- [1/2] - Defaults to document - ` + LogColors.lightBlue(`Your answer: `));
@@ -245,10 +245,10 @@ export default class TyronCLI {
 
     /** Handles the `update` subcommand */
     public static async handleUpdate(): Promise<void> {
-        console.log(LogColors.brightGreen(`To update your tyronZIL DID, let's fetch its current state from the Zilliqa blockchain platform!`));
+        console.log(LogColors.brightGreen(`To update your tyronZIL DID, let's fetch its current TSM-State from the Zilliqa blockchain platform!`));
         const NETWORK = this.network();
         /** Asks for the user's `tyron address` */
-        const tyronAddr = readline.question(LogColors.green(`What is the address of the user's Tyron-Smart-Contract? - `) + LogColors.lightBlue(`Your answer: `));
+        const tyronAddr = readline.question(LogColors.green(`What is the address of the user's Tyron-Smart-Contract(TSM)? - `) + LogColors.lightBlue(`Your answer: `));
         
         await DidState.fetch(NETWORK, tyronAddr)
         .then(async did_state => {
@@ -406,10 +406,10 @@ export default class TyronCLI {
 
     /** Handles the `recover` subcommand */
     public static async handleRecover(): Promise<void> {
-        console.log(LogColors.brightGreen(`To recover your tyronZIL DID, let's fetch its current state from the Zilliqa blockchain platform!`));
+        console.log(LogColors.brightGreen(`To recover your tyronZIL DID, let's fetch its current TSM-State from the Zilliqa blockchain platform!`));
         const NETWORK = this.network();
         /** Asks for the user's `tyron address` */
-        const tyronAddr = readline.question(LogColors.green(`What is the address of the user's Tyron-Smart-Contract? - `) + LogColors.lightBlue(`Your answer: `));
+        const tyronAddr = readline.question(LogColors.green(`What is the address of the user's Tyron-Smart-Contract(TSM)? - `) + LogColors.lightBlue(`Your answer: `));
         
         await DidState.fetch(NETWORK, tyronAddr)
         .then(async did_state => {
@@ -521,10 +521,10 @@ export default class TyronCLI {
 
     /** Handles the `deactivate` subcommand */
     public static async handleDeactivate(): Promise<void> {
-        console.log(LogColors.brightGreen(`To deactivate your tyronZIL DID, let's fetch its current state from the Zilliqa blockchain platform!`));
+        console.log(LogColors.brightGreen(`To deactivate your tyronZIL DID, let's fetch its current TSM-State from the Zilliqa blockchain platform!`));
         const NETWORK = this.network();
         /** Asks for the user's `tyron address` */
-        const tyronAddr = readline.question(LogColors.green(`What is the address of the user's Tyron-Smart-Contract? - `) + LogColors.lightBlue(`Your answer: `));
+        const tyronAddr = readline.question(LogColors.green(`What is the address of the user's Tyron-Smart-Contract(TSM)? - `) + LogColors.lightBlue(`Your answer: `));
         
         await DidState.fetch(NETWORK, tyronAddr)
         .then(async did_state => {
@@ -599,7 +599,7 @@ export default class TyronCLI {
 
 /***            ****            ***/
 
-/** Represent a Zilliqa account */
+/** Represents a Zilliqa account */
 interface Account {
     addr: string;
     privateKey: string;

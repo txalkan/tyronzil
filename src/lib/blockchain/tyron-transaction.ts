@@ -111,7 +111,7 @@ export default class TyronTransaction extends TyronContract {
                 const GET_BALANCE = await ZIL_INIT.API.blockchain.getBalance(USER_ADDRESS);
                 const BALANCE_RESULT = GET_BALANCE.result;
 
-                // The account's balance MUST be greater than the cost to initialize the `tyron-smart-contract`
+                // The account's balance MUST be greater than the cost to initialize the TSM
                 if (Number(BALANCE_RESULT.balance) < 20000000000000) {
                     throw new SidetreeError("NotEnoughBalance", `The user's balance must be more than the cost to initialize their contract (~20ZIL) - Current balance: ${Number(BALANCE_RESULT.balance)/1000000000000} ZIL`)
                 }
@@ -134,7 +134,7 @@ export default class TyronTransaction extends TyronContract {
 
     /***            ****            ***/
     
-    /** Deploys the `tyron-smart-contract` by version
+    /** Deploys the TSM by version
      * & calls the ContractInit transition with the client_addr to set the operation_cost, the foundation_addr & client_commission from the TyronInit contract 
     */
     public static async deploy(init: TyronTransaction, version: string): Promise<DeployedContract|void> {
@@ -176,11 +176,11 @@ export default class TyronTransaction extends TyronContract {
                 1000,
                 false,
             );
-            console.log(LogColors.yellow(`Your tyron-smart-contract is deployed: `) + LogColors.brightYellow(`${deployTx.isConfirmed()}`));
+            console.log(LogColors.yellow(`Your Tyron-Smart-Contract(TSM) is deployed: `) + LogColors.brightYellow(`${deployTx.isConfirmed()}`));
             console.log(LogColors.yellow(`Its Zilliqa address is: `) + LogColors.brightGreen(`${tyron_smart_contract.address}`));
             console.log(LogColors.yellow(`Deployment Transaction ID: `) + LogColors.brightYellow(`${deployTx.id}`));
             const CUMULATIVE_GAS = (deployTx.getReceipt())!.cumulative_gas;
-            console.log(LogColors.yellow(`The total gas consumed by deploying your tyron-smart-contract was: `) + LogColors.brightYellow(`${CUMULATIVE_GAS}`));
+            console.log(LogColors.yellow(`The total gas consumed by deploying your TSM was: `) + LogColors.brightYellow(`${CUMULATIVE_GAS}`));
             
             const DEPLOYED_CONTRACT = {
                 transaction: deployTx,
@@ -209,7 +209,7 @@ export default class TyronTransaction extends TyronContract {
                 1000,
                 false
             );
-            console.log(LogColors.yellow(`Your tyron-smart-contract is initialized: `) + LogColors.brightYellow(`${CALL.isConfirmed()}`));
+            console.log(LogColors.yellow(`Your Tyron-Smart-Contract is initialized: `) + LogColors.brightYellow(`${CALL.isConfirmed()}`));
             const CUMULATIVE_GAS = (CALL.getReceipt())!.cumulative_gas;
             console.log(LogColors.yellow(`The total gas consumed by the ContractInit transition was: `) + LogColors.brightYellow(`${CUMULATIVE_GAS}`));
             return deployed_contract;
@@ -413,7 +413,7 @@ export default class TyronTransaction extends TyronContract {
 
 /***            ****            ***/
 
-/** The result of a tyron-smart-contract deployment */
+/** The result of a TSM deployment */
 export interface DeployedContract {
     transaction: Transaction,
     contract: Contract
