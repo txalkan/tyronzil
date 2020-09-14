@@ -1,10 +1,13 @@
-# tyronZIL
-
-### own your data :zap: empower your world
+<div align="center">
+<img src="./files/tyronzil-logo.png" alt="tyronZIL" title="tyronZIL-v0.4-logo" width="300"/>
+</div>
+<div align="center">
+ <p><b>own your data, empower your world</b></p>
+</div>
 
 Decentralized identity client powered by [Zilliqa](https://zilliqa.com)
 
-For the management of your Decentralized Identifier (DID), `Tyron` implements [Sidetree delta-based DID-operations](https://identity.foundation/sidetree/spec/#did-operations) and saves the state in a [Scilla smart-contract](https://scilla-lang.org/) that is owned by you, the user.
+For the management of a Decentralized Identifier (DID), tyronZIL implements [Sidetree delta-based DID operations](https://identity.foundation/sidetree/spec/#did-operations) and saves the DID-Document in a [Scilla smart-contract](https://scilla-lang.org/) that is owned by the user.
 
 ## Problem summary
 
