@@ -43,7 +43,7 @@ export default class TyronState {
     /** Fetches the current state from the blockchain 
      * @params addr: the Zilliqa address of the user's smart-contract
     */
-    public static async fetch(network: NetworkNamespace, tyronAddr: string): Promise<void | TyronState> {
+    public static async fetch(network: NetworkNamespace, tyronAddr: string): Promise<TyronState> {
         const ZIL_INIT = new ZilliqaInit(network);
         const tyron_state = await ZIL_INIT.API.blockchain.getSmartContractInit(tyronAddr)
         .then(async immutable_fields => {
@@ -72,7 +72,7 @@ export default class TyronState {
             };
             return new TyronState(STATE);
         })
-        .catch(error => console.error(error));
+        .catch(err => { throw err });
         return tyron_state;
     }
 }
