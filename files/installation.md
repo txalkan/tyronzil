@@ -5,6 +5,7 @@
 > - Make sure to have the latest version of npm: ```npm install -g npm```  
 > - Also, install [node-gyp](https://github.com/nodejs/node-gyp): ```npm install -g node-gyp```  
 On macOS ```xcode-select --install``` as well
+> - If absent in your system, then also install [libsodium](https://libsodium.gitbook.io/doc/installation) & [libtool](https://www.gnu.org/software/libtool/)
 
 1. ```git clone https://github.com/julio-cabdu/tyronZIL-js```
 
