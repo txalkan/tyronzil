@@ -60,7 +60,7 @@ export default class DidUpdate{
             // Creates key-pair for the updateCommitment (save private key for next update operation)
             const [NEW_UPDATE_KEY, NEW_UPDATE_PRIVATE_KEY] = await Cryptography.jwkPair();
             /** Utilizes the UPDATE_KEY to make the `update reveal value` for the next update operation */
-            const NEW_UPDATE_COMMITMENT = Multihash.canonicalizeThenHashThenEncode((NEW_UPDATE_KEY));
+            const NEW_UPDATE_COMMITMENT = Multihash.canonicalizeThenDoubleHashThenEncode((NEW_UPDATE_KEY));
             
             /***            ****            ***/
 

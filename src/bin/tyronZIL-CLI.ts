@@ -260,7 +260,7 @@ export default class TyronCLI {
             const INPUT_PRIVATE_KEY = readline.question(LogColors.brightGreen(`DID state retrieved!`) + LogColors.green(` - Provide your update private key - `) + LogColors.lightBlue(`Your answer: `));
             const UPDATE_PRIVATE_KEY = await JSON.parse(Encoder.decodeAsString(INPUT_PRIVATE_KEY));
             const UPDATE_KEY = Cryptography.getPublicKey(UPDATE_PRIVATE_KEY);
-            const COMMITMENT = Multihash.canonicalizeThenHashThenEncode(UPDATE_KEY);
+            const COMMITMENT = Multihash.canonicalizeThenDoubleHashThenEncode(UPDATE_KEY);
             if (UPDATE_COMMITMENT === COMMITMENT) {
                 console.log(LogColors.brightGreen(`Sidetree public-key commitment matched! You will be able to update your tyronZIL DID`));
                 return {
@@ -421,7 +421,7 @@ export default class TyronCLI {
             const INPUT_PRIVATE_KEY = readline.question(LogColors.brightGreen(`DID state retrieved!`) + LogColors.green(` - Provide your recovery private key - `) + LogColors.lightBlue(`Your answer: `));
             const RECOVERY_PRIVATE_KEY = await JSON.parse(Encoder.decodeAsString(INPUT_PRIVATE_KEY));
             const RECOVERY_KEY = Cryptography.getPublicKey(RECOVERY_PRIVATE_KEY);
-            const COMMITMENT = Multihash.canonicalizeThenHashThenEncode(RECOVERY_KEY);
+            const COMMITMENT = Multihash.canonicalizeThenDoubleHashThenEncode(RECOVERY_KEY);
             if(RECOVERY_COMMITMENT === COMMITMENT) {
                 console.log(LogColors.brightGreen(`Sidetree public-key commitment matched! You will be able to recover your tyronZIL DID`));
                 return {
@@ -536,7 +536,7 @@ export default class TyronCLI {
             const INPUT_PRIVATE_KEY = readline.question(LogColors.brightGreen(`DID state retrieved!`) + LogColors.green(` - Provide your recovery private key - `) + LogColors.lightBlue(`Your answer: `));
             const RECOVERY_PRIVATE_KEY = await JSON.parse(Encoder.decodeAsString(INPUT_PRIVATE_KEY));
             const RECOVERY_KEY = Cryptography.getPublicKey(RECOVERY_PRIVATE_KEY);
-            const COMMITMENT = Multihash.canonicalizeThenHashThenEncode(RECOVERY_KEY);
+            const COMMITMENT = Multihash.canonicalizeThenDoubleHashThenEncode(RECOVERY_KEY);
             if(RECOVERY_COMMITMENT === COMMITMENT) {
                 console.log(LogColors.brightGreen(`Sidetree public-key commitment matched! You will be able to deactivate your tyronZIL DID`));
                 return {

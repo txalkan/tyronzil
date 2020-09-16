@@ -79,12 +79,12 @@ export default class DidCreate {
         // Creates key-pair for the updateCommitment (save private key for next update operation)
         const [UPDATE_KEY, UPDATE_PRIVATE_KEY] = await Cryptography.jwkPair();
         /** Utilizes the UPDATE_KEY to make the `update reveal value` for the next update operation */
-        const UPDATE_COMMITMENT = Multihash.canonicalizeThenHashThenEncode(UPDATE_KEY);
+        const UPDATE_COMMITMENT = Multihash.canonicalizeThenDoubleHashThenEncode(UPDATE_KEY);
 
         // Creates key-pair for the recoveryCommitment (save private key for next recovery operation)
         const [RECOVERY_KEY, RECOVERY_PRIVATE_KEY] = await Cryptography.jwkPair();
         /** Utilizes the RECOVERY_KEY to make the next recovery commitment hash */
-        const RECOVERY_COMMITMENT = Multihash.canonicalizeThenHashThenEncode(RECOVERY_KEY);
+        const RECOVERY_COMMITMENT = Multihash.canonicalizeThenDoubleHashThenEncode(RECOVERY_KEY);
         
         /** Input data for the Sidetree request */
         const SIDETREE_REQUEST_INPUT: RequestInput = {
