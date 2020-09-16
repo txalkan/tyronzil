@@ -31,13 +31,15 @@
   },
   "homepage": "https://github.com/julio-cabdu/tyronzil-js#readme",
   "dependencies": {
-    "@decentralized-identity/sidetree": "^0.9.1",
+    "@decentralized-identity/sidetree": "^0.11.0",
     "@types/websocket": "^1.0.1",
     "@zilliqa-js/zilliqa": "^1.0.0-alpha.1",
     "bn": "^1.0.5",
     "chalk": "^4.1.0",
+    "node-fetch": "^2.6.1",
     "readline-sync": "^1.4.10",
     "tslib": "^2.0.1",
+    "typescript": "^3.9.7",
     "yargs": "^15.4.0"
   },
   "devDependencies": {
@@ -49,7 +51,6 @@
     "@typescript-eslint/parser": "^3.8.0",
     "copyfiles": "^2.3.0",
     "eslint": "^7.6.0",
-    "typedoc": "^0.17.8",
-    "typescript": "^3.9.7"
+    "typedoc": "^0.17.8"
   }
 }
