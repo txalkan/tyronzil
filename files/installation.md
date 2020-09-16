@@ -1,11 +1,11 @@
 # Install tyronZIL-js
 
 > Getting ready:  
-> - Recommended to use [nvm](https://github.com/nvm-sh/nvm) to install node.js
+> - Recommended to use [nvm](https://github.com/nvm-sh/nvm) to install node.js ```nvm use 12```
 > - Make sure to have the latest version of npm: ```npm install -g npm```  
 > - Also, install [node-gyp](https://github.com/nodejs/node-gyp): ```npm install -g node-gyp```  
 On macOS ```xcode-select --install``` as well
-> - If absent in your system, then also install [libsodium](https://libsodium.gitbook.io/doc/installation) & [libtool](https://www.gnu.org/software/libtool/)
+> - If absent in your system, then also install [libsodium](https://libsodium.gitbook.io/doc/installation), autoconf, automake & libtool, e.g. ```brew install autoconf automake libtool```
 
 1. ```git clone https://github.com/julio-cabdu/tyronZIL-js```
 
@@ -29,7 +29,8 @@ Create your brand new tyronZIL DID and save it on the Zilliqa blockchain platfor
 
 ```tyronzil did create``` and follow the instructions :zap:
 
-> More info [here](https://www.tyronzil.com/operations/CRUD/did-create/)
+> More info [here](https://www.tyronzil.com/operations/CRUD/did-create/)  
+> For your convenience, you could use [these testing-accounts](./testing-accounts.md) 
 
 ### DID-resolve
 
