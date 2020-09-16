@@ -1,5 +1,3 @@
-#!/usr/bin/env node --max-old-space-size=8192
-
 /*
     TyronZIL-js: Decentralized identity client for the Zilliqa blockchain platform
     Copyright (C) 2020 Julio Cesar Cabrapan Duarte
@@ -28,10 +26,9 @@ import Encoder from '@decentralized-identity/sidetree/dist/lib/core/versions/lat
 import SidetreeError from '@decentralized-identity/sidetree/dist/lib/common/SidetreeError';
 import ErrorCode from '../lib/decentralized-identity/util/ErrorCode';
 import { PatchAction, PatchModel, DocumentModel } from '../lib/decentralized-identity/sidetree-protocol/models/patch-model';
-import TyronTransaction, { TransitionTag, DeployedContract } from '../lib/blockchain/tyron-transaction';
-import { ContractInit } from '../lib/blockchain/tyron-contract';
-import { Sidetree, SuffixDataModel } from '../lib/decentralized-identity/sidetree-protocol/sidetree';
-import DeltaModel from '@decentralized-identity/sidetree/dist/lib/core/versions/latest/models/DeltaModel';
+import TyronTransaction, { TransitionTag } from '../lib/blockchain/tyron-transaction';
+import { ContractInit, TyronInitContracts } from '../lib/blockchain/tyron-contract';
+import { Sidetree } from '../lib/decentralized-identity/sidetree-protocol/sidetree';
 import Util, { PrivateKeys } from './util';
 import DidUpdate, { UpdateOperationInput } from '../lib/decentralized-identity/sidetree-protocol/did-operations/did-update';
 import DidState from '../lib/decentralized-identity/did-state';
@@ -44,20 +41,26 @@ import DidDeactivate, { DeactivateOperationInput } from '../lib/decentralized-id
 /** Handles the command-line interface DID operations */
 export default class TyronCLI {
     /** Gets network choice from the user */
-    private static network(): NetworkNamespace {
+    private static network(): { network: NetworkNamespace, tyronInit: TyronInitContracts } {
         const network = readline.question(LogColors.green(`On which Zilliqa network would you like to operate, mainnet(m) or testnet(t)?`) + ` - [m/t] - Defaults to testnet - ` + LogColors.lightBlue(`Your answer: `));
-        // Defaults to testnet
+        // Both default to testnet
         let NETWORK;
+        let TYRON_INIT;        //address of the TyronInit smart-contract
         switch(network.toLowerCase()) {
             case 'm':
                 NETWORK = NetworkNamespace.Mainnet;
+                TYRON_INIT = TyronInitContracts.Mainnet;
                 break;
             default:
                 // Defaults to testnet
                 NETWORK = NetworkNamespace.Testnet;
+                TYRON_INIT = TyronInitContracts.Testnet;
                 break;
         }
-        return NETWORK;
+        return {
+            network: NETWORK,
+            tyronInit: TYRON_INIT
+        }
     }
 
     /** Initializes the client account */
@@ -75,25 +78,27 @@ export default class TyronCLI {
 
     /** Handles the `create` subcommand */
     public static async handleCreate(): Promise<void> {
-        const NETWORK = this.network();
+        const SET_NETWORK = this.network();
+        const NETWORK = SET_NETWORK.network;
         await this.clientInit()
         .then(async client => {
-            const user_privateKey = readline.question(LogColors.green(`As the user, you're the owner of your Tyron-Smart-Contract(TSM)! Which private key do you choose to have that power? - `) + LogColors.lightBlue(`Your answer: `));
+            console.log(LogColors.brightGreen(`The user instantiate their Tyron-Smart-Contract(TSM) with a private key as the 'contract_owner'`));
+            const user_privateKey = readline.question(LogColors.green(`As the user, you're the owner of your TSM! Which private key do you choose? - `) + LogColors.lightBlue(`Your answer: `));
             const CONTRACT_OWNER = Crypto.getAddressFromPrivateKey(user_privateKey);
             const USER: Account = {
                 addr: CONTRACT_OWNER,
                 privateKey: user_privateKey
             };
-
-            console.log(LogColors.brightGreen(`Initializing your Tyron-Smart-Contract...`));
+            
+            console.log(LogColors.brightGreen(`Initializing...`));
             const CONTRACT_INIT: ContractInit = {
-                tyron_init: "0x75d8297b8bd2e35de1c17e19d2c13504de623793",
+                tyron_init: SET_NETWORK.tyronInit,
                 contract_owner: USER.addr,
                 client_addr: client.addr,
-                tyron_stake: 100000000000000        //e.g. 100 ZIL
+                tyron_stake: 50000000000000        //e.g. 50 ZIL
             };
 
-            const gas_limit = readline.question(LogColors.green(`What is the gas limit?`) + ` - [Recommended value: 20,000] - ` + LogColors.lightBlue(`Your answer: `));
+            const gas_limit = readline.question(LogColors.green(`What is your gas limit?`) + ` - [Recommended value: 20,000] - ` + LogColors.lightBlue(`Your answer: `));
             
             const INITIALIZE = await TyronTransaction.initialize(
                 NETWORK,
@@ -106,7 +111,7 @@ export default class TyronCLI {
             return {
                 client: client,
                 user: USER,
-                init: INITIALIZE as TyronTransaction
+                init: INITIALIZE
             };
         })
         .then(async didInit => {
@@ -172,12 +177,12 @@ export default class TyronCLI {
                     break;
             }
 
-            const SUFFIX_OBJECT = await Sidetree.suffixModel(didCreate.operation.suffixData) as SuffixDataModel;
-            const DELTA_OBJECT = await Sidetree.deltaModel(didCreate.operation.delta) as DeltaModel;
+            const SUFFIX_OBJECT = await Sidetree.suffixModel(didCreate.operation.suffixData);
+            const DELTA_OBJECT = await Sidetree.deltaModel(didCreate.operation.delta);
             
-            const DOCUMENT = await Sidetree.docFromDelta(didCreate.operation.delta) as DocumentModel;
+            const DOCUMENT = await Sidetree.docFromDelta(didCreate.operation.delta);
             const DOC_BUFFER = Buffer.from(JSON.stringify(DOCUMENT));
-            const ENCODED_DOCUMENT = Encoder.encode(DOC_BUFFER);  
+            const ENCODED_DOCUMENT = Encoder.encode(DOC_BUFFER);
             
             const PARAMS = await TyronTransaction.create(
                 didCreate.operation.didScheme.did_tyronZIL,
@@ -186,12 +191,11 @@ export default class TyronCLI {
                 SUFFIX_OBJECT.recovery_commitment
             );
 
-            const version = readline.question(LogColors.green(`What version of the Tyron-Smart-Contract(TSM) would you like to deploy?`)+` - [0.4] - Versions currently supported: 0.4 - ` + LogColors.lightBlue(`Your answer: `));
+            const version = readline.question(LogColors.green(`What version of the TSM would you like to deploy?`)+` - [0.4] - Versions currently supported: 0.4 - ` + LogColors.lightBlue(`Your answer: `));
             
             // The user deploys their TSM and calls the ContractInit transition
-            console.log(LogColors.brightGreen(`Deploying...`));
             const DEPLOYED_CONTRACT = await TyronTransaction.deploy(didCreate.didInit.init, version);
-            const TYRON_ADDR = (DEPLOYED_CONTRACT as DeployedContract).contract.address;
+            const TYRON_ADDR = DEPLOYED_CONTRACT.contract.address;
 
             await TyronTransaction.submit(didCreate.didInit.init, TYRON_ADDR!, didCreate.tag, PARAMS);
         })
@@ -202,7 +206,7 @@ export default class TyronCLI {
 
     /** Resolves the tyronZIL DID and saves it */
     public static async handleResolve(): Promise<void> {
-        const NETWORK = this.network();
+        const SET_NETWORK = this.network();
         const DID = readline.question(LogColors.green(`Which tyronZIL DID would you like to resolve? - `) + LogColors.lightBlue(`Your answer: `));
         /** Asks for the user's `tyron address` */
         const tyronAddr = readline.question(LogColors.green(`What is the address of the user's Tyron-Smart-Contract(TSM) - `) + LogColors.lightBlue(`Your answer: `));
@@ -232,7 +236,7 @@ export default class TyronCLI {
         console.log(LogColors.brightGreen(`Resolving your request...`));
 
         /** Resolves the tyronZIL DID */        
-        await DidDoc.resolution(NETWORK, tyronAddr, RESOLUTION_INPUT)
+        await DidDoc.resolution(SET_NETWORK.network, tyronAddr, RESOLUTION_INPUT)
         .then(async did_resolved => {
             const DID_RESOLVED = did_resolved as ResolutionResult|DidDoc;
             // Saves the DID-document
@@ -246,7 +250,8 @@ export default class TyronCLI {
     /** Handles the `update` subcommand */
     public static async handleUpdate(): Promise<void> {
         console.log(LogColors.brightGreen(`To update your tyronZIL DID, let's fetch its current TSM-State from the Zilliqa blockchain platform!`));
-        const NETWORK = this.network();
+        const SET_NETWORK = this.network();
+        const NETWORK = SET_NETWORK.network;
         /** Asks for the user's `tyron address` */
         const tyronAddr = readline.question(LogColors.green(`What is the address of the user's Tyron-Smart-Contract(TSM)? - `) + LogColors.lightBlue(`Your answer: `));
         
@@ -382,10 +387,10 @@ export default class TyronCLI {
             );
 
             const CONTRACT_INIT: ContractInit = {
-                tyron_init: "0x75d8297b8bd2e35de1c17e19d2c13504de623793",
+                tyron_init: SET_NETWORK.tyronInit,
                 contract_owner: didUpdate.didInit.state.contract_owner,
                 client_addr: didUpdate.client.addr,
-                tyron_stake: 100000000000000        //e.g. 100 ZIL
+                tyron_stake: 50000000000000        //e.g. 50 ZIL
             };
 
             const gas_limit = readline.question(LogColors.green(`What is the gas limit? - `) + ` - [Recommended value: 10,000] - ` + LogColors.lightBlue(`Your answer: `));
@@ -407,7 +412,8 @@ export default class TyronCLI {
     /** Handles the `recover` subcommand */
     public static async handleRecover(): Promise<void> {
         console.log(LogColors.brightGreen(`To recover your tyronZIL DID, let's fetch its current TSM-State from the Zilliqa blockchain platform!`));
-        const NETWORK = this.network();
+        const SET_NETWORK = this.network();
+        const NETWORK = SET_NETWORK.network;
         /** Asks for the user's `tyron address` */
         const tyronAddr = readline.question(LogColors.green(`What is the address of the user's Tyron-Smart-Contract(TSM)? - `) + LogColors.lightBlue(`Your answer: `));
         
@@ -497,10 +503,10 @@ export default class TyronCLI {
             );
 
             const CONTRACT_INIT: ContractInit = {
-                tyron_init: "0x75d8297b8bd2e35de1c17e19d2c13504de623793",
+                tyron_init: SET_NETWORK.tyronInit,
                 contract_owner: didRecover.didInit.state.contract_owner,
                 client_addr: didRecover.client.addr,
-                tyron_stake: 100000000000000        //e.g. 100 ZIL
+                tyron_stake: 50000000000000        //e.g. 50 ZIL
             };
 
             const gas_limit = readline.question(LogColors.green(`What is the gas limit? - `) + ` - [Recommended value: 10,000] - ` + LogColors.lightBlue(`Your answer: `));
@@ -522,7 +528,8 @@ export default class TyronCLI {
     /** Handles the `deactivate` subcommand */
     public static async handleDeactivate(): Promise<void> {
         console.log(LogColors.brightGreen(`To deactivate your tyronZIL DID, let's fetch its current TSM-State from the Zilliqa blockchain platform!`));
-        const NETWORK = this.network();
+        const SET_NETWORK = this.network();
+        const NETWORK = SET_NETWORK.network;
         /** Asks for the user's `tyron address` */
         const tyronAddr = readline.question(LogColors.green(`What is the address of the user's Tyron-Smart-Contract(TSM)? - `) + LogColors.lightBlue(`Your answer: `));
         
@@ -576,10 +583,10 @@ export default class TyronCLI {
             );
 
             const CONTRACT_INIT: ContractInit = {
-                tyron_init: "0x75d8297b8bd2e35de1c17e19d2c13504de623793",
+                tyron_init: SET_NETWORK.tyronInit,
                 contract_owner: didDeactivate.didRequest.state.contract_owner,
                 client_addr: CLIENT.addr,
-                tyron_stake: 100000000000000        //e.g. 100 ZIL
+                tyron_stake: 50000000000000        //e.g. 50 ZIL
             };
 
             const gas_limit = readline.question(LogColors.green(`What is the gas limit? - `) + ` - [Recommended value: 10,000] - ` + LogColors.lightBlue(`Your answer: `));

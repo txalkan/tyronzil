@@ -16,7 +16,7 @@
 scilla_version 0
 
 (*************************)
-(* The tyronInit library *)
+(* The TyronInit library *)
 (*************************)
 
 library TyronInit
@@ -46,7 +46,7 @@ library TyronInit
         { _exception : "Error"; code : result_code }
 
 (********************************)
-(* The tyronInit smart-contract *)
+(* The TyronInit smart-contract *)
 (********************************)
 
 contract TyronInit(
@@ -102,7 +102,7 @@ contract TyronInit(
         encodedContract: String
     )
         IsPungtas;
-        tyron_smart_contracts[version] := value;
+        tyron_smart_contracts[version] := encodedContract;
         e = {
             _eventname: "UpdatedTyronSmartContracts";
             smart_contract_version: version;

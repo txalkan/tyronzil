@@ -36,13 +36,14 @@
     "@zilliqa-js/zilliqa": "^1.0.0-alpha.1",
     "bn": "^1.0.5",
     "chalk": "^4.1.0",
+    "libsodium": "^0.7.8",
     "node-fetch": "^2.6.1",
     "readline-sync": "^1.4.10",
     "tslib": "^2.0.1",
-    "typescript": "^3.9.7",
     "yargs": "^15.4.0"
   },
   "devDependencies": {
+    "typescript": "^3.9.7",
     "@types/bitcore-lib": "^0.15.2",
     "@types/node": "^14.6.3",
     "@types/readline-sync": "^1.4.3",

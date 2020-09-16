@@ -31,7 +31,7 @@ export class Sidetree {
         return MODEL;
     }
 
-    public static async suffixModel(encoded: string): Promise<SuffixDataModel|void> {
+    public static async suffixModel(encoded: string): Promise<SuffixDataModel> {
         const MODEL = await this.parse(encoded)
         .then(model => {
             const SUFFIX_MODEL = model as SuffixDataModel;
@@ -41,7 +41,7 @@ export class Sidetree {
         return MODEL;
     }
 
-    public static async deltaModel(encoded: string): Promise<DeltaModel|void> {
+    public static async deltaModel(encoded: string): Promise<DeltaModel> {
         const MODEL = await this.parse(encoded)
         .then(model => {
             const DELTA_MODEL = model as DeltaModel;
@@ -51,7 +51,7 @@ export class Sidetree {
         return MODEL;
     }
 
-    public static async documentModel(encoded: string): Promise<DocumentModel|void> {
+    public static async documentModel(encoded: string): Promise<DocumentModel> {
         const MODEL = await this.parse(encoded)
         .then(model => {
             const DOCUMENT_MODEL = model as DocumentModel;
@@ -61,7 +61,7 @@ export class Sidetree {
         return MODEL;
     }
 
-    private static async patchesFromDelta(delta: string): Promise<PatchModel[]|void> {
+    private static async patchesFromDelta(delta: string): Promise<PatchModel[]> {
         const PATCHES = await this.deltaModel(delta)
         .then(async delta_model => {
             const DELTA_MODEL = delta_model as DeltaModel;

@@ -13,15 +13,13 @@
     GNU General Public License for more details.
 */
 
-import SidetreeError from '@decentralized-identity/sidetree/dist/lib/common/SidetreeError';
-import ErrorCode from '../decentralized-identity/util/ErrorCode';
 import ZilliqaInit from './zilliqa-init';
 import { NetworkNamespace } from '../decentralized-identity/tyronZIL-schemes/did-scheme';
 
 /** The class to initialize the `tyron-smart-contract` */
 export default class TyronContract extends ZilliqaInit {
     /** The Zilliqa address where the `TyronInit smart-contract` resides */
-    public readonly tyron_init: string;
+    public readonly tyron_init: TyronInitContracts;
 
     /** The user's Zilliqa address */
     public readonly contract_owner: string;
@@ -37,11 +35,7 @@ export default class TyronContract extends ZilliqaInit {
         init: ContractInit
     ) {
         super(network);
-        if (init.tyron_init !== TyronContracts.tyron_init) {
-            throw new SidetreeError(ErrorCode.WrongContract)
-        } else {
-            this.tyron_init = init.tyron_init;         
-        }
+        this.tyron_init = init.tyron_init;
         this.contract_owner = init.contract_owner;
         this.client_addr = init.client_addr;
         this.tyron_stake = init.tyron_stake;
@@ -52,13 +46,14 @@ export default class TyronContract extends ZilliqaInit {
 
 /** The Zilliqa addresses to initialize the `tyron-smart-contract` */
 export interface ContractInit {
-    tyron_init: string;
+    tyron_init: TyronInitContracts;
     contract_owner: string;
     client_addr: string;
     tyron_stake: number;
 }
 
-/** The `tyron smart-contracts` */
-enum TyronContracts {
-    tyron_init = "0x75d8297b8bd2e35de1c17e19d2c13504de623793"
+/** The `TyronInit smart-contracts` */
+export enum TyronInitContracts {
+    Testnet = "0x75d8297b8bd2e35de1c17e19d2c13504de623793",
+    Mainnet = "0x1c8272a79b5b4920bcae80f310d638c8dd4bd8aa"
 }

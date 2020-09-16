@@ -20,6 +20,7 @@ import Encoder from '@decentralized-identity/sidetree/dist/lib/core/versions/lat
 import * as API from '@zilliqa-js/zilliqa';
 import * as util from 'util';
 import * as zlib from 'zlib';
+import { TyronInitContracts } from '../tyron-contract';
 
 /** Tools to manage smart contracts */
 export default class SmartUtil {
@@ -37,8 +38,9 @@ export default class SmartUtil {
     }
 
     /** Fetches the `tyron-smart-contract` by version & decodes it */
-    public static async decode(api: API.Zilliqa, tyronInit: string, contractVersion: string): Promise<string | void> {
-        const THIS_CONTRACT = await api.blockchain.getSmartContractState(tyronInit)
+    public static async decode(api: API.Zilliqa, tyronInit: TyronInitContracts, contractVersion: string): Promise<string> {
+        const TYRON_ADDRESS = tyronInit as string;
+        const THIS_CONTRACT = await api.blockchain.getSmartContractState(TYRON_ADDRESS)
         .then(async STATE => {
             const INIT = {
                 tyron_smart_contracts: STATE.result.tyron_smart_contracts,
@@ -55,7 +57,7 @@ export default class SmartUtil {
             const DECOMPRESSED_CONTRACT = await (util.promisify(zlib.unzip))(COMPRESSED_CONTRACT) as Buffer;
             return DECOMPRESSED_CONTRACT.toString();
         })
-        .catch(err => console.error(err));
+        .catch(err => { throw err });
         return THIS_CONTRACT;
     }
 }
