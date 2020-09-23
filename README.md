@@ -7,9 +7,11 @@
 
 Decentralized identity client powered by [Zilliqa](https://zilliqa.com) :zap:
 
-For the management of a Decentralized Identifier (DID), tyronZIL implements [Sidetree delta-based DID operations](https://identity.foundation/sidetree/spec/#did-operations) and saves the DID-Document in a [Scilla smart-contract](https://scilla-lang.org/) that is owned by the user.
+For the management of Decentralized Identifiers (DIDs), tyronZIL implements [Sidetree delta-based DID operations](https://identity.foundation/sidetree/spec/#did-operations) and saves each DID-Document in a [Scilla smart-contract](https://scilla-lang.org/) that is owned by its user.
 
-The tyronZIL DID-Method is conformant with the World Wide Web Consortium (W3C) [Decentralized Identifiers (DIDs) v1.0 specification](https://w3c.github.io/did-core/) and the first DID-Method for the Zilliqa blockchain platform registered in the [DID Specification Registries](https://w3c.github.io/did-spec-registries/). 
+The tyronZIL DID-Method is conformant with the World Wide Web Consortium (W3C) [Decentralized Identifiers (DIDs) v1.0 specification](https://w3c.github.io/did-core/) and the first DID-Method for the Zilliqa blockchain platform registered in the [DID Specification Registries](https://w3c.github.io/did-spec-registries/).
+
+Check out the [development roadmap!](./files/roadmap.md)
 
 ## Problem summary
 
