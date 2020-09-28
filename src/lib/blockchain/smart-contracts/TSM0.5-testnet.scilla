@@ -1,0 +1,422 @@
+(*
+  TyronZIL-js: Decentralized identity client for the Zilliqa blockchain platform
+  Copyright (C) 2020 Julio Cesar Cabrapan Duarte
+
+  This program is free software: you can redistribute it and/or modify
+  it under the terms of the GNU General Public License as published by
+  the Free Software Foundation, either version 3 of the License, or
+  (at your option) any later version.
+
+  This program is distributed in the hope that it will be useful,
+  but WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+  GNU General Public License for more details.
+*)
+
+scilla_version 0
+
+(*********************)
+(* The Tyron Library *)
+(*********************)
+
+library Tyron
+
+  (* Messages *)
+  (************)
+  let one_msg = 
+    fun(msg: Message) => 
+    let nil_msg = Nil{Message} in
+    Cons{Message} msg nil_msg
+
+  let two_msgs =
+    fun(msg1: Message) =>
+    fun(msg2: Message) =>
+      let msgs_tmp = one_msg msg2 in
+      Cons{Message} msg1 msgs_tmp
+
+  (* The DidStatus ADT *)
+  type DidStatus =
+    | Undefined
+    | Initialized
+    | Created
+    | Updated
+    | Recovered
+    | Deactivated
+  
+  (* Constants *)
+  (*************)    
+  let zero = Uint128 0
+  let hundred = Uint128 100
+  let undefined = "undefined"
+  let deactivated = "deactivated"
+  
+  (* Error events *)
+  (****************)
+type Error =
+    | CodeNotTyron
+    | CodeNotClient
+    | CodeNotOwner
+    | CodeWrongStatus
+    | CodeInsufficientFunds
+    | CodeWrongSignature
+    | CodeUndefinedKey
+      
+  let make_error =
+    fun(result: Error) =>
+      let result_code = 
+        match result with
+          | CodeNotTyron              => Int32 -1
+          | CodeNotClient             => Int32 -2
+          | CodeNotOwner              => Int32 -3
+          | CodeWrongStatus           => Int32 -4
+          | CodeInsufficientFunds     => Int32 -5
+          | CodeWrongSignature        => Int32 -6
+          | CodeUndefinedKey          => Int32 -7
+        end
+      in
+      {_exception: "Error"; code: result_code}
+
+(*********************************)
+(* The Tyron-Smart-Contract(TSM) *)
+(*********************************)
+
+contract TSM(
+
+(* Immutable fields declaration *)
+(********************************)
+  (* The user is the owner of their TSM *)
+  contract_owner: ByStr20,
+  (* The address of the TyronInit contract *)
+  tyron_init: ByStr20
+  )
+    with
+      let init_contract = 0x08392647c23115f1d027b9d2bbcc9f532b0f003a in
+      builtin eq init_contract tyron_init
+    =>
+
+(* Mutable fields declaration *)
+(******************************)
+  (* The tyronZIL DID *)
+  field decentralized_identifier: String = undefined
+  
+  (* The Tyron Hash *)
+  field tyron_hash: Option ByStr = None{ByStr}
+  
+  (* The status of the DID *)
+  field did_status: DidStatus = Undefined
+  
+  (* The DID-Document *)
+  field did_document: String = undefined
+  
+  (* The public key for the next DID-Update operation *)
+  field did_update_key: Option ByStr33 = None{ByStr33}
+  
+  (* The public key for the next DID-Recover or DID-Deactivate operation *)
+  field did_recovery_key: Option ByStr33 = None{ByStr33}
+  
+  (* The address of the user's client *)
+  field client_address: ByStr20 = 0xccDdFAD074cd608B6B43e14eb3440240f5bFf087
+    
+  (* The following fields are determined by the TyronInit contract *)
+  (* The cost of each DID operation *)
+  field operation_cost: Uint128 = Uint128 0
+  (* The address of the Pungtas Danish Foundation *)
+  field foundation_address: ByStr20 = 0x45832badF26Bc3F66DA3b9eD242EA84AfFA024a3
+  (* The client's commission as a % of the operation_cost *)
+  field client_commission: Uint128 = Uint128 0
+  
+  (* The block number where the DID-Create operation occurred *)
+  field created: BNum = _creation_block
+  
+  (* The block number where the last DID-Update operation occurred *)
+  field updated: BNum = _creation_block
+  
+  (* The block number where the last DID operation occurred *)  
+  field ledger_time: BNum = _creation_block
+  
+  (* A monotonically increasing number representing the amount of DID operations that have taken place *)
+  field sidetree_transaction_number: Uint128 = Uint128 0
+
+(* Procedures *)
+(**************)
+
+  (* The tyronZIL DID-Scheme - this procedure generates the user's Decentralized Identifier & the Tyron Hash *)
+  procedure DidScheme()
+      this_did =
+        let did_prefix = "did:tyron:zil:test:" in
+        let did_suffix = builtin to_string _this_address in
+        builtin concat did_prefix did_suffix;
+      decentralized_identifier := this_did;
+      this_th =
+        let hash = builtin sha256hash this_did in
+        builtin to_bystr hash;
+      th = Some{ByStr} this_th;
+      tyron_hash := th;
+      new_status = Initialized;
+      did_status := new_status
+  end
+  
+  (* The procedure to throw an error *)
+  procedure ThrowError(
+    err: Error
+    )
+      e = make_error err;
+      throw e
+  end
+  
+  (* Validates that the call comes from the TyronInit contract *)
+  procedure IsTyron()
+      is_tyron = builtin eq tyron_init _sender;
+      match is_tyron with
+        | True =>
+        | False =>
+            err = CodeNotTyron;
+            ThrowError err
+      end
+  end
+  
+  (* Validates that the call comes from the user *)
+  procedure IsOwner()
+      is_owner = builtin eq contract_owner _sender;
+      match is_owner with
+        | True =>
+        | False =>
+            err = CodeNotOwner;
+            ThrowError err
+      end
+  end
+
+  (* Validates that the call comes from the client *)
+  procedure IsClient()
+      this_client <- client_address;
+      is_client = builtin eq this_client _sender;
+      match is_client with
+        | True =>
+        | False =>
+            err = CodeNotClient;
+            ThrowError err
+      end
+  end
+  
+  (* Verifies that the status is 'Initialized' - needed for the DID-Create operation *)
+  procedure IsInitialized()
+      this_status <- did_status;
+      match this_status with
+        | Initialized =>
+        | _ =>
+            err = CodeWrongStatus;
+            ThrowError err
+      end
+  end
+  
+  (* Verifies that the did_status is neither Deactivated nor Initialized, to execute a DID-Update, Recover or Deactivate operation *)
+  procedure RightStatus()
+      this_status <- did_status;
+      match this_status with
+        | Created =>
+        | Updated =>
+        | Recovered =>
+        | _ =>
+            err = CodeWrongStatus;
+            ThrowError err
+      end
+  end
+  
+  (* Verifies the Schnorr signature *)
+  procedure RightSignature(
+    signedData: ByStr,
+    sig: ByStr64,
+    key: Option ByStr33
+    )
+      match key with
+        | Some pubk =>
+            signature_is_right = builtin schnorr_verify pubk signedData sig;
+            match signature_is_right with
+              | True => (* continue *)
+              | False =>
+                  err = CodeWrongSignature;
+                  ThrowError err
+            end
+        | None =>
+            err = CodeUndefinedKey;
+            ThrowError err
+      end
+  end
+  
+  (* Executes the payment to the client and foundation *)
+  procedure Payment()
+      this_cost <- operation_cost;
+      (* To be accepted, the payment MUST be exact *)
+      payment_is_accepted = builtin eq _amount this_cost;
+      match payment_is_accepted with
+        | True =>
+            (* The TSM accepts the incoming transfer *)
+            accept;
+            (* Calculates payment to the client *)
+            this_client_commission <- client_commission;
+            payment_to_client =
+              let percent = builtin div _amount hundred in
+              builtin mul this_client_commission percent;
+            msg_to_client = {
+              _tag: "";
+              _recipient: _sender;
+              _amount: payment_to_client
+            };
+            (* Calculates payment to the foundation *)
+            payment_to_foundation = builtin sub _amount payment_to_client;
+            this_foundation_address <- foundation_address;
+            msg_to_foundation = {
+              _tag: "";
+              _recipient: this_foundation_address;
+              _amount: payment_to_foundation
+            };
+            (* Sends both payments at once *)
+            msgs = two_msgs msg_to_client msg_to_foundation;
+            send msgs
+        | False => 
+            err = CodeInsufficientFunds;
+            ThrowError err
+      end
+  end
+  
+  (* Generates a timestamp *)
+  procedure Timestamp()
+      this_block <- & BLOCKNUMBER;
+      ledger_time := this_block;
+      latest_tx_number <- sidetree_transaction_number;
+      new_tx_number =
+        let incrementor = Uint128 1 in
+        builtin add latest_tx_number incrementor;
+      sidetree_transaction_number := new_tx_number
+  end
+
+(* Transitions *)
+(***************)
+  
+  (* The user calls this transition to set their client's address 
+   * Sends a message to the TyronInit contract that in return calls the InitParameters transition *)
+  transition ContractInit(
+    clientAddress: ByStr20
+    )
+      IsOwner;
+      client_address := clientAddress;
+      msg_init = {
+        _tag: "Initialize";
+        _recipient: tyron_init;
+        _amount: zero
+      };
+      init = one_msg msg_init;
+      send init
+  end
+  
+  (* The TyronInit contract calls this transition to set the operation_cost, foundation_address & client_commission
+   * This transition also executes the DidScheme procedure *)
+  transition InitParameters(
+    operationCost: Uint128,
+    foundationAddress: ByStr20,
+    clientCommission: Uint128
+    )
+      IsTyron;
+      operation_cost := operationCost;
+      foundation_address := foundationAddress;
+      client_commission := clientCommission;
+      DidScheme
+  end
+
+  (* Executes a tyronZIL DID-Create operation *)
+  transition DidCreate(
+    document: String,
+    updateKey: ByStr33,
+    recoveryKey: ByStr33
+    )
+      IsClient;
+      IsInitialized;
+      Payment;
+      DidScheme;
+      did_document := document;
+      update_key = Some{ByStr33} updateKey;
+      did_update_key := update_key;
+      recovery_key = Some{ByStr33} recoveryKey;
+      did_recovery_key := recovery_key;
+      new_status = Created;
+      did_status := new_status;
+      this_block <- & BLOCKNUMBER;
+      created := this_block;
+      Timestamp
+  end
+  
+  (* Executes a tyronZIL DID-Update operation *)
+  transition DidUpdate(
+    signedData: ByStr,
+    signature: ByStr64,
+    newDocument: String,
+    newUpdateKey: ByStr33
+    )
+      IsClient;
+      RightStatus;
+      operation_key <- did_update_key;
+      RightSignature signedData signature operation_key;
+      Payment;
+      did_document := newDocument;
+      next_update_key = Some{ByStr33} newUpdateKey;
+      did_update_key := next_update_key;
+      new_status = Updated;
+      did_status := new_status;
+      this_block <- & BLOCKNUMBER;
+      updated := this_block;
+      Timestamp
+  end
+  
+  (* Executes a tyronZIL DID-Recover operation *)
+  transition DidRecover(
+    signedData: ByStr,
+    signature: ByStr64,
+    newDocument: String,
+    newUpdateKey: ByStr33,
+    newRecoveryKey: ByStr33
+    )
+      IsClient;
+      RightStatus;
+      operation_key <- did_recovery_key;
+      RightSignature signedData signature operation_key;
+      Payment;
+      did_document := newDocument;
+      next_update_key = Some{ByStr33} newUpdateKey;
+      did_update_key := next_update_key;
+      next_recovery_key = Some{ByStr33} newRecoveryKey;
+      did_recovery_key := next_recovery_key;
+      new_status = Recovered;
+      did_status := new_status;
+      Timestamp
+  end
+  
+  (* Executes a tyronZIL DID-Deactivate operation *)
+  transition DidDeactivate(
+    signedData: ByStr,
+    signature: ByStr64
+    )
+      IsClient;
+      RightStatus;
+      Payment;
+      operation_key <- did_recovery_key;
+      RightSignature signedData signature operation_key;
+      did_document := deactivated;
+      undefined_key = None{ByStr33};
+      did_update_key := undefined_key;
+      did_recovery_key := undefined_key;
+      new_status = Deactivated;
+      did_status := new_status;
+      Timestamp
+  end
+
+  transition UpdateClient(
+    newClientAddress: ByStr20
+    )
+      IsOwner;
+      client_address := newClientAddress;
+      e = {
+        _eventname: "UpdatedClient";
+        new_client_address: newClientAddress
+      };
+      event e
+  end

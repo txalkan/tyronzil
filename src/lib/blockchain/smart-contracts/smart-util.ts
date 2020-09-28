@@ -60,4 +60,16 @@ export default class SmartUtil {
         .catch(err => { throw err });
         return THIS_CONTRACT;
     }
+
+    /** Gets the value out of a TSM field Option */
+    public static async getValue(object: any): Promise<string> {
+        const ENTRIES = Object.entries(object);
+        let VALUE: string;
+        ENTRIES.forEach((value: [string, unknown]) => {
+            if (value[0] === "arguments") {
+                VALUE = value[1] as string;
+            }
+        });
+        return VALUE![0];
+    }
 }

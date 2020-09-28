@@ -13,30 +13,37 @@
     GNU General Public License for more details.
 */
 
-import JwkEs256k from '@decentralized-identity/sidetree/dist/lib/core/models/JwkEs256k';
+import OperationType from "@decentralized-identity/sidetree/dist/lib/core/enums/OperationType";
 
-/** Defines model for the JWS payload object required by the Update Operation Signed Data Object */
+/** Defines model for the payload object required by the Update Operation Signed Data Object */
 export interface UpdateSignedDataModel {
+    decentralized_identifier: string;
     /** Encoded representation of the Update Operation Delta Object hash */
     delta_hash: string;
-    /** The JCS canonicalized IETF RFC 7517 compliant JWK representation matching the previous update commitment value */
-    update_key: JwkEs256k;
+    previous_update_key: string;
 }
 
-/** Defines model for the JWS payload object required by the Recovery Operation Signed Data Object */
+/** Defines model for the payload object required by the Recovery Operation Signed Data Object */
 export interface RecoverSignedDataModel {
+    decentralized_identifier: string;
     /** Encoded representation of the Recovery Operation Delta Object hash */
     delta_hash: string;
-    /** The JCS canonicalized IETF RFC 7517 compliant JWK representation matching the previous recovery commitment value */
-    recovery_key: JwkEs256k;
-    /** A new recovery commitment for the next recover operation */
-    recovery_commitment: string;
+    previous_recovery_key: string;
+    /** A new recovery key for the next DID-Recover or Deactivate operation */
+    new_recovery_key: string;
 }
 
-/** Defines model for the JWS payload object required by the Deactivate Operation Signed Data Object */
+/** Defines model for the payload object required by the Deactivate Operation Signed Data Object */
 export interface DeactivateSignedDataModel {
-    /** The unique identifier of the DID to deactivate */
-    did_suffix: string;
-    /** The JCS canonicalized IETF RFC 7517 compliant JWK representation matching the previous recovery commitment value */
-    recovery_key: JwkEs256k;
+    /** The DID to deactivate */
+    decentralized_identifier: string;
+    previous_recovery_key: string;
+}
+
+/** Defines data to execute a Sidetree-Tyron operation */
+export interface SignedDataRequest {
+    type: OperationType;
+    signed_data: string;
+    signature: string;
+    delta?: string;
 }

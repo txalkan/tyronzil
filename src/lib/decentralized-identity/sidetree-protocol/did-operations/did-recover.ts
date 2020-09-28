@@ -13,51 +13,45 @@
     GNU General Public License for more details.
 */
 
+import * as zcrypto from '@zilliqa-js/crypto';
+
 import OperationType from '@decentralized-identity/sidetree/dist/lib/core/enums/OperationType';
-import RecoverOperation from '@decentralized-identity/sidetree/dist/lib/core/versions/latest/RecoverOperation';
 import { PublicKeyModel } from '../models/verification-method-models';
 import ServiceEndpointModel from '@decentralized-identity/sidetree/dist/lib/core/versions/latest/models/ServiceEndpointModel';
-import JwkEs256k from '@decentralized-identity/sidetree/dist/lib/core/models/JwkEs256k';
 import { Cryptography, OperationKeyPairInput } from '../../util/did-keys';
 import Multihash from '@decentralized-identity/sidetree/dist/lib/core/versions/latest/Multihash';
 import { DocumentModel, PatchModel, PatchAction } from '../models/patch-model';
-import DeltaModel from '@decentralized-identity/sidetree/dist/lib/core/versions/latest/models/DeltaModel';
 import Encoder from '@decentralized-identity/sidetree/dist/lib/core/versions/latest/Encoder';
-import { RecoverSignedDataModel } from '../models/signed-data-models';
+import { RecoverSignedDataModel, SignedDataRequest } from '../models/signed-data-models';
 import { CliInputModel } from '../../../../bin/util';
+import { DeltaModel } from '../sidetree';
 
-/** Generates a Sidetree-based `DID-recover` operation */
+/** Generates a Sidetree-Tyron `DID-Recover` operation */
 export default class DidRecover {
     public readonly type = OperationType.Recover;
-    public readonly did_tyronZIL: string;
-    public readonly newUpdateCommitment: string;
-    public readonly newRecoveryCommitment: string;
-    public readonly sidetreeRequest: Buffer;
-    /** The result from the Sidetree request */
-    public readonly recoverOperation: RecoverOperation;
-    /** The encoded Delta Object */
-    public readonly delta: string;
+    public readonly decentralized_identifier: string;
+    public readonly signedRequest: SignedDataRequest;
+    public readonly newUpdateKey: string;
+    public readonly newRecoveryKey: string;
     public readonly privateKey: string[];
-    public readonly newUpdatePrivateKey: JwkEs256k;
-    public readonly newRecoveryPrivateKey: JwkEs256k;
+    public readonly newUpdatePrivateKey: string;
+    public readonly newRecoveryPrivateKey: string;
     
     /***            ****            ***/
 
     private constructor (
         operation: RecoverOperationModel
     ) {
-        this.did_tyronZIL = operation.did_tyronZIL;
-        this.newUpdateCommitment = operation.newUpdateCommitment;
-        this.newRecoveryCommitment = operation.newRecoveryCommitment;
-        this.sidetreeRequest = operation.sidetreeRequest;
-        this.recoverOperation = operation.recoverOperation;
-        this.delta = this.recoverOperation.encodedDelta!;
+        this.decentralized_identifier = operation.did;
+        this.newUpdateKey = operation.newUpdateKey;
+        this.newRecoveryKey = operation.newRecoveryKey;
+        this.signedRequest = operation.signedRequest;
         this.privateKey = operation.privateKey;
         this.newUpdatePrivateKey = operation.newUpdatePrivateKey;
         this.newRecoveryPrivateKey = operation.newRecoveryPrivateKey;
     }
 
-    /** Generates a Sidetree-based `DID-recover` operation */
+    /** Generates a Sidetree-based `DID-Recover` operation */
     public static async execute(input: RecoverOperationInput): Promise<DidRecover|void> {
         const PUBLIC_KEYS = [];
         const PRIVATE_KEYS = [];
@@ -74,40 +68,31 @@ export default class DidRecover {
             PRIVATE_KEYS.push(Encoder.encode(Buffer.from(JSON.stringify(PRIVATE_KEY))));
         }
         
-        // Creates key-pair for the updateCommitment (save private key for next update operation)
-        const [UPDATE_KEY, UPDATE_PRIVATE_KEY] = await Cryptography.jwkPair();
-        /** Utilizes the UPDATE_KEY to make the `update reveal value` for the next update operation */
-        const UPDATE_COMMITMENT = Multihash.canonicalizeThenDoubleHashThenEncode(UPDATE_KEY);
-
-        // Creates key-pair for the recoveryCommitment (save private key for next recovery operation)
-        const [RECOVERY_KEY, RECOVERY_PRIVATE_KEY] = await Cryptography.jwkPair();
-        /** Utilizes the RECOVERY_KEY to make the next recovery commitment hash */
-        const RECOVERY_COMMITMENT = Multihash.canonicalizeThenDoubleHashThenEncode(RECOVERY_KEY);
-     
-        /** Input data for the Sidetree request */
-        const SIDETREE_REQUEST_INPUT: RequestInput = {
-            did: input.did_tyronZIL,
+        /** Key-pair for the next DID-Upate operation */
+        const [UPDATE_KEY, UPDATE_PRIVATE_KEY] = await Cryptography.keyPair();
+        
+        /** Key-pair for the next DID-Recover or Deactivate operation */
+        const [RECOVERY_KEY, RECOVERY_PRIVATE_KEY] = await Cryptography.keyPair();
+        
+        /** Input data for the Sidetree-Tyron request */
+        const REQUEST_INPUT: RequestInput = {
+            did: input.did,
             recoveryPrivateKey: input.recoveryPrivateKey,
             publicKey: PUBLIC_KEYS,
             service: input.cliInput.service,
-            newUpdateCommitment: UPDATE_COMMITMENT,
-            newRecoveryCommitment: RECOVERY_COMMITMENT
+            newUpdateKey: UPDATE_KEY,
+            newRecoveryKey: RECOVERY_KEY
         };
 
-        /** Sidetree data to generate a `DID-recover` operation */
-        const SIDETREE_REQUEST = await DidRecover.sidetreeRequest(SIDETREE_REQUEST_INPUT);
-        const SIDETREE_REQUEST_BUFFER = Buffer.from(JSON.stringify(SIDETREE_REQUEST));
+        /** Sidetree-Tyron data to generate a `DID-Recover` operation */
+        const REQUEST = await DidRecover.sidetreeTyronRequest(REQUEST_INPUT);
         
-        /** Executes the Sidetree RecoverOperation */
-        const RECOVER_OPERATION = await RecoverOperation.parse(SIDETREE_REQUEST_BUFFER);
-        
-        /** Output data from a Sidetree-based `DID-recover` operation */
+        /** Output data from a Sidetree-Tyron `DID-Recover` operation */
         const OPERATION_OUTPUT: RecoverOperationModel = {
-            did_tyronZIL: input.did_tyronZIL,
-            newUpdateCommitment: UPDATE_COMMITMENT,
-            newRecoveryCommitment: RECOVERY_COMMITMENT,
-            sidetreeRequest: SIDETREE_REQUEST_BUFFER,
-            recoverOperation: RECOVER_OPERATION,
+            did: input.did,
+            newUpdateKey: UPDATE_KEY,
+            newRecoveryKey: RECOVERY_KEY,
+            signedRequest: REQUEST,
             privateKey: PRIVATE_KEYS,
             newUpdatePrivateKey: UPDATE_PRIVATE_KEY,
             newRecoveryPrivateKey: RECOVERY_PRIVATE_KEY   
@@ -115,8 +100,8 @@ export default class DidRecover {
         return new DidRecover(OPERATION_OUTPUT);
     }
 
-    /** Generates the Sidetree data for the `DID-recover` operation */
-    public static async sidetreeRequest(input: RequestInput): Promise<SignedDataRequest> {
+    /** Generates the Sidetree data for the `DID-Recover` operation */
+    public static async sidetreeTyronRequest(input: RequestInput): Promise<SignedDataRequest> {
         const DOCUMENT: DocumentModel = {
             public_keys: input.publicKey,
             service_endpoints: input.service
@@ -129,66 +114,60 @@ export default class DidRecover {
         /** The Recovery Operation Delta Object */
         const DELTA_OBJECT: DeltaModel = {
             patches: [PATCH],
-            updateCommitment: input.newUpdateCommitment
+            update_key: input.newUpdateKey
         };
         const DELTA_BUFFER = Buffer.from(JSON.stringify(DELTA_OBJECT));
         const DELTA = Encoder.encode(DELTA_BUFFER);    
         const DELTA_HASH = Encoder.encode(Multihash.hash(DELTA_BUFFER));
-        
+        const PREVIOUS_RECOVERY_KEY = zcrypto.getPubKeyFromPrivateKey(input.recoveryPrivateKey);
+
         /** For the Recovery Operation Signed Data Object */
         const SIGNED_DATA: RecoverSignedDataModel = {
+            decentralized_identifier: input.did,
             delta_hash: DELTA_HASH,
-            recovery_key: Cryptography.getPublicKey(input.recoveryPrivateKey),
-            recovery_commitment: input.newRecoveryCommitment
+            previous_recovery_key: PREVIOUS_RECOVERY_KEY,
+            new_recovery_key: input.newRecoveryKey
         };
-        const SIGNED_DATA_JWS = await Cryptography.signUsingEs256k(SIGNED_DATA, input.recoveryPrivateKey);
+        const DATA_BUFFER = Buffer.from(JSON.stringify(SIGNED_DATA));
+        const SIGNATURE = zcrypto.sign(DATA_BUFFER, input.recoveryPrivateKey, PREVIOUS_RECOVERY_KEY);
 
-        /** DID data to generate a Sidetree RecoverOperation */
-        const SIDETREE_REQUEST: SignedDataRequest = {
-            did_suffix: input.did,
-            signed_data: SIGNED_DATA_JWS,
+        /** Data to execute a `DID-Recover` operation */
+        const SIGNED_REQUEST: SignedDataRequest = {
             type: OperationType.Recover,
+            signed_data: JSON.stringify(SIGNED_DATA),
+            signature: SIGNATURE,
             delta: DELTA
         };
-        return SIDETREE_REQUEST;
+        return SIGNED_REQUEST;
     }
 }
 
 /***            ** interfaces **            ***/
 
-/** Defines input data for a Sidetree-based `DID-recover` operation */
+/** Defines input data for a Sidetree-based `DID-Recover` operation */
 export interface RecoverOperationInput {
-    did_tyronZIL: string;
-    recoveryPrivateKey: JwkEs256k;
+    did: string;
+    recoveryPrivateKey: string;
     cliInput: CliInputModel;
 }
 
-/** Defines output data of a Sidetree-based `DID-recover` operation */
+/** Defines output data of a Sidetree-based `DID-Recover` operation */
 interface RecoverOperationModel {
-    did_tyronZIL: string;
-    newUpdateCommitment: string;
-    newRecoveryCommitment: string;
-    sidetreeRequest: Buffer;
-    recoverOperation: RecoverOperation;
+    did: string;
+    newUpdateKey: string;
+    newRecoveryKey: string;
+    signedRequest: SignedDataRequest;
     privateKey: string[];
-    newUpdatePrivateKey: JwkEs256k;
-    newRecoveryPrivateKey: JwkEs256k;
+    newUpdatePrivateKey: string;
+    newRecoveryPrivateKey: string;
 }
 
-/** Defines input data for a Sidetree-based `DID-recover` operation REQUEST*/
+/** Defines input data for a Sidetree-based `DID-Recover` operation REQUEST*/
 interface RequestInput {
     did: string;
-    recoveryPrivateKey: JwkEs256k;
+    recoveryPrivateKey: string;
     publicKey: PublicKeyModel[];
     service?: ServiceEndpointModel[];
-    newUpdateCommitment: string;
-    newRecoveryCommitment: string;
-}
-
-/** Defines data for a Sidetree RecoverOperation REQUEST*/
-interface SignedDataRequest {
-    did_suffix: string;
-    signed_data: string;
-    type: OperationType.Recover;
-    delta: string;
+    newUpdateKey: string;
+    newRecoveryKey: string;
 }

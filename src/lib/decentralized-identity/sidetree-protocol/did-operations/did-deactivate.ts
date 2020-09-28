@@ -13,56 +13,49 @@
     GNU General Public License for more details.
 */
 
-import OperationType from '@decentralized-identity/sidetree/dist/lib/core/enums/OperationType';
-import DeactivateOperation from '@decentralized-identity/sidetree/dist/lib/core/versions/latest/DeactivateOperation';
-import JwkEs256k from '@decentralized-identity/sidetree/dist/lib/core/models/JwkEs256k';
-import { Cryptography } from '../../util/did-keys';
-import { DeactivateSignedDataModel } from '../models/signed-data-models';
+import * as zcrypto from '@zilliqa-js/crypto';
 
-/** Generates a Sidetree-based `DID-deactivate` operation */
+import OperationType from '@decentralized-identity/sidetree/dist/lib/core/enums/OperationType';
+import { DeactivateSignedDataModel, SignedDataRequest } from '../models/signed-data-models';
+
+/** Generates a Sidetree-based `DID-Deactivate` operation */
 export default class DidDeactivate {
     public readonly type = OperationType.Deactivate;
-    public readonly did_tyronZIL: string;
-    public readonly sidetreeRequest: Buffer;
-    public readonly deactivateOperation: DeactivateOperation;
+    public readonly decentralized_identifier: string;
+    public readonly signedRequest: SignedDataRequest;
     
     /***            ****            ***/
 
     private constructor (
         operation: DeactivateOperationModel
     ) {
-        this.did_tyronZIL = operation.did_tyronZIL;
-        this.sidetreeRequest = operation.sidetreeRequest;
-        this.deactivateOperation = operation.deactivateOperation;
+        this.decentralized_identifier = operation.did;
+        this.signedRequest = operation.signedRequest
     }
 
-    /** Generates a Sidetree-based `DID-deactivate` operation */
+    /** Generates a Sidetree-based `DID-Deactivate` operation */
     public static async execute(input: DeactivateOperationInput): Promise<DidDeactivate> {
-        
+        const PREVIOUS_RECOVERY_KEY = zcrypto.getPubKeyFromPrivateKey(input.recoveryPrivateKey);
+
         /** For the Deactivate Operation Signed Data Object */
         const SIGNED_DATA: DeactivateSignedDataModel = {
-            did_suffix: input.did_tyronZIL,
-            recovery_key: Cryptography.getPublicKey(input.recoveryPrivateKey),
+            decentralized_identifier: input.did,
+            previous_recovery_key: PREVIOUS_RECOVERY_KEY
         };
-        const SIGNED_DATA_JWS = await Cryptography.signUsingEs256k(SIGNED_DATA, input.recoveryPrivateKey);
-        
-        /** DID data to generate a Sidetree DeactivateOperation */
-        const SIDETREE_REQUEST: SignedDataRequest = {
-            did_suffix: input.did_tyronZIL,
-            signed_data: SIGNED_DATA_JWS,
-            type: OperationType.Deactivate
+        const DATA_BUFFER = Buffer.from(JSON.stringify(SIGNED_DATA));
+        const SIGNATURE = zcrypto.sign(DATA_BUFFER, input.recoveryPrivateKey, PREVIOUS_RECOVERY_KEY);
+
+        /** Data to execute a `DID-Deactivate` operation */
+        const SIGNED_REQUEST: SignedDataRequest = {
+            type: OperationType.Deactivate,
+            signed_data: JSON.stringify(SIGNED_DATA),
+            signature: SIGNATURE
         };
 
-        const SIDETREE_REQUEST_BUFFER = Buffer.from(JSON.stringify(SIDETREE_REQUEST));
-              
-        /** Executes the Sidetree DeactivateOperation */
-        const DEACTIVATE_OPERATION = await DeactivateOperation.parse(SIDETREE_REQUEST_BUFFER);
-        
-        /** Output data from a Sidetree-based `DID-deactivate` operation */
+        /** Output data from a Sidetree-Tyron `DID-Deactivate` operation */
         const OPERATION_OUTPUT: DeactivateOperationModel = {
-            did_tyronZIL: input.did_tyronZIL,
-            sidetreeRequest: SIDETREE_REQUEST_BUFFER,
-            deactivateOperation: DEACTIVATE_OPERATION,    
+            did: input.did,
+            signedRequest: SIGNED_REQUEST   
         };
         return new DidDeactivate(OPERATION_OUTPUT);
     }
@@ -70,22 +63,14 @@ export default class DidDeactivate {
 
 /***            ** interfaces **            ***/
 
-/** Defines input data for a Sidetree-based `DID-deactivate` operation */
+/** Defines input data for a Sidetree-based `DID-Deactivate` operation */
 export interface DeactivateOperationInput {
-    did_tyronZIL: string;
-    recoveryPrivateKey: JwkEs256k;
+    did: string;
+    recoveryPrivateKey: string;
 }
 
-/** Defines output data of a Sidetree-based `DID-deactivate` operation */
+/** Defines output data of a Sidetree-based `DID-Deactivate` operation */
 interface DeactivateOperationModel {
-    did_tyronZIL: string;
-    sidetreeRequest: Buffer;
-    deactivateOperation: DeactivateOperation;
-}
-
-/** Defines data for a Sidetree DeactivateOperation REQUEST*/
-interface SignedDataRequest {
-    did_suffix: string,
-    signed_data: string;
-    type: OperationType.Deactivate
+    did: string;
+    signedRequest: SignedDataRequest;
 }

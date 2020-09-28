@@ -136,15 +136,15 @@ export default class TyronTransaction extends TyronContract {
                     value: '0',
                 },
                 {
-                    vname: 'tyron_init',
-                    type: 'ByStr20',
-                    value: `${init.tyron_init}`,
-                },
-                {
                     vname: 'contract_owner',
                     type: 'ByStr20',
                     value: `${init.contract_owner}`,
                 },
+                {
+                    vname: 'tyron_init',
+                    type: 'ByStr20',
+                    value: `${init.tyron_init}`,
+                }
             ];
             const CONTRACT = init.API.contracts.new(contract_code, CONTRACT_INIT);
             return CONTRACT;
@@ -164,11 +164,16 @@ export default class TyronTransaction extends TyronContract {
                 1000,
                 false,
             );
-            console.log(LogColors.yellow(`Your Tyron-Smart-Contract is deployed: `) + LogColors.brightYellow(`${deployTx.isConfirmed()}`));
+            const IS_DEPLOYED = deployTx.isConfirmed();
+            if(!IS_DEPLOYED) {
+                throw new SidetreeError("Wrong-Deployment","The user's TSM did not get deployed")
+            }
+            console.log(LogColors.yellow(`Your Tyron-Smart-Contract is deployed: `) + LogColors.brightYellow(`${IS_DEPLOYED}`));
             console.log(LogColors.yellow(`Its Zilliqa address is: `) + LogColors.brightGreen(`${tyron_smart_contract.address}`));
             console.log(LogColors.yellow(`Deployment Transaction ID: `) + LogColors.brightYellow(`${deployTx.id}`));
-            const CUMULATIVE_GAS = (deployTx.getReceipt())!.cumulative_gas;
-            console.log(LogColors.yellow(`The total gas consumed by deploying your TSM was: `) + LogColors.brightYellow(`${CUMULATIVE_GAS}`));
+
+            const DEPLOYMENT_GAS = (deployTx.getReceipt())!.cumulative_gas;
+            console.log(LogColors.yellow(`The total gas consumed by deploying your TSM was: `) + LogColors.brightYellow(`${DEPLOYMENT_GAS}`));
             
             const DEPLOYED_CONTRACT = {
                 transaction: deployTx,
@@ -269,128 +274,145 @@ export default class TyronTransaction extends TyronContract {
     }
 
     public static async create(
-        didtyron: string,
-        doc: string,
-        updateCommitment: string,
-        recoveryCommitment: string
+        document: string,
+        updateKey: string,
+        recoveryKey: string
     ): Promise<TransitionParams[]> {
         
         const PARAMS = [];
-        const DID: TransitionParams = {
-            vname: 'didtyron',
-            type: 'String',
-            value: didtyron,
-        };
-        PARAMS.push(DID);
 
         const DOCUMENT: TransitionParams = {
-            vname: 'doc',
+            vname: 'document',
             type: 'String',
-            value: doc,
+            value: document,
         };
         PARAMS.push(DOCUMENT);
 
-        const UPDATE_COMMIT: TransitionParams = {
-            vname: 'updateCommitment',
-            type: 'String',
-            value: updateCommitment,
+        const UPDATE_KEY: TransitionParams = {
+            vname: 'updateKey',
+            type: 'ByStr33',
+            value: updateKey,
         };
-        PARAMS.push(UPDATE_COMMIT);
+        PARAMS.push(UPDATE_KEY);
 
-        const RECOVERY_COMMIT: TransitionParams = {
-            vname: 'recoveryCommitment',
-            type: 'String',
-            value: recoveryCommitment,
+        const RECOVERY_KEY: TransitionParams = {
+            vname: 'recoveryKey',
+            type: 'ByStr33',
+            value: recoveryKey,
         };
-        PARAMS.push(RECOVERY_COMMIT);
+        PARAMS.push(RECOVERY_KEY);
 
         return PARAMS;
     }
 
     public static async update(
-        updateCommitment: string,
-        newDoc: string,
-        newUpdateCommitment: string
+        signedData: string,
+        signature: string,
+        newDocument: string,
+        newUpdateKey: string
     ): Promise<TransitionParams[]> {
 
         const PARAMS = [];
 
-        const UPDATE_COMMIT: TransitionParams = {
-            vname: 'updateCommitment',
-            type: 'String',
-            value: updateCommitment,
+        const SIGNED_DATA: TransitionParams = {
+            vname: 'signedData',
+            type: 'ByStr',
+            value: signedData,
         };
-        PARAMS.push(UPDATE_COMMIT);
+        PARAMS.push(SIGNED_DATA);
+
+        const SIGNATURE: TransitionParams = {
+            vname: 'signature',
+            type: 'ByStr64',
+            value: signature,
+        };
+        PARAMS.push(SIGNATURE);
 
         const DOCUMENT: TransitionParams = {
-            vname: 'newDoc',
+            vname: 'newDocument',
             type: 'String',
-            value: newDoc,
+            value: newDocument,
         };
         PARAMS.push(DOCUMENT);
 
-        const NEW_UPDATE_COMMIT: TransitionParams = {
-            vname: 'newUpdateCommitment',
-            type: 'String',
-            value: newUpdateCommitment,
+        const NEW_UPDATE_KEY: TransitionParams = {
+            vname: 'newUpdateKey',
+            type: 'ByStr33',
+            value: newUpdateKey,
         };
-        PARAMS.push(NEW_UPDATE_COMMIT);
+        PARAMS.push(NEW_UPDATE_KEY);
 
         return PARAMS;
     }
 
     public static async recover(
-        recoveryCommitment: string,
-        newDoc: string,
-        newUpdateCommitment: string,
-        newRecoveryCommitment: string
+        signedData: string,
+        signature: string,
+        newDocument: string,
+        newUpdateKey: string,
+        newRecoveryKey: string
     ): Promise<TransitionParams[]> {
 
         const PARAMS = [];
 
-        const RECOVERY_COMMIT: TransitionParams = {
-            vname: 'recoveryCommitment',
-            type: 'String',
-            value: recoveryCommitment,
+        const SIGNED_DATA: TransitionParams = {
+            vname: 'signedData',
+            type: 'ByStr',
+            value: signedData,
         };
-        PARAMS.push(RECOVERY_COMMIT);
+        PARAMS.push(SIGNED_DATA);
+
+        const SIGNATURE: TransitionParams = {
+            vname: 'signature',
+            type: 'ByStr64',
+            value: signature,
+        };
+        PARAMS.push(SIGNATURE);
         
         const DOCUMENT: TransitionParams = {
-            vname: 'newDoc',
+            vname: 'newDocument',
             type: 'String',
-            value: newDoc,
+            value: newDocument,
         };
         PARAMS.push(DOCUMENT);
 
-        const NEW_UPDATE_COMMIT: TransitionParams = {
-            vname: 'newUpdateCommitment',
-            type: 'String',
-            value: newUpdateCommitment,
+        const NEW_UPDATE_KEY: TransitionParams = {
+            vname: 'newUpdateKey',
+            type: 'ByStr33',
+            value: newUpdateKey,
         };
-        PARAMS.push(NEW_UPDATE_COMMIT);
+        PARAMS.push(NEW_UPDATE_KEY);
 
-        const NEW_RECOVERY_COMMIT: TransitionParams = {
-            vname: 'newRecoveryCommitment',
-            type: 'String',
-            value: newRecoveryCommitment,
+        const NEW_RECOVERY_KEY: TransitionParams = {
+            vname: 'newRecoveryKey',
+            type: 'ByStr33',
+            value: newRecoveryKey,
         };
-        PARAMS.push(NEW_RECOVERY_COMMIT);
+        PARAMS.push(NEW_RECOVERY_KEY);
 
         return PARAMS;
     }
 
     public static async deactivate(
-        recoveryCommitment: string
+        signedData: string,
+        signature: string
     ): Promise<TransitionParams[]> {
 
         const PARAMS = [];
 
-        const RECOVERY_COMMIT: TransitionParams = {
-            vname: 'recoveryCommitment',
-            type: 'String',
-            value: recoveryCommitment,
+        const SIGNED_DATA: TransitionParams = {
+            vname: 'signedData',
+            type: 'ByStr',
+            value: signedData,
         };
-        PARAMS.push(RECOVERY_COMMIT);
+        PARAMS.push(SIGNED_DATA);
+
+        const SIGNATURE: TransitionParams = {
+            vname: 'signature',
+            type: 'ByStr64',
+            value: signature,
+        };
+        PARAMS.push(SIGNATURE);
 
         return PARAMS;
     }
@@ -420,8 +442,8 @@ export enum TransitionTag {
 
 interface TransitionParams {
     vname: string;
-    type: string;
-    value: string;
+    type: any;
+    value: unknown;
 }
 
 interface TxObject {

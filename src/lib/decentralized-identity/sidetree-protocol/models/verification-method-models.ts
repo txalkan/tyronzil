@@ -13,12 +13,10 @@
     GNU General Public License for more details.
 */
 
-import JwkEs256k from "@decentralized-identity/sidetree/dist/lib/core/models/JwkEs256k";
-
 export interface VerificationMethodModel {
     id: string;
     type: string;
-    jwk: JwkEs256k;
+    publicKeyBase58: string;
 }
 
 export interface PublicKeyModel extends VerificationMethodModel {

@@ -54,6 +54,6 @@ export interface ContractInit {
 
 /** The `TyronInit smart-contracts` */
 export enum TyronInitContracts {
-    Testnet = "0x75d8297b8bd2e35de1c17e19d2c13504de623793",
+    Testnet = "0x08392647c23115f1d027b9d2bbcc9f532b0f003a",
     Mainnet = "0x1c8272a79b5b4920bcae80f310d638c8dd4bd8aa"
 }

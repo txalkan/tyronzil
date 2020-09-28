@@ -28,7 +28,7 @@ import ZilliqaInit from '../blockchain/zilliqa-init';
 export default class DidDoc {
     public readonly id: string;
     public readonly publicKey: VerificationMethodModel[];
-    public readonly authentication: (string | VerificationMethodModel)[];
+    public readonly authentication?: (string | VerificationMethodModel)[];
     public readonly service?: ServiceEndpointModel[];
 
     private constructor (
@@ -50,11 +50,10 @@ export default class DidDoc {
         const BLOCKCHAIN_INFO = await ZIL_INIT.API.blockchain.getBlockChainInfo();        
         const DID_RESOLVED = await DidState.fetch(network, tyronAddr)
         .then(async did_state => {
-            const DID_STATE = did_state as DidState;
-            if(DID_STATE.did_tyronZIL !== DID_tyronZIL){
+            if(did_state.decentralized_identifier !== DID_tyronZIL){
                 throw new SidetreeError(ErrorCode.DidMismatch)
             }
-            const DID_DOC = await DidDoc.read(DID_STATE);
+            const DID_DOC = await DidDoc.read(did_state);
                 switch (ACCEPT) {
                     case Accept.contentType:
                         return DID_DOC;
@@ -65,8 +64,8 @@ export default class DidDoc {
                                 document: DID_DOC,
                                 metadata: {
                                     contentType: "application/did+json",
-                                    updateCommitment: DID_STATE.updateCommitment!,
-                                    recoveryCommitment: DID_STATE.recoveryCommitment!,
+                                    updateKey: did_state.did_update_key,
+                                    recoveryKey: did_state.did_recovery_key,
                                 }
                             }
                             return RESOLUTION_RESULT;
@@ -81,12 +80,12 @@ export default class DidDoc {
 
     /** Generates a 'DID-read' operation, resolving any tyronZIL DID-state into its DID-Document */
     public static async read(state: DidState): Promise<DidDoc> {
-        const DID_DOC = await TyronZILUrlScheme.validate(state.did_tyronZIL)
+        const DID_DOC = await TyronZILUrlScheme.validate(state.decentralized_identifier)
         .then(async did_scheme => {
             const ID = did_scheme.did_tyronZIL;
             
             /** Reads the public keys */
-            const PUBLIC_KEYS = state.document!.public_keys;
+            const PUBLIC_KEYS = state.did_document.public_keys;
             const PUBLIC_KEY = [];
             const AUTHENTICATION = [];
 
@@ -97,7 +96,7 @@ export default class DidDoc {
                     const VERIFICATION_METHOD: VerificationMethodModel = {
                         id: DID_URL,
                         type: key.type,
-                        jwk: key.jwk
+                        publicKeyBase58: key.publicKeyBase58
                     };
 
                     /** The verification relationship for the key */
@@ -105,14 +104,12 @@ export default class DidDoc {
 
                     if (PURPOSE.has(PublicKeyPurpose.General)) {
                         PUBLIC_KEY.push(VERIFICATION_METHOD);
-                        
-                        // The authentication property
-                        // referenced key:
+                        // If the key is also for authentication => referenced key:
                         if (PURPOSE.has(PublicKeyPurpose.Auth)) {
                             AUTHENTICATION.push(DID_URL); 
                         }
                     
-                    // embedded key, when is not a general key
+                        // If the key is only for authentication => embedded key
                     } else if (PURPOSE.has(PublicKeyPurpose.Auth)) {
                         AUTHENTICATION.push(VERIFICATION_METHOD); 
                     }
@@ -122,28 +119,30 @@ export default class DidDoc {
             /***            ****            ***/
 
             /** Service property */
-            const SERVICE_INTERFACE = state.document?.service_endpoints;
+            const services = state.did_document.service_endpoints;
             const SERVICES = [];
-            
-            if (Array.isArray(SERVICE_INTERFACE)) {
-                for (const service of SERVICE_INTERFACE) {
-                    const SERVICE: ServiceEndpointModel = {
-                        id: ID + '#' + service.id,
-                        type: service.type,
-                        endpoint: service.endpoint
-                    };
-                    SERVICES.push(SERVICE);
+            if(services !== undefined) {            
+                if (Array.isArray(services)) {
+                    for (const service of services) {
+                        const SERVICE: ServiceEndpointModel = {
+                            id: ID + '#' + service.id,
+                            type: service.type,
+                            endpoint: service.endpoint
+                        };
+                        SERVICES.push(SERVICE);
+                    }
                 }
             }
 
             /** The tyronZIL DID-Document */
             const OPERATION_OUTPUT: DidDocScheme = {
                 id: ID,
-                publicKey: PUBLIC_KEY,
-                authentication: AUTHENTICATION
+                publicKey: PUBLIC_KEY
             };
-            
-            if (SERVICES.length !== 0) {
+            if(AUTHENTICATION.length !== 0) {
+                OPERATION_OUTPUT.authentication = AUTHENTICATION;
+            }
+            if(SERVICES.length !== 0) {
                 OPERATION_OUTPUT.service = SERVICES;
             }
             return new DidDoc(OPERATION_OUTPUT);
@@ -174,11 +173,11 @@ export default class DidDoc {
 
 /***            ****            ***/
 
-/** The scheme of a `tyron DID-Document` */
+/** The scheme of a `Tyron DID-Document` */
 interface DidDocScheme {
     id: string;
     publicKey: VerificationMethodModel[];
-    authentication: (string | VerificationMethodModel)[];
+    authentication?: (string | VerificationMethodModel)[];
     service?: ServiceEndpointModel[];
     created?: number; //MUST be a valid XML datetime value, as defined in section 3.3.7 of [W3C XML Schema Definition Language (XSD) 1.1 Part 2: Datatypes [XMLSCHEMA1.1-2]]. This datetime value MUST be normalized to UTC 00:00, as indicated by the trailing "Z"
     updated?: number; //timestamp of the most recent change
@@ -215,6 +214,6 @@ export interface ResolutionResult {
 
 interface DocumentMetadata {
     contentType: string;
-    updateCommitment: string;
-    recoveryCommitment: string;
+    updateKey: string;
+    recoveryKey: string;
 }

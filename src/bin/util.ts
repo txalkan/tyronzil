@@ -20,6 +20,7 @@ import { NetworkNamespace } from '../lib/decentralized-identity/tyronZIL-schemes
 import { PublicKeyPurpose } from '../lib/decentralized-identity/sidetree-protocol/models/verification-method-models';
 import ServiceEndpointModel from '@decentralized-identity/sidetree/dist/lib/core/versions/latest/models/ServiceEndpointModel';
 import SidetreeError from '@decentralized-identity/sidetree/dist/lib/common/SidetreeError';
+import ErrorCode from '../lib/decentralized-identity/util/ErrorCode';
 
 export default class Util {
 
@@ -64,6 +65,8 @@ export default class Util {
     public static async InputService(): Promise<ServiceEndpointModel[]> {
         console.log(LogColors.brightGreen(`Service endpoints for your Decentralized Identifier:`));
         const SERVICE = [];
+        const SERVICE_ID_SET: Set<string> = new Set();
+        
         const amount = readline.question(LogColors.green(`How many service endpoints would you like to add? - `) + LogColors.lightBlue(`Your answer: `));
         if(!Number(amount) && Number(amount) !== 0){
             throw new SidetreeError("WrongAmount", "It must be a number");
@@ -86,6 +89,13 @@ export default class Util {
                 type: TYPE,
                 endpoint: "https://" + endpoint
             }
+
+            // IDs must be unique
+            if (SERVICE_ID_SET.has(id)) {
+                throw new SidetreeError(ErrorCode.DocumentServiceIdDuplicated);
+            }
+            SERVICE_ID_SET.add(id);
+            
             SERVICE.push(SERVICE_ENDPOINT);
         }
         return SERVICE;
@@ -111,7 +121,7 @@ export interface PublicKeyInput {
 }
 
 export interface PrivateKeys {
-    privateKeys?: string[],        //encoded strings
+    privateKeys?: string[],
     updatePrivateKey?: string,
     recoveryPrivateKey?: string,
 }
