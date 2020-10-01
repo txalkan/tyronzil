@@ -15,7 +15,6 @@
 
 import * as zcrypto from '@zilliqa-js/crypto';
 
-import OperationType from '@decentralized-identity/sidetree/dist/lib/core/enums/OperationType';
 import { PublicKeyModel } from '../models/verification-method-models';
 import ServiceEndpointModel from '@decentralized-identity/sidetree/dist/lib/core/versions/latest/models/ServiceEndpointModel';
 import { Cryptography, OperationKeyPairInput } from '../../util/did-keys';
@@ -24,7 +23,7 @@ import { DocumentModel, PatchModel, PatchAction } from '../models/patch-model';
 import Encoder from '@decentralized-identity/sidetree/dist/lib/core/versions/latest/Encoder';
 import { RecoverSignedDataModel, SignedDataRequest } from '../models/signed-data-models';
 import { CliInputModel } from '../../../../bin/util';
-import { DeltaModel } from '../sidetree';
+import { OperationType, DeltaModel } from '../sidetree';
 
 /** Generates a Sidetree-Tyron `DID-Recover` operation */
 export default class DidRecover {

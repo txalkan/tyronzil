@@ -13,7 +13,7 @@
     GNU General Public License for more details.
 */
 
-import OperationType from "@decentralized-identity/sidetree/dist/lib/core/enums/OperationType";
+import { OperationType } from "../sidetree";
 
 /** Defines model for the payload object required by the Update Operation Signed Data Object */
 export interface UpdateSignedDataModel {

@@ -24,6 +24,14 @@ import ErrorCode from '../util/ErrorCode';
 import DidServiceEndpointModel from '@decentralized-identity/sidetree/dist/lib/core/versions/latest/models/ServiceEndpointModel';
 import LogColors from '../../../bin/log-colors';
 
+/** Sidetree operation types */
+export enum OperationType {
+    Create = "create",
+    Update = "update",
+    Deactivate = "deactivate",
+    Recover = "recover"
+}
+
 export class Sidetree {
     private static async parse(encoded: string): Promise<any> {
         const MODEL = JsonAsync.parse(Encoder.decodeBase64UrlAsString(encoded))

@@ -15,8 +15,8 @@
 
 import { NetworkNamespace } from '../decentralized-identity/tyronZIL-schemes/did-scheme';
 import ZilliqaInit from './zilliqa-init';
-import OperationType from '@decentralized-identity/sidetree/dist/lib/core/enums/OperationType';
 import SmartUtil from './smart-contracts/smart-util';
+import { OperationType } from '../decentralized-identity/sidetree-protocol/sidetree';
 
 export default class TyronState {
     public readonly contract_owner: string;

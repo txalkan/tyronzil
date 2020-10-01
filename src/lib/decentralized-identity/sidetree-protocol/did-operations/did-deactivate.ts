@@ -15,7 +15,7 @@
 
 import * as zcrypto from '@zilliqa-js/crypto';
 
-import OperationType from '@decentralized-identity/sidetree/dist/lib/core/enums/OperationType';
+import { OperationType } from '../sidetree';
 import { DeactivateSignedDataModel, SignedDataRequest } from '../models/signed-data-models';
 
 /** Generates a Sidetree-based `DID-Deactivate` operation */

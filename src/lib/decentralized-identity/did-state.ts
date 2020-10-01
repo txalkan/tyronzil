@@ -16,8 +16,7 @@
 import TyronState from '../blockchain/tyron-state';
 import { NetworkNamespace } from './tyronZIL-schemes/did-scheme';
 import { TyronZILUrlScheme } from './tyronZIL-schemes/did-url-scheme';
-import OperationType from '@decentralized-identity/sidetree/dist/lib/core/enums/OperationType';
-import { Sidetree } from './sidetree-protocol/sidetree';
+import { OperationType, Sidetree } from './sidetree-protocol/sidetree';
 import { DocumentModel } from './sidetree-protocol/models/patch-model';
 import SidetreeError from '@decentralized-identity/sidetree/dist/lib/common/SidetreeError';
 

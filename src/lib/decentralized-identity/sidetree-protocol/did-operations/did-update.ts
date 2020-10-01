@@ -16,10 +16,9 @@
 import * as zcrypto from '@zilliqa-js/crypto';
 
 import { Cryptography } from '../../util/did-keys';
-import OperationType from '@decentralized-identity/sidetree/dist/lib/core/enums/OperationType';
 import { PatchModel } from '../models/patch-model';
 import DidState from '../../did-state';
-import { Sidetree } from '../sidetree';
+import { OperationType, Sidetree } from '../sidetree';
 
 /** Generates a Tyron `DID-Update` operation */
 export default class DidUpdate{
