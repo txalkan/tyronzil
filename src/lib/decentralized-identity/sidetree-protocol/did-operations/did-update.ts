@@ -16,21 +16,18 @@
 import * as zcrypto from '@zilliqa-js/crypto';
 
 import { Cryptography } from '../../util/did-keys';
-import Multihash from '@decentralized-identity/sidetree/dist/lib/core/versions/latest/Multihash';
-import Encoder from '@decentralized-identity/sidetree/dist/lib/core/versions/latest/Encoder';
 import OperationType from '@decentralized-identity/sidetree/dist/lib/core/enums/OperationType';
 import { PatchModel, DocumentModel } from '../models/patch-model';
-import { SignedDataRequest, UpdateSignedDataModel } from '../models/signed-data-models';
 import DidState from '../../did-state';
-import { DeltaModel, Sidetree } from '../sidetree';
+import { Sidetree } from '../sidetree';
 
-/** Generates a Sidetree-Tyron `DID-Update` operation */
+/** Generates a Tyron `DID-Update` operation */
 export default class DidUpdate{
     public readonly type = OperationType.Update;
     public readonly decentralized_identifier: string;
+    public readonly signature: zcrypto.Signature;
     public readonly newDocument: DocumentModel;
     public readonly newUpdateKey: string;
-    public readonly signedRequest: SignedDataRequest;
     public readonly privateKey?: string[];
     public readonly newUpdatePrivateKey: string;
     
@@ -38,7 +35,7 @@ export default class DidUpdate{
         operation: UpdateOperationModel
     ) {
         this.decentralized_identifier = operation.did;
-        this.signedRequest = operation.signedRequest;
+        this.signature = operation.signature;
         this.newDocument = operation.newDocument;
         this.newUpdateKey = operation.newUpdateKey;
         this.privateKey = operation.privateKey;
@@ -47,28 +44,25 @@ export default class DidUpdate{
 
     /***            ****            ***/
     
-    /** Generates a Sidetree-based `DID-Update` operation with input from the CLI */
+    /** Generates a Tyron `DID-Update` operation with input from the CLI */
     public static async execute(input: UpdateOperationInput): Promise<DidUpdate> {
         const operation = await Sidetree.processPatches(input.patches, input.state.did_document)
         .then(async update => {
+            const TYRON_HASH = input.state.tyron_hash;
+            console.log("the hash:")
+            console.log(TYRON_HASH);
+            const PREVIOUS_UPDATE_KEY = zcrypto.getPubKeyFromPrivateKey(input.updatePrivateKey);
+            const SIG = zcrypto.sign(Buffer.from(TYRON_HASH), input.updatePrivateKey, PREVIOUS_UPDATE_KEY);
+            console.log(SIG);
+            const SIGNATURE = zcrypto.schnorr.toSignature(SIG);
+            console.log(SIGNATURE);
             // Generates key-pair for the next DID-Update operation
             const [NEW_UPDATE_KEY, NEW_UPDATE_PRIVATE_KEY] = await Cryptography.keyPair();
 
-            /** Input data for the Sidetree-Tyron request */
-            const REQUEST_INPUT: RequestInput = {
-                did: input.state.decentralized_identifier,
-                updatePrivateKey: input.updatePrivateKey,
-                newUpdateKey: NEW_UPDATE_KEY,
-                patches: update.patches
-            };
-
-            /** Sidetree-Tyron data to generate a `DID-Update` operation */
-            const REQUEST = await DidUpdate.sidetreeTyronRequest(REQUEST_INPUT);
-            
-            /** Output data from a Sidetree-Tyron `DID-Update` operation */
+            /** Output data from a Tyron `DID-Update` operation */
             const OPERATION_OUTPUT: UpdateOperationModel = {
                 did: input.state.decentralized_identifier,
-                signedRequest: REQUEST,
+                signature: SIGNATURE,
                 newDocument: update.doc,
                 newUpdateKey: NEW_UPDATE_KEY,
                 newUpdatePrivateKey: NEW_UPDATE_PRIVATE_KEY,
@@ -78,42 +72,6 @@ export default class DidUpdate{
         })
         .catch(err => { throw err })
         return operation;
-    }
-
-    /***            ****            ***/
-
-    /** Generates the Sidetree-Tyron data for the `DID-Update` operation (Tyron Protocol) */
-    public static async sidetreeTyronRequest(input: RequestInput): Promise<SignedDataRequest> {
-        
-        /** The Update Operation Delta Object */
-        const DELTA_OBJECT: DeltaModel = {
-            patches: input.patches,
-            update_key: input.newUpdateKey
-        };
-        const DELTA_BUFFER = Buffer.from(JSON.stringify(DELTA_OBJECT));
-        const DELTA = Encoder.encode(DELTA_BUFFER);
-        const DELTA_HASH = Encoder.encode(Multihash.hash(DELTA_BUFFER));
-        const PREVIOUS_UPDATE_KEY = zcrypto.getPubKeyFromPrivateKey(input.updatePrivateKey);
-
-        /** For the Update Operation Signed Data Object */
-        const SIGNED_DATA: UpdateSignedDataModel = {
-            decentralized_identifier: input.did,
-            delta_hash: DELTA_HASH,
-            previous_update_key: PREVIOUS_UPDATE_KEY
-        };
-        const ENCODED_SIGNED_DATA = Encoder.encode(JSON.stringify(SIGNED_DATA))
-        const DATA_BUFFER = Buffer.from(ENCODED_SIGNED_DATA);
-
-        const SIGNATURE = zcrypto.sign(DATA_BUFFER, input.updatePrivateKey, PREVIOUS_UPDATE_KEY);
-
-        /** Data to execute a `DID-Update` operation */
-        const SIGNED_REQUEST: SignedDataRequest = {
-            type: OperationType.Update,
-            signed_data: ENCODED_SIGNED_DATA,
-            signature: SIGNATURE,
-            delta: DELTA
-        };
-        return SIGNED_REQUEST;
     }
 }
 
@@ -129,17 +87,9 @@ export interface UpdateOperationInput {
 /** Defines output data of a Sidetree-Tyron `DID-Update` operation */
 interface UpdateOperationModel {
     did: string;
-    signedRequest: SignedDataRequest;
+    signature: zcrypto.Signature;
     newDocument: DocumentModel;
     newUpdateKey: string;
     privateKey?: string[];
     newUpdatePrivateKey: string;
-}
-
-/** Defines input data for a Sidetree-Tyron `DID-Update` operation REQUEST*/
-interface RequestInput {
-    did: string;
-    updatePrivateKey: string;
-    newUpdateKey: string;
-    patches: PatchModel[];
 }

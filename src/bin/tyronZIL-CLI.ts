@@ -343,10 +343,9 @@ export default class TyronCLI {
             const DOCUMENT = didUpdate.operation.newDocument;
             const DOC_BUFFER = Buffer.from(JSON.stringify(DOCUMENT));
             const ENCODED_DOCUMENT = Encoder.encode(DOC_BUFFER);
-            console.log(didUpdate.operation.signedRequest.signed_data);
+            
             const PARAMS = await TyronTransaction.update(
-                "0x"+ didUpdate.operation.signedRequest.signed_data,
-                "0x"+ didUpdate.operation.signedRequest.signature,
+                "0x"+ didUpdate.operation.signature,
                 ENCODED_DOCUMENT,
                 "0x"+ didUpdate.operation.newUpdateKey
             );

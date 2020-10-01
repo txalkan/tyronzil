@@ -224,21 +224,27 @@ contract TSM(
   
   (* Verifies the Schnorr signature *)
   procedure RightSignature(
-    signedData: ByStr,
     sig: ByStr64,
     key: Option ByStr33
     )
-      match key with
-        | Some pubk =>
-            signature_is_right = builtin schnorr_verify pubk signedData sig;
-            match signature_is_right with
-              | True => (* continue *)
-              | False =>
-                  err = CodeWrongSignature;
+      this_th <- tyron_hash;
+      match this_th with
+        | Some th =>
+            match key with
+              | Some pubk =>
+                  signature_is_right = builtin schnorr_verify pubk th sig;
+                  match signature_is_right with
+                    | True => (* continue *)
+                    | False =>
+                        err = CodeWrongSignature;
+                        ThrowError err
+                  end
+              | None =>
+                  err = CodeUndefinedKey;
                   ThrowError err
             end
         | None =>
-            err = CodeUndefinedKey;
+            err = CodeNotTyron;
             ThrowError err
       end
   end
@@ -347,7 +353,6 @@ contract TSM(
   
   (* Executes a tyronZIL DID-Update operation *)
   transition DidUpdate(
-    signedData: ByStr,
     signature: ByStr64,
     newDocument: String,
     newUpdateKey: ByStr33
@@ -355,7 +360,7 @@ contract TSM(
       IsClient;
       RightStatus;
       operation_key <- did_update_key;
-      RightSignature signedData signature operation_key;
+      RightSignature signature operation_key;
       Payment;
       did_document := newDocument;
       next_update_key = Some{ByStr33} newUpdateKey;
@@ -369,7 +374,6 @@ contract TSM(
   
   (* Executes a tyronZIL DID-Recover operation *)
   transition DidRecover(
-    signedData: ByStr,
     signature: ByStr64,
     newDocument: String,
     newUpdateKey: ByStr33,
@@ -378,7 +382,7 @@ contract TSM(
       IsClient;
       RightStatus;
       operation_key <- did_recovery_key;
-      RightSignature signedData signature operation_key;
+      RightSignature signature operation_key;
       Payment;
       did_document := newDocument;
       next_update_key = Some{ByStr33} newUpdateKey;
@@ -392,14 +396,13 @@ contract TSM(
   
   (* Executes a tyronZIL DID-Deactivate operation *)
   transition DidDeactivate(
-    signedData: ByStr,
     signature: ByStr64
     )
       IsClient;
       RightStatus;
       Payment;
       operation_key <- did_recovery_key;
-      RightSignature signedData signature operation_key;
+      RightSignature signature operation_key;
       did_document := deactivated;
       undefined_key = None{ByStr33};
       did_update_key := undefined_key;
