@@ -22,6 +22,7 @@ import { PublicKeyInput } from '../../../bin/util';
 import SidetreeError from '@decentralized-identity/sidetree/dist/lib/common/SidetreeError';
 import ErrorCode from '../util/ErrorCode';
 import DidServiceEndpointModel from '@decentralized-identity/sidetree/dist/lib/core/versions/latest/models/ServiceEndpointModel';
+import LogColors from '../../../bin/log-colors';
 
 export class Sidetree {
     private static async parse(encoded: string): Promise<any> {
@@ -50,18 +51,22 @@ export class Sidetree {
     }
 
     public static async documentModel(encoded: string): Promise<DocumentModel> {
-        const MODEL = await this.parse(encoded)
-        .then(model => {
+        try {
+            const STRING = Buffer.from(encoded, 'hex').toString();
+            const DOC = JSON.parse(STRING);
+            console.log(LogColors.brightGreen("The DID-Document (Sidetree-Document-Model format):"))
+            console.log(JSON.stringify(DOC, null, 2));
+            
             const DOCUMENT: DocumentModel = {
-                public_keys: model.public_keys
+                public_keys: DOC.public_keys
             }
-            if(model.service_endpoints !== undefined && model.service_endpoints.length !== 0) {
-                DOCUMENT.service_endpoints = model.service_endpoints;
+            if(DOC.service_endpoints !== undefined && DOC.service_endpoints.length !== 0) {
+                    DOCUMENT.service_endpoints = DOC.service_endpoints;
             }
             return DOCUMENT;
-        })
-        .catch(err => { throw err })
-        return MODEL;
+        } catch (err) {
+            throw err
+        }
     }
 
     private static async patchesFromDelta(delta: string): Promise<PatchModel[]> {

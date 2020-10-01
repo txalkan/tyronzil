@@ -152,24 +152,24 @@ export default class TyronCLI {
         .then(async didCreate => {
             console.log(LogColors.brightGreen(`Let's deploy your Tyron-Smart-Contract!`))
             
-            const SUFFIX_OBJECT = await Sidetree.suffixModel(didCreate.operation.createRequest.suffix_data);
-            const DELTA_OBJECT = await Sidetree.deltaModel(didCreate.operation.createRequest.delta);
-            
-            const DOCUMENT = await Sidetree.docFromDelta(didCreate.operation.createRequest.delta);
-            const DOC_BUFFER = Buffer.from(JSON.stringify(DOCUMENT));
-            const ENCODED_DOCUMENT = Encoder.encode(DOC_BUFFER);
-            
-            const PARAMS = await TyronTransaction.create(
-                ENCODED_DOCUMENT,       
-                "0x"+ DELTA_OBJECT.update_key,
-                "0x"+ SUFFIX_OBJECT.recovery_key,
-            );
-
-            const version = readline.question(LogColors.green(`What version of the TSM would you like to deploy?`)+` - [0.5] - Versions currently supported: 0.5 - ` + LogColors.lightBlue(`Your answer: `));
+            const version = readline.question(LogColors.green(`What version of the TSM would you like to deploy?`)+` - [0.5.1] - Versions currently supported: 0.5.1 - ` + LogColors.lightBlue(`Your answer: `));
             
             // The user deploys their TSM and calls the ContractInit transition
             const DEPLOYED_CONTRACT = await TyronTransaction.deploy(didCreate.didInit.init, version);
             const TYRON_ADDR = DEPLOYED_CONTRACT.contract.address;
+
+            const SUFFIX_OBJECT = await Sidetree.suffixModel(didCreate.operation.createRequest.suffix_data);
+            const DELTA_OBJECT = await Sidetree.deltaModel(didCreate.operation.createRequest.delta);
+            
+            const DOCUMENT = await Sidetree.docFromDelta(didCreate.operation.createRequest.delta);
+            const DOC_HEX = Buffer.from(JSON.stringify(DOCUMENT)).toString('hex');
+            console.log(DOC_HEX);
+            
+            const PARAMS = await TyronTransaction.create(
+                "0x"+ DOC_HEX,       
+                "0x"+ DELTA_OBJECT.update_key,
+                "0x"+ SUFFIX_OBJECT.recovery_key,
+            );
 
             await TyronTransaction.submit(didCreate.didInit.init, TYRON_ADDR!, didCreate.tag, PARAMS);
         })
@@ -340,13 +340,9 @@ export default class TyronCLI {
         .then(async didUpdate => {
             console.log(LogColors.brightGreen(`Next, let's save your DID-update operation on the Zilliqa blockchain platform, so it stays immutable!`));
             
-            const DOCUMENT = didUpdate.operation.newDocument;
-            const DOC_BUFFER = Buffer.from(JSON.stringify(DOCUMENT));
-            const ENCODED_DOCUMENT = Encoder.encode(DOC_BUFFER);
-            
             const PARAMS = await TyronTransaction.update(
+                "0x"+ didUpdate.operation.newDocument,
                 "0x"+ didUpdate.operation.signature,
-                ENCODED_DOCUMENT,
                 "0x"+ didUpdate.operation.newUpdateKey
             );
 
@@ -357,7 +353,7 @@ export default class TyronCLI {
                 tyron_stake: 50000000000000        //e.g. 50 ZIL
             };
 
-            const gas_limit = readline.question(LogColors.green(`What is the gas limit? - `) + ` - [Recommended value: 5,000] - ` + LogColors.lightBlue(`Your answer: `));
+            const gas_limit = readline.question(LogColors.green(`What is the gas limit?`) + ` - [Recommended value: 5,000] - ` + LogColors.lightBlue(`Your answer: `));
             
             const INITIALIZE = await TyronTransaction.initialize(
                 NETWORK,
@@ -464,7 +460,7 @@ export default class TyronCLI {
                 tyron_stake: 50000000000000        //e.g. 50 ZIL
             };
 
-            const gas_limit = readline.question(LogColors.green(`What is the gas limit? - `) + ` - [Recommended value: 10,000] - ` + LogColors.lightBlue(`Your answer: `));
+            const gas_limit = readline.question(LogColors.green(`What is the gas limit?`) + ` - [Recommended value: 10,000] - ` + LogColors.lightBlue(`Your answer: `));
             
             const INITIALIZE = await TyronTransaction.initialize(
                 NETWORK,
@@ -535,7 +531,7 @@ export default class TyronCLI {
                 tyron_stake: 50000000000000        //e.g. 50 ZIL
             };
 
-            const gas_limit = readline.question(LogColors.green(`What is the gas limit? - `) + ` - [Recommended value: 10,000] - ` + LogColors.lightBlue(`Your answer: `));
+            const gas_limit = readline.question(LogColors.green(`What is the gas limit?`) + ` - [Recommended value: 10,000] - ` + LogColors.lightBlue(`Your answer: `));
             
             const INITIALIZE = await TyronTransaction.initialize(
                 NETWORK,

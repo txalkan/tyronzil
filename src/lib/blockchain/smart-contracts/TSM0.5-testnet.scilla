@@ -106,7 +106,7 @@ contract TSM(
   field did_status: DidStatus = Undefined
   
   (* The DID-Document *)
-  field did_document: String = undefined
+  field did_document: Option ByStr = None{ByStr}
   
   (* The public key for the next DID-Update operation *)
   field did_update_key: Option ByStr33 = None{ByStr33}
@@ -224,27 +224,21 @@ contract TSM(
   
   (* Verifies the Schnorr signature *)
   procedure RightSignature(
+    signedData: ByStr,
     sig: ByStr64,
     key: Option ByStr33
     )
-      this_th <- tyron_hash;
-      match this_th with
-        | Some th =>
-            match key with
-              | Some pubk =>
-                  signature_is_right = builtin schnorr_verify pubk th sig;
-                  match signature_is_right with
-                    | True => (* continue *)
-                    | False =>
-                        err = CodeWrongSignature;
-                        ThrowError err
-                  end
-              | None =>
-                  err = CodeUndefinedKey;
+      match key with
+        | Some pubk =>
+            signature_is_right = builtin schnorr_verify pubk signedData sig;
+            match signature_is_right with
+              | True => (* continue *)
+              | False =>
+                  err = CodeWrongSignature;
                   ThrowError err
             end
         | None =>
-            err = CodeNotTyron;
+            err = CodeUndefinedKey;
             ThrowError err
       end
   end
@@ -331,7 +325,7 @@ contract TSM(
 
   (* Executes a tyronZIL DID-Create operation *)
   transition DidCreate(
-    document: String,
+    document: ByStr,
     updateKey: ByStr33,
     recoveryKey: ByStr33
     )
@@ -339,7 +333,8 @@ contract TSM(
       IsInitialized;
       Payment;
       DidScheme;
-      did_document := document;
+      first_doc = Some{ByStr} document;
+      did_document := first_doc;
       update_key = Some{ByStr33} updateKey;
       did_update_key := update_key;
       recovery_key = Some{ByStr33} recoveryKey;
@@ -353,16 +348,17 @@ contract TSM(
   
   (* Executes a tyronZIL DID-Update operation *)
   transition DidUpdate(
+    newDocument: ByStr,
     signature: ByStr64,
-    newDocument: String,
     newUpdateKey: ByStr33
     )
       IsClient;
       RightStatus;
       operation_key <- did_update_key;
-      RightSignature signature operation_key;
+      RightSignature newDocument signature operation_key;
       Payment;
-      did_document := newDocument;
+      new_doc = Some{ByStr} newDocument;
+      did_document := new_doc;
       next_update_key = Some{ByStr33} newUpdateKey;
       did_update_key := next_update_key;
       new_status = Updated;
@@ -374,17 +370,18 @@ contract TSM(
   
   (* Executes a tyronZIL DID-Recover operation *)
   transition DidRecover(
+    newDocument: ByStr,
     signature: ByStr64,
-    newDocument: String,
     newUpdateKey: ByStr33,
     newRecoveryKey: ByStr33
     )
       IsClient;
       RightStatus;
       operation_key <- did_recovery_key;
-      RightSignature signature operation_key;
+      RightSignature newDocument signature operation_key;
       Payment;
-      did_document := newDocument;
+      new_doc = Some{ByStr} newDocument;
+      did_document := new_doc;
       next_update_key = Some{ByStr33} newUpdateKey;
       did_update_key := next_update_key;
       next_recovery_key = Some{ByStr33} newRecoveryKey;
@@ -402,11 +399,19 @@ contract TSM(
       RightStatus;
       Payment;
       operation_key <- did_recovery_key;
-      RightSignature signature operation_key;
-      did_document := deactivated;
-      undefined_key = None{ByStr33};
-      did_update_key := undefined_key;
-      did_recovery_key := undefined_key;
+      this_th <- tyron_hash;
+      match this_th with
+        | Some th =>
+            RightSignature th signature operation_key
+        | None =>
+            err = CodeNotTyron;
+            ThrowError err
+      end;
+      deactivated_doc = None{ByStr};
+      did_document := deactivated_doc;
+      deactivated_key = None{ByStr33};
+      did_update_key := deactivated_key;
+      did_recovery_key := deactivated_key;
       new_status = Deactivated;
       did_status := new_status;
       Timestamp

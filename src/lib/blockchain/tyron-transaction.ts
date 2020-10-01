@@ -283,7 +283,7 @@ export default class TyronTransaction extends TyronContract {
 
         const DOCUMENT: TransitionParams = {
             vname: 'document',
-            type: 'String',
+            type: 'ByStr',
             value: document,
         };
         PARAMS.push(DOCUMENT);
@@ -306,26 +306,26 @@ export default class TyronTransaction extends TyronContract {
     }
 
     public static async update(
-        signature: string,
         newDocument: string,
+        signature: string,
         newUpdateKey: string
     ): Promise<TransitionParams[]> {
 
         const PARAMS = [];
         
+        const DOCUMENT: TransitionParams = {
+            vname: 'newDocument',
+            type: 'ByStr',
+            value: newDocument,
+        };
+        PARAMS.push(DOCUMENT);
+
         const SIGNATURE: TransitionParams = {
             vname: 'signature',
             type: 'ByStr64',
             value: signature,
         };
         PARAMS.push(SIGNATURE);
-
-        const DOCUMENT: TransitionParams = {
-            vname: 'newDocument',
-            type: 'String',
-            value: newDocument,
-        };
-        PARAMS.push(DOCUMENT);
 
         const NEW_UPDATE_KEY: TransitionParams = {
             vname: 'newUpdateKey',

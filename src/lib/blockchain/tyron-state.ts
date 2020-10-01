@@ -72,7 +72,7 @@ export default class TyronState {
                 decentralized_identifier: String(SMART_CONTRACT_STATE.result.decentralized_identifier),
                 tyron_hash: await SmartUtil.getValue(SMART_CONTRACT_STATE.result.tyron_hash),
                 did_status: String(SMART_CONTRACT_STATE.result.did_status),
-                did_document: String(SMART_CONTRACT_STATE.result.did_document),
+                did_document: (await SmartUtil.getValue(SMART_CONTRACT_STATE.result.did_document)).substring(2),
                 did_update_key: await SmartUtil.getValue(SMART_CONTRACT_STATE.result.did_update_key),
                 did_recovery_key: await SmartUtil.getValue(SMART_CONTRACT_STATE.result.did_recovery_key),
                 created: Number(SMART_CONTRACT_STATE.result.created),

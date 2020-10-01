@@ -17,7 +17,7 @@ import * as zcrypto from '@zilliqa-js/crypto';
 
 import { Cryptography } from '../../util/did-keys';
 import OperationType from '@decentralized-identity/sidetree/dist/lib/core/enums/OperationType';
-import { PatchModel, DocumentModel } from '../models/patch-model';
+import { PatchModel } from '../models/patch-model';
 import DidState from '../../did-state';
 import { Sidetree } from '../sidetree';
 
@@ -25,8 +25,8 @@ import { Sidetree } from '../sidetree';
 export default class DidUpdate{
     public readonly type = OperationType.Update;
     public readonly decentralized_identifier: string;
-    public readonly signature: zcrypto.Signature;
-    public readonly newDocument: DocumentModel;
+    public readonly newDocument: string;
+    public readonly signature: string;
     public readonly newUpdateKey: string;
     public readonly privateKey?: string[];
     public readonly newUpdatePrivateKey: string;
@@ -35,8 +35,8 @@ export default class DidUpdate{
         operation: UpdateOperationModel
     ) {
         this.decentralized_identifier = operation.did;
-        this.signature = operation.signature;
         this.newDocument = operation.newDocument;
+        this.signature = operation.signature;
         this.newUpdateKey = operation.newUpdateKey;
         this.privateKey = operation.privateKey;
         this.newUpdatePrivateKey = operation.newUpdatePrivateKey;
@@ -48,14 +48,13 @@ export default class DidUpdate{
     public static async execute(input: UpdateOperationInput): Promise<DidUpdate> {
         const operation = await Sidetree.processPatches(input.patches, input.state.did_document)
         .then(async update => {
-            const TYRON_HASH = input.state.tyron_hash;
-            console.log("the hash:")
-            console.log(TYRON_HASH);
+            const DOC_HEX = Buffer.from(JSON.stringify(update.doc)).toString('hex');;
+            
+            //const TYRON_HASH = input.state.tyron_hash.substring(2);
             const PREVIOUS_UPDATE_KEY = zcrypto.getPubKeyFromPrivateKey(input.updatePrivateKey);
-            const SIG = zcrypto.sign(Buffer.from(TYRON_HASH), input.updatePrivateKey, PREVIOUS_UPDATE_KEY);
-            console.log(SIG);
-            const SIGNATURE = zcrypto.schnorr.toSignature(SIG);
-            console.log(SIGNATURE);
+            
+            const SIGNATURE = zcrypto.sign(Buffer.from(DOC_HEX, 'hex'), input.updatePrivateKey, PREVIOUS_UPDATE_KEY);
+            
             // Generates key-pair for the next DID-Update operation
             const [NEW_UPDATE_KEY, NEW_UPDATE_PRIVATE_KEY] = await Cryptography.keyPair();
 
@@ -63,7 +62,7 @@ export default class DidUpdate{
             const OPERATION_OUTPUT: UpdateOperationModel = {
                 did: input.state.decentralized_identifier,
                 signature: SIGNATURE,
-                newDocument: update.doc,
+                newDocument: DOC_HEX,
                 newUpdateKey: NEW_UPDATE_KEY,
                 newUpdatePrivateKey: NEW_UPDATE_PRIVATE_KEY,
                 privateKey: update.privateKey
@@ -87,8 +86,8 @@ export interface UpdateOperationInput {
 /** Defines output data of a Sidetree-Tyron `DID-Update` operation */
 interface UpdateOperationModel {
     did: string;
-    signature: zcrypto.Signature;
-    newDocument: DocumentModel;
+    newDocument: string;
+    signature: string;
     newUpdateKey: string;
     privateKey?: string[];
     newUpdatePrivateKey: string;
