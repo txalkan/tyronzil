@@ -17,6 +17,7 @@ import { NetworkNamespace } from '../decentralized-identity/tyronZIL-schemes/did
 import ZilliqaInit from './zilliqa-init';
 import SmartUtil from './smart-contracts/smart-util';
 import { OperationType } from '../decentralized-identity/sidetree-protocol/sidetree';
+import SidetreeError from '@decentralized-identity/sidetree/dist/lib/common/SidetreeError';
 
 export default class TyronState {
     public readonly contract_owner: string;
@@ -67,20 +68,26 @@ export default class TyronState {
         })
         .then(async contract_owner => {
             const SMART_CONTRACT_STATE = await ZIL_INIT.API.blockchain.getSmartContractState(tyronAddr);
-            const STATE: TyronStateModel = {
-                contract_owner: contract_owner as string,
-                decentralized_identifier: String(SMART_CONTRACT_STATE.result.decentralized_identifier),
-                tyron_hash: await SmartUtil.getValue(SMART_CONTRACT_STATE.result.tyron_hash),
-                did_status: String(SMART_CONTRACT_STATE.result.did_status),
-                did_document: (await SmartUtil.getValue(SMART_CONTRACT_STATE.result.did_document)).substring(2),
-                did_update_key: await SmartUtil.getValue(SMART_CONTRACT_STATE.result.did_update_key),
-                did_recovery_key: await SmartUtil.getValue(SMART_CONTRACT_STATE.result.did_recovery_key),
-                created: Number(SMART_CONTRACT_STATE.result.created),
-                updated: Number(SMART_CONTRACT_STATE.result.updated),
-                ledger_time: Number(SMART_CONTRACT_STATE.result.ledger_time),
-                sidetree_transaction_number: Number(SMART_CONTRACT_STATE.result.sidetree_transaction_number),
-            };
-            return new TyronState(STATE);
+            const STATUS = await SmartUtil.getStatus(SMART_CONTRACT_STATE.result.did_status);
+            switch (STATUS) {
+                case OperationType.Deactivate:
+                    throw new SidetreeError("DidDeactivated", "The requested DID is deactivated");
+                default:
+                    const STATE: TyronStateModel = {
+                        contract_owner: contract_owner as string,
+                        decentralized_identifier: String(SMART_CONTRACT_STATE.result.decentralized_identifier),
+                        tyron_hash: await SmartUtil.getValue(SMART_CONTRACT_STATE.result.tyron_hash),
+                        did_status: STATUS,
+                        did_document: (await SmartUtil.getValue(SMART_CONTRACT_STATE.result.did_document)).substring(2),
+                        did_update_key: await SmartUtil.getValue(SMART_CONTRACT_STATE.result.did_update_key),
+                        did_recovery_key: await SmartUtil.getValue(SMART_CONTRACT_STATE.result.did_recovery_key),
+                        created: Number(SMART_CONTRACT_STATE.result.created),
+                        updated: Number(SMART_CONTRACT_STATE.result.updated),
+                        ledger_time: Number(SMART_CONTRACT_STATE.result.ledger_time),
+                        sidetree_transaction_number: Number(SMART_CONTRACT_STATE.result.sidetree_transaction_number),
+                    };
+                    return new TyronState(STATE);
+            }
         })
         .catch(err => { throw err });
         return tyron_state;

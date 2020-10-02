@@ -15,14 +15,14 @@
 
 import * as zcrypto from '@zilliqa-js/crypto';
 
-import { OperationType } from '../sidetree';
-import { DeactivateSignedDataModel, SignedDataRequest } from '../models/signed-data-models';
+import { OperationType } from '../sidetree-protocol/sidetree';
+import DidState from '../did-state';
 
-/** Generates a Sidetree-based `DID-Deactivate` operation */
+/** Generates a Tyron `DID-Deactivate` operation */
 export default class DidDeactivate {
     public readonly type = OperationType.Deactivate;
     public readonly decentralized_identifier: string;
-    public readonly signedRequest: SignedDataRequest;
+    public readonly signature: string;
     
     /***            ****            ***/
 
@@ -30,32 +30,20 @@ export default class DidDeactivate {
         operation: DeactivateOperationModel
     ) {
         this.decentralized_identifier = operation.did;
-        this.signedRequest = operation.signedRequest
+        this.signature = "0x"+ operation.signature;
     }
 
     /** Generates a Sidetree-based `DID-Deactivate` operation */
     public static async execute(input: DeactivateOperationInput): Promise<DidDeactivate> {
+        const TYRON_HASH = input.state.tyron_hash.substring(2);
         const PREVIOUS_RECOVERY_KEY = zcrypto.getPubKeyFromPrivateKey(input.recoveryPrivateKey);
 
-        /** For the Deactivate Operation Signed Data Object */
-        const SIGNED_DATA: DeactivateSignedDataModel = {
-            decentralized_identifier: input.did,
-            previous_recovery_key: PREVIOUS_RECOVERY_KEY
-        };
-        const DATA_BUFFER = Buffer.from(JSON.stringify(SIGNED_DATA));
-        const SIGNATURE = zcrypto.sign(DATA_BUFFER, input.recoveryPrivateKey, PREVIOUS_RECOVERY_KEY);
-
-        /** Data to execute a `DID-Deactivate` operation */
-        const SIGNED_REQUEST: SignedDataRequest = {
-            type: OperationType.Deactivate,
-            signed_data: JSON.stringify(SIGNED_DATA),
-            signature: SIGNATURE
-        };
-
-        /** Output data from a Sidetree-Tyron `DID-Deactivate` operation */
+        const SIGNATURE = zcrypto.sign(Buffer.from(TYRON_HASH, 'hex'), input.recoveryPrivateKey, PREVIOUS_RECOVERY_KEY);
+        
+        /** Output data from a Tyron `DID-Deactivate` operation */
         const OPERATION_OUTPUT: DeactivateOperationModel = {
-            did: input.did,
-            signedRequest: SIGNED_REQUEST   
+            did: input.state.decentralized_identifier,
+            signature: SIGNATURE 
         };
         return new DidDeactivate(OPERATION_OUTPUT);
     }
@@ -65,12 +53,12 @@ export default class DidDeactivate {
 
 /** Defines input data for a Sidetree-based `DID-Deactivate` operation */
 export interface DeactivateOperationInput {
-    did: string;
+    state: DidState;
     recoveryPrivateKey: string;
 }
 
 /** Defines output data of a Sidetree-based `DID-Deactivate` operation */
 interface DeactivateOperationModel {
     did: string;
-    signedRequest: SignedDataRequest;
+    signature: string;
 }

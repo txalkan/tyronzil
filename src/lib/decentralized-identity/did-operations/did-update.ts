@@ -15,10 +15,10 @@
 
 import * as zcrypto from '@zilliqa-js/crypto';
 
-import { Cryptography } from '../../util/did-keys';
-import { PatchModel } from '../models/patch-model';
-import DidState from '../../did-state';
-import { OperationType, Sidetree } from '../sidetree';
+import { Cryptography } from '../util/did-keys';
+import { PatchModel } from '../sidetree-protocol/models/document-model';
+import DidState from '../did-state';
+import { OperationType, Sidetree } from '../sidetree-protocol/sidetree';
 
 /** Generates a Tyron `DID-Update` operation */
 export default class DidUpdate{
@@ -34,9 +34,9 @@ export default class DidUpdate{
         operation: UpdateOperationModel
     ) {
         this.decentralized_identifier = operation.did;
-        this.newDocument = operation.newDocument;
-        this.signature = operation.signature;
-        this.newUpdateKey = operation.newUpdateKey;
+        this.newDocument = "0x"+ operation.newDocument;
+        this.signature = "0x"+ operation.signature;
+        this.newUpdateKey = "0x"+ operation.newUpdateKey;
         this.privateKey = operation.privateKey;
         this.newUpdatePrivateKey = operation.newUpdatePrivateKey;
     }
@@ -47,9 +47,8 @@ export default class DidUpdate{
     public static async execute(input: UpdateOperationInput): Promise<DidUpdate> {
         const operation = await Sidetree.processPatches(input.patches, input.state.did_document)
         .then(async update => {
-            const DOC_HEX = Buffer.from(JSON.stringify(update.doc)).toString('hex');;
+            const DOC_HEX = Buffer.from(JSON.stringify(update.doc)).toString('hex');
             
-            //const TYRON_HASH = input.state.tyron_hash.substring(2);
             const PREVIOUS_UPDATE_KEY = zcrypto.getPubKeyFromPrivateKey(input.updatePrivateKey);
             
             const SIGNATURE = zcrypto.sign(Buffer.from(DOC_HEX, 'hex'), input.updatePrivateKey, PREVIOUS_UPDATE_KEY);
@@ -60,8 +59,8 @@ export default class DidUpdate{
             /** Output data from a Tyron `DID-Update` operation */
             const OPERATION_OUTPUT: UpdateOperationModel = {
                 did: input.state.decentralized_identifier,
-                signature: SIGNATURE,
                 newDocument: DOC_HEX,
+                signature: SIGNATURE,
                 newUpdateKey: NEW_UPDATE_KEY,
                 newUpdatePrivateKey: NEW_UPDATE_PRIVATE_KEY,
                 privateKey: update.privateKey
@@ -75,14 +74,14 @@ export default class DidUpdate{
 
 /***            ** interfaces **            ***/
 
-/** Defines input data for a Sidetree-Tyron `DID-Update` operation */
+/** Defines input data for a Tyron `DID-Update` operation */
 export interface UpdateOperationInput {
     state: DidState;
     updatePrivateKey: string;
     patches: PatchModel[];
 }
 
-/** Defines output data of a Sidetree-Tyron `DID-Update` operation */
+/** Defines output data from a Tyron `DID-Update` operation */
 interface UpdateOperationModel {
     did: string;
     newDocument: string;

@@ -72,4 +72,16 @@ export default class SmartUtil {
         });
         return VALUE![0];
     }
+
+    /** Gets the DID-Status out of a TSM field Option */
+    public static async getStatus(object: any): Promise<string> {
+        const ENTRIES = Object.entries(object);
+        let VALUE: string;
+        ENTRIES.forEach((value: [string, unknown]) => {
+            if (value[0] === "constructor") {
+                VALUE = value[1] as string;
+            }
+        });
+        return VALUE!;
+    }
 }

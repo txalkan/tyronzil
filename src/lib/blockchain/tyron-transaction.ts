@@ -214,6 +214,7 @@ export default class TyronTransaction extends TyronContract {
     /** Submits a tyronZIL transaction (DID operation) */
     public static async submit(init: TyronTransaction, tyronAddr: string, tag: TransitionTag, params: TransitionParams[]): Promise<void> {
         console.log(LogColors.brightGreen(`Processing your ${tag} tyronZIL transaction...`));
+        
         await init.API.blockchain.getSmartContractState(tyronAddr)
         .then(async SMART_CONTRACT_STATE => {
             return SMART_CONTRACT_STATE.result.operation_cost;
@@ -240,6 +241,7 @@ export default class TyronTransaction extends TyronContract {
                 pubKey: PUB_KEY,
                 data: JSON.stringify(TRANSITION),
             };
+            
             const RAW_TX = init.API.transactions.new(TX_OBJECT);
             return RAW_TX;
         })
@@ -338,21 +340,20 @@ export default class TyronTransaction extends TyronContract {
     }
 
     public static async recover(
-        signedData: string,
-        signature: string,
         newDocument: string,
+        signature: string,
         newUpdateKey: string,
         newRecoveryKey: string
     ): Promise<TransitionParams[]> {
 
         const PARAMS = [];
 
-        const SIGNED_DATA: TransitionParams = {
-            vname: 'signedData',
+        const DOCUMENT: TransitionParams = {
+            vname: 'newDocument',
             type: 'ByStr',
-            value: signedData,
+            value: newDocument,
         };
-        PARAMS.push(SIGNED_DATA);
+        PARAMS.push(DOCUMENT);
 
         const SIGNATURE: TransitionParams = {
             vname: 'signature',
@@ -360,13 +361,6 @@ export default class TyronTransaction extends TyronContract {
             value: signature,
         };
         PARAMS.push(SIGNATURE);
-        
-        const DOCUMENT: TransitionParams = {
-            vname: 'newDocument',
-            type: 'String',
-            value: newDocument,
-        };
-        PARAMS.push(DOCUMENT);
 
         const NEW_UPDATE_KEY: TransitionParams = {
             vname: 'newUpdateKey',
@@ -386,19 +380,11 @@ export default class TyronTransaction extends TyronContract {
     }
 
     public static async deactivate(
-        signedData: string,
         signature: string
     ): Promise<TransitionParams[]> {
 
         const PARAMS = [];
-
-        const SIGNED_DATA: TransitionParams = {
-            vname: 'signedData',
-            type: 'ByStr',
-            value: signedData,
-        };
-        PARAMS.push(SIGNED_DATA);
-
+        
         const SIGNATURE: TransitionParams = {
             vname: 'signature',
             type: 'ByStr64',

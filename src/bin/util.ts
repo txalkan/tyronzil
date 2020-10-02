@@ -31,7 +31,10 @@ export default class Util {
         if(!Number(amount)){
             throw new SidetreeError("WrongAmount", "It must be a number > 0");
         }
+        
         const KEYS = [];
+        const KEY_ID_SET: Set<string> = new Set();
+        
         for(let i=0, t= Number(amount); i<t; ++i) {
             const id = readline.question(LogColors.green(`Next, write down your key ID - `) + LogColors.lightBlue(`Your answer: `));
             if (id === "") {
@@ -54,7 +57,11 @@ export default class Util {
                 id: id,
                 purpose: PURPOSE
             }
-            KEYS.push(KEY);
+            if(!KEY_ID_SET.has(id)) {
+                KEYS.push(KEY);
+            } else {
+                throw new SidetreeError("DuplicatedID", "The key IDs MUST NOT be duplicated");
+            }
         }
         return KEYS;
     }
