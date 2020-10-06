@@ -13,26 +13,22 @@
     GNU General Public License for more details.
 */
 import * as zcrypto from '@zilliqa-js/crypto';
-
-import LogColors from './log-colors';
-import * as readline from 'readline-sync';
 import DidCreate from '../lib/decentralized-identity/did-operations/did-create';
-import { NetworkNamespace } from '../lib/decentralized-identity/tyronZIL-schemes/did-scheme';
-import DidDoc, {ResolutionInput, Accept, ResolutionResult} from '../lib/decentralized-identity/did-document';
-import SidetreeError from '@decentralized-identity/sidetree/dist/lib/common/SidetreeError';
-import ErrorCode from '../lib/decentralized-identity/util/ErrorCode';
-import { PatchAction, PatchModel } from '../lib/decentralized-identity/sidetree-protocol/models/document-model';
-import TyronTransaction, { TransitionTag } from '../lib/blockchain/tyron-transaction';
-import { ContractInit, TyronInitContracts } from '../lib/blockchain/tyron-contract';
-import Util, { PrivateKeys } from './util';
 import DidUpdate, { UpdateOperationInput } from '../lib/decentralized-identity/did-operations/did-update';
-import DidState from '../lib/decentralized-identity/did-state';
-import { PublicKeyPurpose } from '../lib/decentralized-identity/sidetree-protocol/models/verification-method-models';
-import ServiceEndpointModel from '@decentralized-identity/sidetree/dist/lib/core/versions/latest/models/ServiceEndpointModel';
 import DidRecover, { RecoverOperationInput } from '../lib/decentralized-identity/did-operations/did-recover';
 import DidDeactivate, { DeactivateOperationInput } from '../lib/decentralized-identity/did-operations/did-deactivate';
+import Util, { CliInputModel, PrivateKeys, Account} from './util';
+import TyronTransaction, { TransitionTag } from '../lib/blockchain/tyron-transaction';
+import { ContractInit, TyronInitContracts } from '../lib/blockchain/tyron-contract';
+import DidScheme, { NetworkNamespace } from '../lib/decentralized-identity/tyronZIL-schemes/did-scheme';
+import DidState from '../lib/decentralized-identity/did-state';
+import DidDoc, {ResolutionInput, Accept, ResolutionResult} from '../lib/decentralized-identity/did-document';
+import { PatchAction, PatchModel } from '../lib/decentralized-identity/sidetree-protocol/models/document-model';
+import ErrorCode from '../lib/decentralized-identity/util/ErrorCode';
+import LogColors from './log-colors';
+import * as readline from 'readline-sync';
 
-/** Handles the command-line interface DID operations */
+/** Handles the command-line interface Tyron DID operations */
 export default class TyronCLI {
     /** Gets network choice from the user */
     private static network(): { network: NetworkNamespace, tyronInit: TyronInitContracts } {
@@ -70,14 +66,14 @@ export default class TyronCLI {
 
     /***            ****            ***/
 
-    /** Handles the `DID-Create` operation */
+    /** Handles the `Tyron  DID-Create` operation */
     public static async handleCreate(): Promise<void> {
         const SET_NETWORK = this.network();
         const NETWORK = SET_NETWORK.network;
         await this.clientInit()
         .then(async client => {
-            console.log(LogColors.brightGreen(`The user instantiate their Tyron-Smart-Contract(TSM) with a private key as the 'contract_owner'`));
-            const user_privateKey = readline.question(LogColors.green(`As the user, you're the owner of your TSM! Which private key do you choose? - `) + LogColors.lightBlue(`Your answer: `));
+            console.log(LogColors.brightGreen(`The user instantiate their Tyron DID-Smart-Contract (DSM) with a private key as the 'contract_owner'`));
+            const user_privateKey = readline.question(LogColors.green(`As the user, you're the owner of your DSM! Which private key do you choose? - `) + LogColors.lightBlue(`Your answer: `));
             const CONTRACT_OWNER = zcrypto.getAddressFromPrivateKey(user_privateKey);
             const USER: Account = {
                 addr: CONTRACT_OWNER,
@@ -92,7 +88,7 @@ export default class TyronCLI {
                 tyron_stake: 50000000000000        //e.g. 50 ZIL
             };
 
-            const gas_limit = readline.question(LogColors.green(`What is your gas limit?`) + ` - [Recommended value: 5,000] - ` + LogColors.lightBlue(`Your answer: `));
+            const gas_limit = readline.question(LogColors.green(`What is your gas limit?`) + ` - [Recommended value: 20,000] - ` + LogColors.lightBlue(`Your answer: `));
             
             const INITIALIZE = await TyronTransaction.initialize(
                 NETWORK,
@@ -119,26 +115,14 @@ export default class TyronCLI {
                 service: SERVICE
             };
 
-            /** Executes the `DID-Create` operation */
+            /** Executes the `Tyron DID-Create` operation */
             const OPERATION = await DidCreate.execute(CLI_INPUT);
             const TAG = TransitionTag.Create;
             if(OPERATION !== undefined) {
                 console.log(LogColors.brightGreen(`Your ${TAG} request was accepted!`));
             } else {
-                throw new SidetreeError("RequestUnsuccessful", "Wrong choice. Try again.")
+                throw new ErrorCode("RequestUnsuccessful", "Wrong choice. Try again.")
             }
-
-            /***            ****            ***/
-            
-            // To save the private keys:
-            const PRIVATE_KEYS: PrivateKeys = {
-                privateKeys: OPERATION.privateKey,
-                updatePrivateKey: OPERATION.updatePrivateKey,
-                recoveryPrivateKey: OPERATION.recoveryPrivateKey,
-            };
-            await Util.savePrivateKeys("to-do", PRIVATE_KEYS);
-             
-            /***            ****            ***/
 
             return {
                 didInit: didInit,
@@ -147,14 +131,17 @@ export default class TyronCLI {
             };
         })
         .then(async didCreate => {
-            console.log(LogColors.brightGreen(`Let's deploy your Tyron-Smart-Contract!`))
+            console.log(LogColors.brightGreen(`Let's deploy your Tyron DID-Smart-Contract!`))
             
-            const version = readline.question(LogColors.green(`What version of the TSM would you like to deploy?`)+` - [0.5.1] - Versions currently supported: 0.5.1 - ` + LogColors.lightBlue(`Your answer: `));
+            const version = readline.question(LogColors.green(`What version of the DSM would you like to deploy?`)+` - [0.5] - Versions currently supported: 0.5 - ` + LogColors.lightBlue(`Your answer: `));
             
-            // The user deploys their TSM and calls the ContractInit transition
+            // The user deploys their DSM and calls the ContractInit transition
             const DEPLOYED_CONTRACT = await TyronTransaction.deploy(didCreate.didInit.init, version);
-            const TYRON_ADDR = DEPLOYED_CONTRACT.contract.address;
+            const TYRON_ADDR = DEPLOYED_CONTRACT.contract.address!;
             
+            const DID = await DidScheme.newDID({network: NETWORK, didUniqueSuffix: TYRON_ADDR});
+            console.log(LogColors.green('Your Tyron Decentralized Identifier is: ') + LogColors.green(DID.did));
+
             const PARAMS = await TyronTransaction.create(
                 didCreate.operation.documentModel,
                 didCreate.operation.updateKey,
@@ -162,6 +149,16 @@ export default class TyronCLI {
             );
 
             await TyronTransaction.submit(didCreate.didInit.init, TYRON_ADDR!, didCreate.tag, PARAMS);
+
+            /***            ****            ***/
+            
+            // To save the private keys:
+            const PRIVATE_KEYS: PrivateKeys = {
+                privateKeys: didCreate.operation.privateKey,
+                updatePrivateKey: didCreate.operation.updatePrivateKey,
+                recoveryPrivateKey: didCreate.operation.recoveryPrivateKey,
+            };
+            await Util.savePrivateKeys(DID.did, PRIVATE_KEYS);
         })
         .catch(err => console.error(LogColors.red(err)))            
     }
@@ -172,11 +169,11 @@ export default class TyronCLI {
     public static async handleResolve(): Promise<void> {
         try {
             const SET_NETWORK = this.network();
-            const DID = readline.question(LogColors.green(`Which tyronZIL DID would you like to resolve? - `) + LogColors.lightBlue(`Your answer: `));
-            /** Asks for the address of the user's TSM */
-            const tyronAddr = readline.question(LogColors.green(`What is the address of the user's Tyron-Smart-Contract(TSM) - `) + LogColors.lightBlue(`Your answer: `));
+            const DID = readline.question(LogColors.green(`Which Tyron Decentralized Identifier would you like to resolve? - `) + LogColors.lightBlue(`Your answer: `));
+            /** Asks for the address of the user's DSM */
+            const tyronAddr = readline.question(LogColors.green(`What is the address of its Tyron DID-Smart-Contract (DSM) - `) + LogColors.lightBlue(`Your answer: `));
             if(!zcrypto.isValidChecksumAddress(tyronAddr)) {
-                throw new SidetreeError("WrongAddress", "The format of the address is wrong")
+                throw new ErrorCode("WrongAddress", "The format of the address is wrong")
             }
 
             /** Whether to resolve the DID as a document or resolution result */
@@ -218,13 +215,13 @@ export default class TyronCLI {
 
     /***            ****            ****/
 
-    /** Handles the `DID-Update` operation */
+    /** Handles the `Tyron DID-Update` operation */
     public static async handleUpdate(): Promise<void> {
-        console.log(LogColors.brightGreen(`To update your tyronZIL DID, let's fetch its current TSM-State from the Zilliqa blockchain platform!`));
+        console.log(LogColors.brightGreen(`To update your tyronZIL DID, let's fetch its current DSM-State from the Zilliqa blockchain platform!`));
         const SET_NETWORK = this.network();
         const NETWORK = SET_NETWORK.network;
-        /** Asks for the address of the user's TSM */
-        const tyronAddr = readline.question(LogColors.green(`What is the address of the user's Tyron-Smart-Contract(TSM)? - `) + LogColors.lightBlue(`Your answer: `));
+        /** Asks for the address of the user's DSM */
+        const tyronAddr = readline.question(LogColors.green(`What is the address of the user's Tyron DID-Smart-Contract (DSM)? - `) + LogColors.lightBlue(`Your answer: `));
         
         await DidState.fetch(NETWORK, tyronAddr)
         .then(async did_state => {
@@ -283,7 +280,7 @@ export default class TyronCLI {
                         }
                         break;
                     default:
-                        throw new SidetreeError(ErrorCode.IncorrectPatchAction);
+                        throw new ErrorCode("CodeIncorrectPatchAction", "The chosen action is not valid");
                 }
             
                 const PATCH: PatchModel = {
@@ -306,7 +303,7 @@ export default class TyronCLI {
             if(OPERATION !== undefined) {
                 console.log(LogColors.brightGreen(`Your ${TAG} request was accepted!`));
             } else {
-                throw new SidetreeError("RequestUnsuccessful", "Wrong choice. Try again.")
+                throw new ErrorCode("RequestUnsuccessful", "Wrong choice. Try again.")
             }
             
             /***            ****            ***/
@@ -357,13 +354,13 @@ export default class TyronCLI {
 
     /***            ****            ***/
 
-    /** Handles the `DID-Recover` operation */
+    /** Handles the `Tyron DID-Recover` operation */
     public static async handleRecover(): Promise<void> {
-        console.log(LogColors.brightGreen(`To recover your tyronZIL DID, let's fetch its current TSM-State from the Zilliqa blockchain platform!`));
+        console.log(LogColors.brightGreen(`To recover your tyronZIL DID, let's fetch its current DSM-State from the Zilliqa blockchain platform!`));
         const SET_NETWORK = this.network();
         const NETWORK = SET_NETWORK.network;
-        /** Asks for the address of the user's TSM */
-        const tyronAddr = readline.question(LogColors.green(`What is the address of the user's Tyron-Smart-Contract(TSM)? - `) + LogColors.lightBlue(`Your answer: `));
+        /** Asks for the address of the user's DSM */
+        const tyronAddr = readline.question(LogColors.green(`What is the address of the user's Tyron DID-Smart-Contract (DSM)? - `) + LogColors.lightBlue(`Your answer: `));
         
         await DidState.fetch(NETWORK, tyronAddr)
         .then(async did_state => {
@@ -397,7 +394,7 @@ export default class TyronCLI {
             if(OPERATION !== undefined) {
                 console.log(LogColors.brightGreen(`Your ${TAG} request was accepted!`));
             } else {
-                throw new SidetreeError("RequestUnsuccessful", "Wrong choice. Try again.")
+                throw new ErrorCode("RequestUnsuccessful", "Wrong choice. Try again.")
             }
 
             /***            ****            ***/
@@ -450,13 +447,13 @@ export default class TyronCLI {
     
     /***            ****            ***/
 
-    /** Handles the `DID-Deactivate` operation */
+    /** Handles the `Tyron DID-Deactivate` operation */
     public static async handleDeactivate(): Promise<void> {
-        console.log(LogColors.brightGreen(`To deactivate your tyronZIL DID, let's fetch its current TSM-State from the Zilliqa blockchain platform!`));
+        console.log(LogColors.brightGreen(`To deactivate your tyronZIL DID, let's fetch its current DSM-State from the Zilliqa blockchain platform!`));
         const SET_NETWORK = this.network();
         const NETWORK = SET_NETWORK.network;
-        /** Asks for the address of the user's TSM */
-        const tyronAddr = readline.question(LogColors.green(`What is the address of the user's Tyron-Smart-Contract(TSM)? - `) + LogColors.lightBlue(`Your answer: `));
+        /** Asks for the address of the user's DSM */
+        const tyronAddr = readline.question(LogColors.green(`What is the address of the user's Tyron DID-Smart-Contract (DSM)? - `) + LogColors.lightBlue(`Your answer: `));
         
         await DidState.fetch(NETWORK, tyronAddr)
         .then(async did_state => {
@@ -477,7 +474,7 @@ export default class TyronCLI {
             if(OPERATION !== undefined) {
                 console.log(LogColors.brightGreen(`Your ${TAG} request was accepted!`));
             } else {
-                throw new SidetreeError("RequestUnsuccessful", "Wrong choice. Try again.")
+                throw new ErrorCode("RequestUnsuccessful", "Wrong choice. Try again.")
             }
             
             return {
@@ -515,21 +512,6 @@ export default class TyronCLI {
     }
 }
 
-/***            ****            ***/
 
-/** Represents a Zilliqa account */
-interface Account {
-    addr: string;
-    privateKey: string;
-}
 
-export interface CliInputModel {
-    network: NetworkNamespace;
-    publicKeyInput: PublicKeyInput[];
-    service: ServiceEndpointModel[];
-}
 
-export interface PublicKeyInput {
-    id: string;
-    purpose: PublicKeyPurpose[];
-}

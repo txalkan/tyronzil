@@ -14,13 +14,12 @@
 */
 
 import * as zcrypto from '@zilliqa-js/crypto';
-
+import { OperationType } from '../sidetree-protocol/sidetree';
 import { Cryptography, OperationKeyPairInput } from '../util/did-keys';
 import { DocumentModel } from '../sidetree-protocol/models/document-model';
 import { CliInputModel } from '../../../bin/util';
-import { OperationType } from '../sidetree-protocol/sidetree';
 
-/** Generates a Tyron `DID-Recover` operation */
+/** Generates a `Tyron DID-Recover` operation */
 export default class DidRecover {
     public readonly type = OperationType.Recover;
     public readonly decentralized_identifier: string;
@@ -47,7 +46,7 @@ export default class DidRecover {
         this.newRecoveryPrivateKey = operation.newRecoveryPrivateKey;
     }
 
-    /** Generates a Sidetree-based `DID-Recover` operation */
+    /** Generates a `Tyron DID-Recover` operation */
     public static async execute(input: RecoverOperationInput): Promise<DidRecover|void> {
         const PUBLIC_KEYS = [];
         const PRIVATE_KEYS = [];
@@ -98,14 +97,14 @@ export default class DidRecover {
 
 /***            ** interfaces **            ***/
 
-/** Defines input data for a Tyron `DID-Recover` operation */
+/** Defines input data for a `Tyron DID-Recover` operation */
 export interface RecoverOperationInput {
     did: string;
     recoveryPrivateKey: string;
     cliInput: CliInputModel;
 }
 
-/** Defines output data from a Tyron `DID-Recover` operation */
+/** Defines output data from a `Tyron DID-Recover` operation */
 interface RecoverOperationModel {
     did: string;
     newDocument: string;

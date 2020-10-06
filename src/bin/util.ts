@@ -16,10 +16,9 @@
 import * as fs from 'fs';
 import LogColors from './log-colors';
 import * as readline from 'readline-sync';
-import { NetworkNamespace } from '../lib/decentralized-identity/tyronZIL-schemes/did-scheme';
+import { DidServiceEndpointModel } from '../lib/decentralized-identity/sidetree-protocol/models/document-model';
 import { PublicKeyPurpose } from '../lib/decentralized-identity/sidetree-protocol/models/verification-method-models';
-import ServiceEndpointModel from '@decentralized-identity/sidetree/dist/lib/core/versions/latest/models/ServiceEndpointModel';
-import SidetreeError from '@decentralized-identity/sidetree/dist/lib/common/SidetreeError';
+import { NetworkNamespace } from '../lib/decentralized-identity/tyronZIL-schemes/did-scheme';
 import ErrorCode from '../lib/decentralized-identity/util/ErrorCode';
 
 export default class Util {
@@ -29,7 +28,7 @@ export default class Util {
         console.log(LogColors.brightGreen(`Cryptographic keys for your Decentralized Identifier: `))
         const amount = readline.question(LogColors.green(`How many keys would you like to add? - `) + LogColors.lightBlue(`Your answer: `));
         if(!Number(amount)){
-            throw new SidetreeError("WrongAmount", "It must be a number > 0");
+            throw new ErrorCode("WrongAmount", "It must be a number > 0");
         }
         
         const KEYS = [];
@@ -38,7 +37,7 @@ export default class Util {
         for(let i=0, t= Number(amount); i<t; ++i) {
             const id = readline.question(LogColors.green(`Next, write down your key ID - `) + LogColors.lightBlue(`Your answer: `));
             if (id === "") {
-                throw new SidetreeError("InvalidID", `To register a key you must provide its ID`);
+                throw new ErrorCode("InvalidID", `To register a key you must provide its ID`);
             }
             const purpose = readline.question(LogColors.green(`What is the key purpose: general(1), authentication(2) or both(3)?`) + ` [1/2/3] - Defaults to both - ` + LogColors.lightBlue(`Your answer: `));
             let PURPOSE;
@@ -60,7 +59,7 @@ export default class Util {
             if(!KEY_ID_SET.has(id)) {
                 KEYS.push(KEY);
             } else {
-                throw new SidetreeError("DuplicatedID", "The key IDs MUST NOT be duplicated");
+                throw new ErrorCode("DuplicatedID", "The key IDs MUST NOT be duplicated");
             }
         }
         return KEYS;
@@ -69,21 +68,21 @@ export default class Util {
     /***            ****            ***/
 
     /** Generates the services' input */
-    public static async InputService(): Promise<ServiceEndpointModel[]> {
+    public static async InputService(): Promise<DidServiceEndpointModel[]> {
         console.log(LogColors.brightGreen(`Service endpoints for your Decentralized Identifier:`));
         const SERVICE = [];
         const SERVICE_ID_SET: Set<string> = new Set();
         
         const amount = readline.question(LogColors.green(`How many service endpoints would you like to add? - `) + LogColors.lightBlue(`Your answer: `));
         if(!Number(amount) && Number(amount) !== 0){
-            throw new SidetreeError("WrongAmount", "It must be a number");
+            throw new ErrorCode("WrongAmount", "It must be a number");
         }
         for(let i=0, t= Number(amount); i<t; ++i) {
             const id = readline.question(LogColors.green(`Write down your service ID - `) + LogColors.lightBlue(`Your answer: `));
             const type = readline.question(LogColors.green(`Write down your service type - `) + ` - Defaults to 'website' - ` + LogColors.lightBlue(`Your answer: `));
             const endpoint = readline.question(LogColors.green(`Write down your service URL - `) + ` - [yourwebsite.com] - ` + LogColors.lightBlue(`Your answer: `));
             if (id === "" || endpoint === "") {
-                throw new SidetreeError("Invalid parameter", "To register a service-endpoint you must provide its ID, type and URL");
+                throw new ErrorCode("Invalid parameter", "To register a service-endpoint you must provide its ID, type and URL");
             }
             let TYPE;
             if(type !== "") {
@@ -91,7 +90,7 @@ export default class Util {
             } else {
                 TYPE = "website"
             }
-            const SERVICE_ENDPOINT: ServiceEndpointModel = {
+            const SERVICE_ENDPOINT: DidServiceEndpointModel = {
                 id: id,
                 type: TYPE,
                 endpoint: "https://" + endpoint
@@ -99,7 +98,7 @@ export default class Util {
 
             // IDs must be unique
             if (SERVICE_ID_SET.has(id)) {
-                throw new SidetreeError(ErrorCode.DocumentServiceIdDuplicated);
+                throw new ErrorCode("CodeDocumentServiceIdDuplicated", "The service's ID MUST NOT be duplicated" );
             }
             SERVICE_ID_SET.add(id);
             
@@ -116,10 +115,12 @@ export default class Util {
     }
 }
 
+/***            ** interfaces **            ***/
+
 export interface CliInputModel {
     network: NetworkNamespace;
     publicKeyInput: PublicKeyInput[];
-    service: ServiceEndpointModel[];
+    service: DidServiceEndpointModel[];
 }
   
 export interface PublicKeyInput {
@@ -131,4 +132,10 @@ export interface PrivateKeys {
     privateKeys?: string[],
     updatePrivateKey?: string,
     recoveryPrivateKey?: string,
+}
+
+/** Represents a Zilliqa account */
+export interface Account {
+    addr: string;
+    privateKey: string;
 }

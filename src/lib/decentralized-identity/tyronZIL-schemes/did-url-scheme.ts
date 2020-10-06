@@ -13,13 +13,18 @@
     GNU General Public License for more details.
 */
 
-import TyronZILScheme, { SchemeInputData, NetworkNamespace } from "./did-scheme";
-import SidetreeError from "@decentralized-identity/sidetree/dist/lib/common/SidetreeError";
-// import { ParsedUrlQueryInput } from "querystring";
-//import { URL } from 'url';
+import DidScheme, { SchemeInputData, NetworkNamespace } from "./did-scheme";
 import ErrorCode from '../util/ErrorCode';
 
-export class TyronZILUrlScheme extends TyronZILScheme {
+export enum UrlParameters {
+    Hl = 'hl',        //resource hash of the DID-document to add integrity protection
+    Service = 'service',        //identifies a service from the DID-document by service ID
+    VersionId = 'version-id',        //identifies a specific version of the DID-document to be resolved
+    VersionTime = 'version-time',        //identifies a specific version timestamp of the DID-document to be resolved (the doc that was valid at that particular time)
+    InitialState = 'sidetree-initial-state'        //initial self-certifying state, to use the DID immediately after generation without being anchored (unpublished DID)
+}
+
+export default class DidUrlScheme extends DidScheme {
     public readonly didUrl?: string;
     public readonly path?: string;
     public readonly query?: string;
@@ -30,15 +35,15 @@ export class TyronZILUrlScheme extends TyronZILScheme {
         input: UrlInput
     ) {
         super(input.schemeInput);
-        this.didUrl = this.did_tyronZIL + this.path + this.query + this.fragment;
+        this.didUrl = this.did + this.path + this.query + this.fragment;
         this.path = '/' + input.path;
         this.query = '?' + input.query;
         this.fragment = '#' + input.fragment;
-        this.longFormDid = this.did_tyronZIL + this.query;
+        this.longFormDid = this.did + this.query;
     }
 
     /** Generates the Sidetree Long-Form DID URI with the initial-state URL parameter */
-    public static async longFormDid(input: LongFormDidInput): Promise<TyronZILUrlScheme> {
+    public static async longFormDid(input: LongFormDidInput): Promise<DidUrlScheme> {
         const INITIAL_STATE_VALUE = input.suffixData + '.' + input.delta;
         
         const QUERY: Query = {
@@ -51,21 +56,21 @@ export class TyronZILUrlScheme extends TyronZILScheme {
             query: QUERY.urlParameter + '=' + QUERY.value
         }
 
-        return new TyronZILUrlScheme(URL_INPUT);
+        return new DidUrlScheme(URL_INPUT);
     }
 
-    /** Validates if the given DID is a proper tyronZIL DID */
-    public static async validate(did: string): Promise<TyronZILUrlScheme> {
+    /** Validates if the given DID is a proper Tyron Decentralized Identifier */
+    public static async validate(did: string): Promise<DidUrlScheme> {
         const PREFIX = this.schemeIdentifier + this.methodName + this.blockchain;
 
         if (!did.startsWith(PREFIX)) {
-            throw new SidetreeError(ErrorCode.IncorrectDidPrefix);
+            throw new ErrorCode("CodeIncorrectDidPrefix", "The given DID does not have the right prefix");
         }
 
         const NETWORK = did.substring(14, 19);
         
         if (NETWORK !== NetworkNamespace.Mainnet && NETWORK !== NetworkNamespace.Testnet) {
-            throw new SidetreeError(ErrorCode.IncorrectNetwork)
+            throw new ErrorCode("CodeIncorrectNetwork", "The network namespace is invalid")
         }
         const DID_SUFFIX = did.substring(19);
 
@@ -76,7 +81,7 @@ export class TyronZILUrlScheme extends TyronZILScheme {
         const DID: UrlInput = {
             schemeInput: SCHEME_INPUT_DATA
         };
-        return new TyronZILUrlScheme(DID);
+        return new DidUrlScheme(DID);
     }
 }
 
@@ -96,12 +101,4 @@ export interface LongFormDidInput {
 export interface Query {
     urlParameter: UrlParameters;
     value: string;
-}
-
-export enum UrlParameters {
-    Hl = 'hl',        //resource hash of the DID-document to add integrity protection
-    Service = 'service',        //identifies a service from the DID-document by service ID
-    VersionId = 'version-id',        //identifies a specific version of the DID-document to be resolved
-    VersionTime = 'version-time',        //identifies a specific version timestamp of the DID-document to be resolved (the doc that was valid at that particular time)
-    InitialState = 'sidetree-initial-state'        //initial self-certifying state, to use the DID immediately after generation without being anchored (unpublished DID)
 }

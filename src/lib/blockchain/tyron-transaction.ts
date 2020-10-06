@@ -13,17 +13,16 @@
     GNU General Public License for more details.
 */
 
-import { NetworkNamespace } from '../decentralized-identity/tyronZIL-schemes/did-scheme';
-import ZilliqaInit from './zilliqa-init';
-import TyronContract, { ContractInit } from './tyron-contract';
 import { Transaction } from '@zilliqa-js/account';
 import { Contract} from '@zilliqa-js/contract';
 import * as Crypto from '@zilliqa-js/crypto';
 import * as Util from '@zilliqa-js/util';
-import SidetreeError from '@decentralized-identity/sidetree/dist/lib/common/SidetreeError';
+import ZilliqaInit from './zilliqa-init';
+import TyronContract, { ContractInit } from './tyron-contract';
+import SmartUtil from './smart-contracts/smart-util';
+import { NetworkNamespace } from '../decentralized-identity/tyronZIL-schemes/did-scheme';
 import ErrorCode from '../decentralized-identity/util/ErrorCode';
 import LogColors from '../../bin/log-colors';
-import SmartUtil from './smart-contracts/smart-util';
 
 export default class TyronTransaction extends TyronContract {
     private readonly gas_price: Util.BN;
@@ -77,7 +76,7 @@ export default class TyronTransaction extends TyronContract {
         .then(async gas => {
             const CLIENT_ADDR = Crypto.getAddressFromPrivateKey(clientPrivateKey);
             if (CLIENT_ADDR !== init.client_addr) {
-                throw new SidetreeError(ErrorCode.WrongKey);
+                throw new ErrorCode("CodeWrongKey", "The given private key is wrong");
             }
             /** Gets the current balance of the account (in Qa = 10^-12 ZIL as string)
             * & the current nonce of the account (as number) */
@@ -86,14 +85,14 @@ export default class TyronTransaction extends TyronContract {
 
             // The account's balance MUST be greater than a minimum stake amount
             if (Number(BALANCE_RESULT.balance) < init.tyron_stake) {
-            throw new SidetreeError("NotEnoughBalance", `The client's balance must be more than the tyron_stake of 50ZIL - Current balance: ${Number(BALANCE_RESULT.balance)/1000000000000} ZIL`)
+            throw new ErrorCode("NotEnoughBalance", `The client's balance must be more than the tyron_stake of 50ZIL - Current balance: ${Number(BALANCE_RESULT.balance)/1000000000000} ZIL`)
             }
 
             let USER_NONCE;
             if(userPrivateKey !== undefined) {
                 const USER_ADDRESS = Crypto.getAddressFromPrivateKey(userPrivateKey);
                 if (USER_ADDRESS !== init.contract_owner) {
-                    throw new SidetreeError(ErrorCode.WrongKey);
+                    throw new ErrorCode("CodeWrongKey", "The given private key is wrong");
                 }
                 /** Gets the current balance of the account (in Qa = 10^-12 ZIL as string)
                 * & the current nonce of the account (as number) */
@@ -102,7 +101,7 @@ export default class TyronTransaction extends TyronContract {
 
                 // The account's balance MUST be greater than the cost to initialize the TSM
                 if (Number(BALANCE_RESULT.balance) < 20000000000000) {
-                    throw new SidetreeError("NotEnoughBalance", `The user's balance must be more than the cost to initialize their Tyron-Smart-Contract (~20ZIL) - Current balance: ${Number(BALANCE_RESULT.balance)/1000000000000} ZIL`)
+                    throw new ErrorCode("NotEnoughBalance", `The user's balance must be more than the cost to initialize their Tyron DID-Smart-Contract (~20ZIL) - Current balance: ${Number(BALANCE_RESULT.balance)/1000000000000} ZIL`)
                 }
                 USER_NONCE = Number(BALANCE_RESULT.nonce);
             }
@@ -122,13 +121,13 @@ export default class TyronTransaction extends TyronContract {
 
     /***            ****            ***/
     
-    /** Deploys the TSM by version
+    /** Deploys the DSM by version
      * & calls the ContractInit transition with the client_addr to set the operation_cost, the foundation_addr & client_commission from the TyronInit contract 
     */
     public static async deploy(init: TyronTransaction, version: string): Promise<DeployedContract> {
         const deployed_contract = await SmartUtil.decode(init.API, init.tyron_init, version)
         .then(contract_code => {
-            console.log(LogColors.brightGreen(`TSM-code successfully downloaded & decoded from the TyronInit contract!`));
+            console.log(LogColors.brightGreen(`DSM-code successfully downloaded & decoded from the TyronInit contract!`));
             const CONTRACT_INIT = [
                 {
                     vname: '_scilla_version',
@@ -150,7 +149,7 @@ export default class TyronTransaction extends TyronContract {
             return CONTRACT;
         })
         .then(async contract => {
-            console.log(LogColors.yellow(`The user's TSM got properly instantiated: `) + LogColors.brightYellow(`${JSON.stringify(contract, null, 2)}`));
+            console.log(LogColors.yellow(`The user's DSM got properly instantiated: `) + LogColors.brightYellow(`${JSON.stringify(contract, null, 2)}`));
             init.API.wallet.addByPrivateKey(init.user_privateKey!);
             console.log(LogColors.brightGreen(`Deploying...`));
             const [deployTx, tyron_smart_contract] = await contract.deploy(
@@ -166,14 +165,14 @@ export default class TyronTransaction extends TyronContract {
             );
             const IS_DEPLOYED = deployTx.isConfirmed();
             if(!IS_DEPLOYED) {
-                throw new SidetreeError("Wrong-Deployment","The user's TSM did not get deployed")
+                throw new ErrorCode("Wrong-Deployment","The user's DSM did not get deployed")
             }
-            console.log(LogColors.yellow(`Your Tyron-Smart-Contract is deployed: `) + LogColors.brightYellow(`${IS_DEPLOYED}`));
-            console.log(LogColors.yellow(`Its Zilliqa address is: `) + LogColors.brightGreen(`${tyron_smart_contract.address}`));
+            console.log(LogColors.yellow(`Your Tyron DID-Smart-Contract is deployed: `) + LogColors.brightYellow(`${IS_DEPLOYED}`));
+            console.log(LogColors.yellow(`Its Zilliqa address is: `) + LogColors.brightYellow(`${tyron_smart_contract.address}`));
             console.log(LogColors.yellow(`Deployment Transaction ID: `) + LogColors.brightYellow(`${deployTx.id}`));
 
             const DEPLOYMENT_GAS = (deployTx.getReceipt())!.cumulative_gas;
-            console.log(LogColors.yellow(`The total gas consumed by deploying your TSM was: `) + LogColors.brightYellow(`${DEPLOYMENT_GAS}`));
+            console.log(LogColors.yellow(`The total gas consumed by deploying your DSM was: `) + LogColors.brightYellow(`${DEPLOYMENT_GAS}`));
             
             const DEPLOYED_CONTRACT = {
                 transaction: deployTx,
@@ -202,7 +201,7 @@ export default class TyronTransaction extends TyronContract {
                 1000,
                 false
             );
-            console.log(LogColors.yellow(`Your Tyron-Smart-Contract is initialized: `) + LogColors.brightYellow(`${CALL.isConfirmed()}`));
+            console.log(LogColors.yellow(`Your Tyron DID-Smart-Contract is initialized: `) + LogColors.brightYellow(`${CALL.isConfirmed()}`));
             const CUMULATIVE_GAS = (CALL.getReceipt())!.cumulative_gas;
             console.log(LogColors.yellow(`The total gas consumed by the ContractInit transition was: `) + LogColors.brightYellow(`${CUMULATIVE_GAS}`));
             return deployed_contract;

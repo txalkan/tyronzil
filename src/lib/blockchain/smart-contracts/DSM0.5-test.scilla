@@ -1,5 +1,5 @@
 (*
-  TyronZIL-js: Decentralized identity client for the Zilliqa blockchain platform
+  TyronZIL: Decentralized identity application powered by the Zilliqa blockchain platform
   Copyright (C) 2020 Julio Cesar Cabrapan Duarte
 
   This program is free software: you can redistribute it and/or modify
@@ -15,11 +15,11 @@
 
 scilla_version 0
 
-(*********************)
-(* The Tyron Library *)
-(*********************)
+(*************************)
+(* The Tyron DID Library *)
+(*************************)
 
-library Tyron
+library TyronDID
 
   (* Messages *)
   (************)
@@ -76,15 +76,15 @@ type Error =
       in
       {_exception: "Error"; code: result_code}
 
-(*********************************)
-(* The Tyron-Smart-Contract(TSM) *)
-(*********************************)
+(**************************************)
+(* The Tyron DID-Smart-Contract (DSM) *)
+(**************************************)
 
-contract TSM(
+contract DSM(
 
 (* Immutable fields declaration *)
 (********************************)
-  (* The user is the owner of their TSM *)
+  (* The user is the owner of their DSM *)
   contract_owner: ByStr20,
   (* The address of the TyronInit contract *)
   tyron_init: ByStr20
@@ -116,26 +116,25 @@ contract TSM(
   
   (* The address of the user's client *)
   field client_address: ByStr20 = 0xccDdFAD074cd608B6B43e14eb3440240f5bFf087
-    
+  
+  (* The block number when the DID-Create operation occurred *)
+  field created: BNum = BNum 0
+  
+  (* The block number when the last DID operation occurred *)  
+  field ledger_time: BNum = BNum 0
+  
+  (* A monotonically increasing number representing the amount of DID operations that have taken place *)
+  field transaction_number: Uint128 = Uint128 0
+
   (* The following fields are determined by the TyronInit contract *)
   (* The cost of each DID operation *)
   field operation_cost: Uint128 = Uint128 0
-  (* The address of the Pungtas Danish Foundation *)
+  
+  (* The address of the Tyron Pungtas Danish Foundation *)
   field foundation_address: ByStr20 = 0x45832badF26Bc3F66DA3b9eD242EA84AfFA024a3
+  
   (* The client's commission as a % of the operation_cost *)
   field client_commission: Uint128 = Uint128 0
-  
-  (* The block number where the DID-Create operation occurred *)
-  field created: BNum = _creation_block
-  
-  (* The block number where the last DID-Update operation occurred *)
-  field updated: BNum = _creation_block
-  
-  (* The block number where the last DID operation occurred *)  
-  field ledger_time: BNum = _creation_block
-  
-  (* A monotonically increasing number representing the amount of DID operations that have taken place *)
-  field sidetree_transaction_number: Uint128 = Uint128 0
 
 (* Procedures *)
 (**************)
@@ -250,7 +249,7 @@ contract TSM(
       payment_is_accepted = builtin eq _amount this_cost;
       match payment_is_accepted with
         | True =>
-            (* The TSM accepts the incoming transfer *)
+            (* The DSM accepts the incoming transfer *)
             accept;
             (* Calculates payment to the client *)
             this_client_commission <- client_commission;
@@ -283,11 +282,11 @@ contract TSM(
   procedure Timestamp()
       this_block <- & BLOCKNUMBER;
       ledger_time := this_block;
-      latest_tx_number <- sidetree_transaction_number;
+      latest_tx_number <- transaction_number;
       new_tx_number =
         let incrementor = Uint128 1 in
         builtin add latest_tx_number incrementor;
-      sidetree_transaction_number := new_tx_number
+      transaction_number := new_tx_number
   end
 
 (* Transitions *)
@@ -363,8 +362,6 @@ contract TSM(
       did_update_key := next_update_key;
       new_status = Updated;
       did_status := new_status;
-      this_block <- & BLOCKNUMBER;
-      updated := this_block;
       Timestamp
   end
   

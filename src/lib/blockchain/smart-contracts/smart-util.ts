@@ -13,14 +13,13 @@
     GNU General Public License for more details.
 */
 
-import * as readline from 'readline-sync';
-import LogColors from '../../../bin/log-colors';
-import * as fs from 'fs';
-import Encoder from '@decentralized-identity/sidetree/dist/lib/core/versions/latest/Encoder';
 import * as API from '@zilliqa-js/zilliqa';
+import { TyronInitContracts } from '../tyron-contract';
+import LogColors from '../../../bin/log-colors';
+import * as readline from 'readline-sync';
+import * as fs from 'fs';
 import * as util from 'util';
 import * as zlib from 'zlib';
-import { TyronInitContracts } from '../tyron-contract';
 
 /** Tools to manage smart contracts */
 export default class SmartUtil {
@@ -30,14 +29,14 @@ export default class SmartUtil {
         try {
             const CONTRACT_STRING = (fs.readFileSync(`src/lib/blockchain/smart-contracts/${contractName}.scilla`)).toString();
             const COMPRESSED_CONTRACT = await (util.promisify(zlib.gzip))(CONTRACT_STRING) as Buffer;
-            console.log(Encoder.encode(COMPRESSED_CONTRACT));
+            console.log(COMPRESSED_CONTRACT.toString('base64'));
             console.log(`The size of the compressed smart-contract is: ${COMPRESSED_CONTRACT.byteLength}`)
         } catch (error) {
             console.error(error)
         }
     }
 
-    /** Fetches the `tyron-smart-contract` by version & decodes it */
+    /** Fetches the `Tyron DID-Smart-Contract` by version & decodes it */
     public static async decode(api: API.Zilliqa, tyronInit: TyronInitContracts, contractVersion: string): Promise<string> {
         const TYRON_ADDRESS = tyronInit as string;
         const THIS_CONTRACT = await api.blockchain.getSmartContractState(TYRON_ADDRESS)
@@ -53,7 +52,7 @@ export default class SmartUtil {
                 }
             });
             
-            const COMPRESSED_CONTRACT = Encoder.decodeAsBuffer(ENCODED_CONTRACT!);
+            const COMPRESSED_CONTRACT = Buffer.from(ENCODED_CONTRACT!,'base64');
             const DECOMPRESSED_CONTRACT = await (util.promisify(zlib.unzip))(COMPRESSED_CONTRACT) as Buffer;
             return DECOMPRESSED_CONTRACT.toString();
         })
@@ -61,7 +60,7 @@ export default class SmartUtil {
         return THIS_CONTRACT;
     }
 
-    /** Gets the value out of a TSM field Option */
+    /** Gets the value out of a DSM field Option */
     public static async getValue(object: any): Promise<string> {
         const ENTRIES = Object.entries(object);
         let VALUE: string;
@@ -73,7 +72,7 @@ export default class SmartUtil {
         return VALUE![0];
     }
 
-    /** Gets the DID-Status out of a TSM field Option */
+    /** Gets the DID-Status out of a DSM field Option */
     public static async getStatus(object: any): Promise<string> {
         const ENTRIES = Object.entries(object);
         let VALUE: string;

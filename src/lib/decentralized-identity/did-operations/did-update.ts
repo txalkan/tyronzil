@@ -14,13 +14,12 @@
 */
 
 import * as zcrypto from '@zilliqa-js/crypto';
-
+import { OperationType, Sidetree } from '../sidetree-protocol/sidetree';
 import { Cryptography } from '../util/did-keys';
 import { PatchModel } from '../sidetree-protocol/models/document-model';
 import DidState from '../did-state';
-import { OperationType, Sidetree } from '../sidetree-protocol/sidetree';
 
-/** Generates a Tyron `DID-Update` operation */
+/** Generates a `Tyron DID-Update` operation */
 export default class DidUpdate{
     public readonly type = OperationType.Update;
     public readonly decentralized_identifier: string;
@@ -43,7 +42,7 @@ export default class DidUpdate{
 
     /***            ****            ***/
     
-    /** Generates a Tyron `DID-Update` operation with input from the CLI */
+    /** Generates a `Tyron DID-Update` operation with input from the CLI */
     public static async execute(input: UpdateOperationInput): Promise<DidUpdate> {
         const operation = await Sidetree.processPatches(input.patches, input.state.did_document)
         .then(async update => {
@@ -74,14 +73,14 @@ export default class DidUpdate{
 
 /***            ** interfaces **            ***/
 
-/** Defines input data for a Tyron `DID-Update` operation */
+/** Defines input data for a `Tyron DID-Update` operation */
 export interface UpdateOperationInput {
     state: DidState;
     updatePrivateKey: string;
     patches: PatchModel[];
 }
 
-/** Defines output data from a Tyron `DID-Update` operation */
+/** Defines output data from a `Tyron DID-Update` operation */
 interface UpdateOperationModel {
     did: string;
     newDocument: string;

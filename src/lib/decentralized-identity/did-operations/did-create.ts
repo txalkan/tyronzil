@@ -13,12 +13,13 @@
     GNU General Public License for more details.
 */
 
-import OperationType from '@decentralized-identity/sidetree/dist/lib/core/enums/OperationType';
+import { OperationType } from '../sidetree-protocol/sidetree';
 import { Cryptography, OperationKeyPairInput } from '../util/did-keys';
 import { CliInputModel } from '../../../bin/util';
 import { DocumentModel } from '../sidetree-protocol/models/document-model';
 
-/** Generates a Tyron `DID-Create` operation */
+/** Generates a `Tyron DID-Create` operation
+ *  which produces the `DID-Document` & metadata */
 export default class DidCreate {
     public readonly type = OperationType.Create;
     public readonly documentModel: string;

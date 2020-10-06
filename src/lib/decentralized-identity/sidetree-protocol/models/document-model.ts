@@ -14,12 +14,18 @@
 */
 
 import { PublicKeyModel } from './verification-method-models';
-import ServiceEndpointModel from "@decentralized-identity/sidetree/dist/lib/core/versions/latest/models/ServiceEndpointModel";
 import { PublicKeyInput } from '../../../../bin/util';
 
 export interface DocumentModel {
     public_keys: PublicKeyModel[];
-    service_endpoints?: ServiceEndpointModel[]; 
+    service_endpoints?: DidServiceEndpointModel[]; 
+}
+
+/** Sidetreee Service Endpoint for the 'service' property of the DID-Document */
+export interface DidServiceEndpointModel {
+    id: string;
+    type: string;
+    endpoint: string;
 }
 
 export interface PatchModel {
@@ -29,7 +35,7 @@ export interface PatchModel {
     /** If the action is 'remove-service-endpoints`, then 'ids' MUST be an array of the services to remove */
     ids?: string [];
     keyInput?: PublicKeyInput[];
-    service_endpoints?: ServiceEndpointModel[];
+    service_endpoints?: DidServiceEndpointModel[];
 }
 
 export enum PatchAction {

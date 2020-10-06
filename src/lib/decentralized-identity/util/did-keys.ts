@@ -14,9 +14,7 @@
 */
 
 import * as zcrypto from '@zilliqa-js/crypto';
-
 import { PublicKeyModel, PublicKeyPurpose } from '../sidetree-protocol/models/verification-method-models';
-import { UpdateSignedDataModel, RecoverSignedDataModel, DeactivateSignedDataModel } from '../sidetree-protocol/models/signed-data-models';
 
 /** Defines input data to generate a cryptographic key pair */
 export interface OperationKeyPairInput {
@@ -39,14 +37,6 @@ export class Cryptography {
       purpose: input.purpose || Object.values(PublicKeyPurpose)
     };
     return [PUBKEY_MODEL, PRIVATE_KEY];
-  }
-
-  /** Generates a Schnorr over the given payload */
-  public static async signUsingEs256k(payload: UpdateSignedDataModel | RecoverSignedDataModel | DeactivateSignedDataModel, privateKey: string): Promise<string> {
-    const BUFFER = Buffer.from(JSON.stringify(payload));
-    const PUBKEY = zcrypto.getPubKeyFromPrivateKey(privateKey);
-    const SIGNATURE = zcrypto.sign(BUFFER, privateKey, PUBKEY);
-    return SIGNATURE;
   }
 
   /** Generates a secp256k1 key pair

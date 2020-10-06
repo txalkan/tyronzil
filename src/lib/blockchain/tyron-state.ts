@@ -17,7 +17,7 @@ import { NetworkNamespace } from '../decentralized-identity/tyronZIL-schemes/did
 import ZilliqaInit from './zilliqa-init';
 import SmartUtil from './smart-contracts/smart-util';
 import { OperationType } from '../decentralized-identity/sidetree-protocol/sidetree';
-import SidetreeError from '@decentralized-identity/sidetree/dist/lib/common/SidetreeError';
+import ErrorCode from '../decentralized-identity/util/ErrorCode';
 
 export default class TyronState {
     public readonly contract_owner: string;
@@ -71,7 +71,7 @@ export default class TyronState {
             const STATUS = await SmartUtil.getStatus(SMART_CONTRACT_STATE.result.did_status);
             switch (STATUS) {
                 case OperationType.Deactivate:
-                    throw new SidetreeError("DidDeactivated", "The requested DID is deactivated");
+                    throw new ErrorCode("DidDeactivated", "The requested DID is deactivated");
                 default:
                     const STATE: TyronStateModel = {
                         contract_owner: contract_owner as string,

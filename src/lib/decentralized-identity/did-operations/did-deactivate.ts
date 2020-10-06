@@ -14,11 +14,10 @@
 */
 
 import * as zcrypto from '@zilliqa-js/crypto';
-
 import { OperationType } from '../sidetree-protocol/sidetree';
 import DidState from '../did-state';
 
-/** Generates a Tyron `DID-Deactivate` operation */
+/** Generates a `Tyron DID-Deactivate` operation */
 export default class DidDeactivate {
     public readonly type = OperationType.Deactivate;
     public readonly decentralized_identifier: string;
@@ -51,13 +50,13 @@ export default class DidDeactivate {
 
 /***            ** interfaces **            ***/
 
-/** Defines input data for a Sidetree-based `DID-Deactivate` operation */
+/** Defines input data for a `Tyron DID-Deactivate` operation */
 export interface DeactivateOperationInput {
     state: DidState;
     recoveryPrivateKey: string;
 }
 
-/** Defines output data of a Sidetree-based `DID-Deactivate` operation */
+/** Defines output data from a `Tyron DID-Deactivate` operation */
 interface DeactivateOperationModel {
     did: string;
     signature: string;

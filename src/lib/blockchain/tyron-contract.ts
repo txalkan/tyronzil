@@ -16,7 +16,7 @@
 import ZilliqaInit from './zilliqa-init';
 import { NetworkNamespace } from '../decentralized-identity/tyronZIL-schemes/did-scheme';
 
-/** The class to initialize the `tyron-smart-contract` */
+/** The class to initialize the `Tyron DID-Smart-Contract` */
 export default class TyronContract extends ZilliqaInit {
     /** The Zilliqa address where the `TyronInit smart-contract` resides */
     public readonly tyron_init: TyronInitContracts;
@@ -44,7 +44,7 @@ export default class TyronContract extends ZilliqaInit {
 
 /***            ** interfaces **            ***/
 
-/** The Zilliqa addresses to initialize the `tyron-smart-contract` */
+/** The Zilliqa addresses to initialize the `Tyron DID-Smart-Contract` */
 export interface ContractInit {
     tyron_init: TyronInitContracts;
     contract_owner: string;

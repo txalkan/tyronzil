@@ -16,10 +16,10 @@
     "url": "git+https://github.com/julio-cabdu/tyronzil-js.git"
   },
   "keywords": [
-    "sidetree",
     "did",
     "decentralized-identity",
     "decentralized-identifiers",
+    "decentralized-application",
     "tyron",
     "tyronZIL",
     "zilliqa"
@@ -31,12 +31,10 @@
   },
   "homepage": "https://github.com/julio-cabdu/tyronzil-js#readme",
   "dependencies": {
-    "@decentralized-identity/sidetree": "^0.11.0",
-    "@types/websocket": "^1.0.1",
     "@zilliqa-js/zilliqa": "^1.0.0-alpha.1",
+    "@types/websocket": "^1.0.1",
     "bn": "^1.0.5",
     "chalk": "^4.1.0",
-    "libsodium": "^0.7.8",
     "node-fetch": "^2.6.1",
     "readline-sync": "^1.4.10",
     "tslib": "^2.0.1",

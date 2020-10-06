@@ -15,7 +15,7 @@
 
 import TyronState from '../blockchain/tyron-state';
 import { NetworkNamespace } from './tyronZIL-schemes/did-scheme';
-import { TyronZILUrlScheme } from './tyronZIL-schemes/did-url-scheme';
+import DidUrlScheme from './tyronZIL-schemes/did-url-scheme';
 import { OperationType, Sidetree } from './sidetree-protocol/sidetree';
 import { DocumentModel } from './sidetree-protocol/models/document-model';
 
@@ -50,8 +50,8 @@ export default class DidState {
     public static async fetch(network: NetworkNamespace, tyronAddr: string): Promise<DidState> {
         const did_state = await TyronState.fetch(network, tyronAddr)
         .then(async tyron_state => {
-            // Validates the tyronZIL DID-scheme
-            await TyronZILUrlScheme.validate(tyron_state.decentralized_identifier);
+            // Validates the Tyron DID-Scheme
+            await DidUrlScheme.validate(tyron_state.decentralized_identifier);
             
             const THIS_STATE: DidStateModel = {
                 contract_owner: tyron_state.contract_owner,
@@ -71,7 +71,7 @@ export default class DidState {
 
 /***            ** interfaces **            ***/
 
-/** The state model of a decentralized identifier */
+/** The state model of a Tyron Decentralized Identifier */
 export interface DidStateModel {
     contract_owner: string;
     decentralized_identifier: string;

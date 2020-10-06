@@ -14,30 +14,30 @@
 */
 
 /** Defines the tyronZIL DID scheme */
-export default class TyronZILScheme {
+export default class DidScheme {
     public static readonly schemeIdentifier = 'did:';
     public static readonly methodName = 'tyron:';
     public static readonly blockchain = 'zil:';
     public readonly network: NetworkNamespace;
     public readonly didUniqueSuffix: string;
-    public readonly did_tyronZIL: string;   // the fully constructed DID
+    public readonly did: string;   // the fully constructed DID
 
     constructor (
         input: SchemeInputData
     ) {
         this.network = input.network;
         this.didUniqueSuffix = input.didUniqueSuffix;
-        this.did_tyronZIL = TyronZILScheme.schemeIdentifier + TyronZILScheme.methodName + TyronZILScheme.blockchain + this.network + this.didUniqueSuffix;
+        this.did = DidScheme.schemeIdentifier + DidScheme.methodName + DidScheme.blockchain + this.network + this.didUniqueSuffix;
     }
 
     /** Generates a tyronZIL DID with the given didUniqueSuffix and network */
-    public static async newDID(input: SchemeInputData): Promise<TyronZILScheme> {
+    public static async newDID(input: SchemeInputData): Promise<DidScheme> {
         const SCHEME_DATA: SchemeInputData = {
             network: input.network,
             didUniqueSuffix: input.didUniqueSuffix,
         };
 
-        return new TyronZILScheme(SCHEME_DATA);
+        return new DidScheme(SCHEME_DATA);
     }
 }
 
