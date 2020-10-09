@@ -47,16 +47,12 @@ export default class DidDoc {
     /***            ****            ***/
 
     /** The `Tyron DID-Resolution` method */
-    public static async resolution(network: NetworkNamespace, tyronAddr: string, input: ResolutionInput): Promise<ResolutionResult|DidDoc> {
+    public static async resolution(network: NetworkNamespace, input: ResolutionInput): Promise<DidDoc|ResolutionResult> {
         const ACCEPT = input.metadata.accept;
-        const DID = input.did;
         const ZIL_INIT = new ZilliqaInit(network);
         const BLOCKCHAIN_INFO = await ZIL_INIT.API.blockchain.getBlockChainInfo();        
-        const DID_RESOLVED = await DidState.fetch(network, tyronAddr)
+        const DID_RESOLVED = await DidState.fetch(network, input.tyronAddr)
         .then(async did_state => {
-            if(did_state.decentralized_identifier !== DID){
-                throw new ErrorCode("CodeDidMismatch", "The given DID does not match the contract's decentralized identifier")
-            }
             const DID_DOC = await DidDoc.read(did_state);
                 switch (ACCEPT) {
                     case Accept.contentType:
@@ -64,6 +60,7 @@ export default class DidDoc {
                     case Accept.Result:
                         {
                             const RESOLUTION_RESULT: ResolutionResult = {
+                                id: DID_DOC.id,
                                 resolutionMetadata: BLOCKCHAIN_INFO,
                                 document: DID_DOC,
                                 metadata: {
@@ -158,7 +155,7 @@ export default class DidDoc {
     /***            ****            ***/
 
     /** Saves the `Tyron DID-Document` */
-    public static async write(did: string, input: DidDoc | ResolutionResult): Promise<void> {
+    public static async write(did: string, input: DidDoc|ResolutionResult): Promise<void> {
         try {
             const PRINT_STATE = JSON.stringify(input, null, 2);
             let FILE_NAME;
@@ -188,7 +185,7 @@ interface DidDocScheme {
 }
 
 export interface ResolutionInput {
-    did: string;
+    tyronAddr: string;
     metadata: ResolutionInputMetadata;
 }
 
@@ -206,6 +203,7 @@ interface DereferencingInputMetadata {
 }
 
 export interface ResolutionResult {
+    id: string;
     resolutionMetadata: unknown;
     document: DidDoc;
     metadata: DocumentMetadata;

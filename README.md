@@ -7,23 +7,23 @@
 
 Decentralized identity client powered by [Zilliqa](https://zilliqa.com) :zap:
 
-For the management of Decentralized Identifiers (DIDs), tyronZIL implements [Sidetree delta-based DID operations](https://identity.foundation/sidetree/spec/#did-operations) and saves each DID-Document in a [Scilla smart-contract](https://scilla-lang.org/) that is owned by its user.
+For the management of Decentralized Identifiers (DIDs), tyronZIL implements the Tyron SSI Protocol, which includes the deployment of the user-owned [DID-Smart-Contract](./src/lib/blockchain/smart-contracts/DID-SC-latest.scilla). With Tyron, the user is in control of their Decentralized Identifier.
 
-The tyronZIL DID-Method is conformant with the World Wide Web Consortium (W3C) [Decentralized Identifiers (DIDs) v1.0 specification](https://w3c.github.io/did-core/) and the first DID-Method for the Zilliqa blockchain platform registered in the [DID Specification Registries](https://w3c.github.io/did-spec-registries/).
+### W3C DID-Method
+
+The [tyronZIL DID-Method](https://www.tyronzil.com) is conformant with the World Wide Web Consortium (W3C) [Decentralized Identifiers (DIDs) v1.0](https://w3c.github.io/did-core/) specification and the first DID-Method for the Zilliqa blockchain platform registered in the [DID Specification Registries](https://w3c.github.io/did-spec-registries/).
 
 Check out the [development roadmap!](./files/roadmap.md)
 
 ## Problem summary
 
-Identities on the internet remain centralized, mainly by identity providers such as Facebook, Google or PayPal. Thus, when people shop online and login with these accounts, they don't have enough control nor understanding of how their data is used and shared with third parties.
+Identities on the internet remain centralized, mainly by identity providers such as Facebook, Google and PayPal. Thus, when people shop online and login with these accounts, they don't have enough control nor understanding of how their data is used and shared with third parties. Furthermore, decentralized applications are still difficult to grasp for most regular users, and Decentralized Identifiers (DIDs) can make the user experience much better while increasing privacy and security.
 
-Self-Sovereign Identity (SSI) allows people to manage their digital identities, proving who they are without a middleman, by anchoring Decentralized Identifiers (DIDs) on blockchain platforms/distributed-ledgers as a shared root of trust. However, most DLTs still can't provide decentralized identity at scale. By implementing Decentralized Identifiers powered by Sidetree & Scilla, tyronZIL aims to solve this issue to enable user-controlled digital identities.
+Self-Sovereign Identity (SSI) allows people to manage their digital identities, proving who they are without a middleman, by anchoring DIDs on blockchain platforms as a shared root of trust. However, most blockchains still can't provide decentralized identity at scale. By implementing the Tyron SSI Protocol, tyronZIL aims to solve this issue and enable user-controlled digital identities.
 
 ## The purpose of Tyron
 
-**To give people sovereignty over their data.**
-
-The word Tyron derives from the Greek *turannos* that means sovereign, and Tyron's purpose is to give people sovereignty over their data.
+The word Tyron derives from the Greek *turannos* that means sovereign, and ***Tyron's purpose is to give people sovereignty over their data***.
 
 ## Contributing
 

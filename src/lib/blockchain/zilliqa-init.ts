@@ -21,7 +21,7 @@ export default class ZilliqaInit {
     public readonly endpoint: ZilliqaEndpoint;
     public readonly chainID: ZilliqaChainID;
     public readonly API: API.Zilliqa;
-    public readonly version: number;
+    public readonly zil_version: number;
 
     constructor(
         network: NetworkNamespace
@@ -41,7 +41,7 @@ export default class ZilliqaInit {
         this.endpoint = NETWORK_ENDPOINT;
         this.chainID = CHAIN_ID;
         this.API = new API.Zilliqa(this.endpoint);
-        this.version = Util.bytes.pack(this.chainID, 1);
+        this.zil_version = Util.bytes.pack(this.chainID, 1);
     }
 }
 

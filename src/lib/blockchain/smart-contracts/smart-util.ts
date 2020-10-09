@@ -14,7 +14,7 @@
 */
 
 import * as API from '@zilliqa-js/zilliqa';
-import { TyronInitContracts } from '../tyron-contract';
+import { InitTyronSM } from '../tyron-transaction';
 import LogColors from '../../../bin/log-colors';
 import * as readline from 'readline-sync';
 import * as fs from 'fs';
@@ -37,7 +37,7 @@ export default class SmartUtil {
     }
 
     /** Fetches the `Tyron DID-Smart-Contract` by version & decodes it */
-    public static async decode(api: API.Zilliqa, tyronInit: TyronInitContracts, contractVersion: string): Promise<string> {
+    public static async decode(api: API.Zilliqa, tyronInit: InitTyronSM, contractVersion: string): Promise<string> {
         const TYRON_ADDRESS = tyronInit as string;
         const THIS_CONTRACT = await api.blockchain.getSmartContractState(TYRON_ADDRESS)
         .then(async STATE => {
@@ -60,7 +60,7 @@ export default class SmartUtil {
         return THIS_CONTRACT;
     }
 
-    /** Gets the value out of a DSM field Option */
+    /** Gets the value out of a DID-SC field Option */
     public static async getValue(object: any): Promise<string> {
         const ENTRIES = Object.entries(object);
         let VALUE: string;
@@ -72,7 +72,7 @@ export default class SmartUtil {
         return VALUE![0];
     }
 
-    /** Gets the DID-Status out of a DSM field Option */
+    /** Gets the DID-Status out of a DID-SC field Option */
     public static async getStatus(object: any): Promise<string> {
         const ENTRIES = Object.entries(object);
         let VALUE: string;

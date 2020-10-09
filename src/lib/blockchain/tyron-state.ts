@@ -96,7 +96,7 @@ export default class TyronState {
 
 /***            ** interfaces **            ***/
 
-/** The tyron state model */
+/** The Tyron State Model */
 export interface TyronStateModel {
     contract_owner: string;
     decentralized_identifier: string;

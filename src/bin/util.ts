@@ -13,6 +13,7 @@
     GNU General Public License for more details.
 */
 
+import * as zcrypto from '@zilliqa-js/crypto';
 import * as fs from 'fs';
 import LogColors from './log-colors';
 import * as readline from 'readline-sync';
@@ -27,8 +28,8 @@ export default class Util {
     public static async InputKeys(): Promise<PublicKeyInput[]> {
         console.log(LogColors.brightGreen(`Cryptographic keys for your Decentralized Identifier: `))
         const amount = readline.question(LogColors.green(`How many keys would you like to add? - `) + LogColors.lightBlue(`Your answer: `));
-        if(!Number(amount)){
-            throw new ErrorCode("WrongAmount", "It must be a number > 0");
+        if(!Number(amount) || Number(amount) < 0){
+            throw new ErrorCode("WrongAmount", "It must be a number greater than 0");
         }
         
         const KEYS = [];
@@ -74,8 +75,8 @@ export default class Util {
         const SERVICE_ID_SET: Set<string> = new Set();
         
         const amount = readline.question(LogColors.green(`How many service endpoints would you like to add? - `) + LogColors.lightBlue(`Your answer: `));
-        if(!Number(amount) && Number(amount) !== 0){
-            throw new ErrorCode("WrongAmount", "It must be a number");
+        if(!Number(amount) && Number(amount) !== 0 || Number(amount) < 0) {
+            throw new ErrorCode("WrongAmount", "It must be a number greater than or equal to 0");
         }
         for(let i=0, t= Number(amount); i<t; ++i) {
             const id = readline.question(LogColors.green(`Write down your service ID - `) + LogColors.lightBlue(`Your answer: `));
@@ -113,6 +114,16 @@ export default class Util {
         fs.writeFileSync(KEY_FILE_NAME, JSON.stringify(keys, null, 2));
         console.info(LogColors.yellow(`Private keys saved as: ${LogColors.brightYellow(KEY_FILE_NAME)}`));
     }
+
+    /** Verifies that the given key matches the DID-Key of the DID-SC (did_update_key OR did_recovery_key) */
+    public static async verifyKey(privateKey: string, didKey: string): Promise<void> {
+        const PUB_KEY = "0x"+ zcrypto.getPubKeyFromPrivateKey(privateKey);
+        if(PUB_KEY === didKey) {
+            console.log(LogColors.brightGreen(`Success! The private key corresponds to the public did_key stored in the DID-SC`));
+        } else {
+            throw new ErrorCode("WrongKey", "The given key is not matching the corresponding key in the DID-SC")
+        }
+    }
 }
 
 /***            ** interfaces **            ***/
@@ -121,6 +132,7 @@ export interface CliInputModel {
     network: NetworkNamespace;
     publicKeyInput: PublicKeyInput[];
     service: DidServiceEndpointModel[];
+    userPrivateKey?: string;
 }
   
 export interface PublicKeyInput {
@@ -132,10 +144,4 @@ export interface PrivateKeys {
     privateKeys?: string[],
     updatePrivateKey?: string,
     recoveryPrivateKey?: string,
-}
-
-/** Represents a Zilliqa account */
-export interface Account {
-    addr: string;
-    privateKey: string;
 }

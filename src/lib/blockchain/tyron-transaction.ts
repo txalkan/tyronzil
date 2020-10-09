@@ -15,105 +15,92 @@
 
 import { Transaction } from '@zilliqa-js/account';
 import { Contract} from '@zilliqa-js/contract';
-import * as Crypto from '@zilliqa-js/crypto';
+import * as zcrypto from '@zilliqa-js/crypto';
 import * as Util from '@zilliqa-js/util';
 import ZilliqaInit from './zilliqa-init';
-import TyronContract, { ContractInit } from './tyron-contract';
 import SmartUtil from './smart-contracts/smart-util';
 import { NetworkNamespace } from '../decentralized-identity/tyronZIL-schemes/did-scheme';
 import ErrorCode from '../decentralized-identity/util/ErrorCode';
 import LogColors from '../../bin/log-colors';
 
-export default class TyronTransaction extends TyronContract {
-    private readonly gas_price: Util.BN;
-    private readonly gas_limit: Util.Long;
+/** The `init.tyron smart-contracts` */
+export enum InitTyronSM {
+    Testnet = "0x08392647c23115f1d027b9d2bbcc9f532b0f003a",
+    Mainnet = "0x1c8272a79b5b4920bcae80f310d638c8dd4bd8aa"
+}
+
+export default class TyronTransaction extends ZilliqaInit {
+    /** The Zilliqa address where the `init.tyron smart-contract` resides */
+    public readonly init_tyron: InitTyronSM;
 
     /** The client's private key */
     private readonly client_privateKey: string;
-    
-    /** The user's private key */
-    private readonly user_privateKey?: string;
-    /** The user's current nonce */
-    private readonly user_nonce?: number;
+
+    /** The client's address */
+    public readonly client_addr: string;
+
+    /** The user is the owner of their DID-SC */
+    public readonly contract_owner?: string;
+
+    public readonly gas_price: Util.BN;
+    public readonly gas_limit: Util.Long;
 
     private constructor(
         network: NetworkNamespace,
-        init: ContractInit,
-        gas_price: Util.BN,
-        gas_limit: Util.Long,
-        client_key: string,
-        user_key?: string,
-        user_nonce?: number
+        initTyron: InitTyronSM,
+        clientPrivateKey: string,
+        clientAddr: string,
+        gasPrice: Util.BN,
+        gasLimit: Util.Long,
+        contractOwner?: string        
     ) {
-        super(network, init);
-        this.gas_price = gas_price;
-        this.gas_limit = gas_limit
-        this.client_privateKey = client_key;
-        this.user_privateKey = user_key;
-        this.user_nonce = user_nonce;            
+        super(network);
+        this.init_tyron = initTyron;
+        this.client_privateKey = clientPrivateKey;
+        this.client_addr = clientAddr;
+        this.contract_owner = contractOwner;
+        this.gas_price = gasPrice;
+        this.gas_limit = gasLimit
+               
     }
     
-    /** Validates whether the user and client accounts have provided the correct private keys and have enough funds
-     * @returns TyronTransaction instance */
+    /** Retrieves the minimum gas price & validates the client and user info */
     public static async initialize(
         network: NetworkNamespace,
-        init: ContractInit,
+        initTyron: InitTyronSM,
         clientPrivateKey: string,
-        gasLimit: number,
-        userPrivateKey?: string
+        gasLimit: string,
+        userAddr?: string
     ): Promise<TyronTransaction> {
+        let CONTRACT_OWNER: string | undefined;
+        if(userAddr !== undefined) {
+            CONTRACT_OWNER = zcrypto.fromBech32Address(userAddr);
+        }
+
+        const CLIENT_ADDR = zcrypto.getAddressFromPrivateKey(clientPrivateKey);
+
+        let GAS_LIMIT: Util.Long.Long;
+        if(!Number(gasLimit) || Number(gasLimit) < 0) {
+            throw new ErrorCode("WrongAmount", "The gas limit MUST be a number greater than 0")
+        } else {
+            GAS_LIMIT = new Util.Long(Number(gasLimit));
+        }
+        
         const ZIL_INIT = new ZilliqaInit(network);
         const transaction_init = await ZIL_INIT.API.blockchain.getMinimumGasPrice()
         .then(min_gas_price => {
             const GAS_PRICE = new Util.BN(min_gas_price.result!);
             console.log(LogColors.yellow(`The minimum gas price retrieved from the network is: `) + LogColors.brightYellow(`${Number(GAS_PRICE)/1000000000000} ZIL`))
-            const GAS_LIMIT = new Util.Long(gasLimit);
-            return {
-                price: GAS_PRICE,
-                limit: GAS_LIMIT
-            };
-        })
-        .then(async gas => {
-            const CLIENT_ADDR = Crypto.getAddressFromPrivateKey(clientPrivateKey);
-            if (CLIENT_ADDR !== init.client_addr) {
-                throw new ErrorCode("CodeWrongKey", "The given private key is wrong");
-            }
-            /** Gets the current balance of the account (in Qa = 10^-12 ZIL as string)
-            * & the current nonce of the account (as number) */
-            const GET_BALANCE = await ZIL_INIT.API.blockchain.getBalance(CLIENT_ADDR);
-            const BALANCE_RESULT = GET_BALANCE.result;
-
-            // The account's balance MUST be greater than a minimum stake amount
-            if (Number(BALANCE_RESULT.balance) < init.tyron_stake) {
-            throw new ErrorCode("NotEnoughBalance", `The client's balance must be more than the tyron_stake of 50ZIL - Current balance: ${Number(BALANCE_RESULT.balance)/1000000000000} ZIL`)
-            }
-
-            let USER_NONCE;
-            if(userPrivateKey !== undefined) {
-                const USER_ADDRESS = Crypto.getAddressFromPrivateKey(userPrivateKey);
-                if (USER_ADDRESS !== init.contract_owner) {
-                    throw new ErrorCode("CodeWrongKey", "The given private key is wrong");
-                }
-                /** Gets the current balance of the account (in Qa = 10^-12 ZIL as string)
-                * & the current nonce of the account (as number) */
-                const GET_BALANCE = await ZIL_INIT.API.blockchain.getBalance(USER_ADDRESS);
-                const BALANCE_RESULT = GET_BALANCE.result;
-
-                // The account's balance MUST be greater than the cost to initialize the TSM
-                if (Number(BALANCE_RESULT.balance) < 20000000000000) {
-                    throw new ErrorCode("NotEnoughBalance", `The user's balance must be more than the cost to initialize their Tyron DID-Smart-Contract (~20ZIL) - Current balance: ${Number(BALANCE_RESULT.balance)/1000000000000} ZIL`)
-                }
-                USER_NONCE = Number(BALANCE_RESULT.nonce);
-            }
-
+            
             return new TyronTransaction(
                 network,
-                init,
-                gas.price,
-                gas.limit,
+                initTyron,
                 clientPrivateKey,
-                userPrivateKey,
-                USER_NONCE);
+                CLIENT_ADDR,
+                GAS_PRICE,
+                GAS_LIMIT,
+                CONTRACT_OWNER                
+            );
         })
         .catch(err => {throw err});
         return transaction_init;
@@ -121,13 +108,13 @@ export default class TyronTransaction extends TyronContract {
 
     /***            ****            ***/
     
-    /** Deploys the DSM by version
-     * & calls the ContractInit transition with the client_addr to set the operation_cost, the foundation_addr & client_commission from the TyronInit contract 
-    */
-    public static async deploy(init: TyronTransaction, version: string): Promise<DeployedContract> {
-        const deployed_contract = await SmartUtil.decode(init.API, init.tyron_init, version)
+    /** Deploys the DID-SC by version
+     * & calls the ContractInit transition with the client_addr */
+    public static async deploy(input: TyronTransaction, version: string): Promise<DeployedContract> {
+        const deployed_contract = await SmartUtil.decode(input.API, input.init_tyron, version)
         .then(contract_code => {
-            console.log(LogColors.brightGreen(`DSM-code successfully downloaded & decoded from the TyronInit contract!`));
+            console.log(LogColors.brightGreen(`DID-SC-code successfully downloaded & decoded from the "init.tyron" smart-contract!`));
+            
             const CONTRACT_INIT = [
                 {
                     vname: '_scilla_version',
@@ -137,27 +124,30 @@ export default class TyronTransaction extends TyronContract {
                 {
                     vname: 'contract_owner',
                     type: 'ByStr20',
-                    value: `${init.contract_owner}`,
+                    value: `${input.contract_owner}`,
                 },
                 {
-                    vname: 'tyron_init',
+                    vname: 'init_tyron',
                     type: 'ByStr20',
-                    value: `${init.tyron_init}`,
+                    value: `${input.init_tyron}`,
                 }
             ];
-            const CONTRACT = init.API.contracts.new(contract_code, CONTRACT_INIT);
+            const CONTRACT = input.API.contracts.new(contract_code, CONTRACT_INIT);
             return CONTRACT;
         })
         .then(async contract => {
-            console.log(LogColors.yellow(`The user's DSM got properly instantiated: `) + LogColors.brightYellow(`${JSON.stringify(contract, null, 2)}`));
-            init.API.wallet.addByPrivateKey(init.user_privateKey!);
+            console.log(LogColors.yellow(`The user's DID-SC got properly instantiated: `) + LogColors.brightYellow(`${JSON.stringify(contract, null, 2)}`));
+            input.API.wallet.addByPrivateKey(input.client_privateKey!);
+
+            const CLIENT_BALANCE = await input.API.blockchain.getBalance(input.client_addr);
+
             console.log(LogColors.brightGreen(`Deploying...`));
             const [deployTx, tyron_smart_contract] = await contract.deploy(
                 {
-                    version: init.version,
-                    gasPrice: init.gas_price,
-                    gasLimit: init.gas_limit,
-                    nonce: init.user_nonce! + 1,
+                    version: input.zil_version,
+                    gasPrice: input.gas_price,
+                    gasLimit: input.gas_limit,
+                    nonce: Number(CLIENT_BALANCE.result.nonce)+ 1,
                 },
                 33,
                 1000,
@@ -165,14 +155,14 @@ export default class TyronTransaction extends TyronContract {
             );
             const IS_DEPLOYED = deployTx.isConfirmed();
             if(!IS_DEPLOYED) {
-                throw new ErrorCode("Wrong-Deployment","The user's DSM did not get deployed")
+                throw new ErrorCode("Wrong-Deployment","The user's DID-SC did not get deployed")
             }
-            console.log(LogColors.yellow(`Your Tyron DID-Smart-Contract is deployed: `) + LogColors.brightYellow(`${IS_DEPLOYED}`));
+            console.log(LogColors.yellow(`The user's Tyron DID-Smart-Contract is deployed: `) + LogColors.brightYellow(`${IS_DEPLOYED}`));
             console.log(LogColors.yellow(`Its Zilliqa address is: `) + LogColors.brightYellow(`${tyron_smart_contract.address}`));
             console.log(LogColors.yellow(`Deployment Transaction ID: `) + LogColors.brightYellow(`${deployTx.id}`));
 
             const DEPLOYMENT_GAS = (deployTx.getReceipt())!.cumulative_gas;
-            console.log(LogColors.yellow(`The total gas consumed by deploying your DSM was: `) + LogColors.brightYellow(`${DEPLOYMENT_GAS}`));
+            console.log(LogColors.yellow(`The total gas consumed by deploying the DID-SC was: `) + LogColors.brightYellow(`${DEPLOYMENT_GAS}`));
             
             const DEPLOYED_CONTRACT = {
                 transaction: deployTx,
@@ -188,20 +178,20 @@ export default class TyronTransaction extends TyronContract {
                     {
                         vname: 'clientAddress',
                         type: 'String',
-                        value: `${init.client_addr}`
+                        value: `${input.client_addr}`
                     }
                 ],
                 {
-                    version: init.version,
+                    version: input.zil_version,
                     amount: new Util.BN(0),
-                    gasPrice: init.gas_price,
-                    gasLimit: init.gas_limit
+                    gasPrice: input.gas_price,
+                    gasLimit: input.gas_limit
                 },
                 33,
                 1000,
                 false
             );
-            console.log(LogColors.yellow(`Your Tyron DID-Smart-Contract is initialized: `) + LogColors.brightYellow(`${CALL.isConfirmed()}`));
+            console.log(LogColors.yellow(`The user's Tyron DID-Smart-Contract is initialized: `) + LogColors.brightYellow(`${CALL.isConfirmed()}`));
             const CUMULATIVE_GAS = (CALL.getReceipt())!.cumulative_gas;
             console.log(LogColors.yellow(`The total gas consumed by the ContractInit transition was: `) + LogColors.brightYellow(`${CUMULATIVE_GAS}`));
             return deployed_contract;
@@ -211,47 +201,50 @@ export default class TyronTransaction extends TyronContract {
     }
 
     /** Submits a tyronZIL transaction (DID operation) */
-    public static async submit(init: TyronTransaction, tyronAddr: string, tag: TransitionTag, params: TransitionParams[]): Promise<void> {
-        console.log(LogColors.brightGreen(`Processing your ${tag} tyronZIL transaction...`));
+    public static async submit(input: TyronTransaction, tyronAddr: string, tag: TransitionTag, params: TransitionParams[]): Promise<void> {
+        console.log(LogColors.brightGreen(`Processing the ${tag} tyronZIL transaction...`));
         
-        await init.API.blockchain.getSmartContractState(tyronAddr)
+        await input.API.blockchain.getSmartContractState(tyronAddr)
         .then(async SMART_CONTRACT_STATE => {
             return SMART_CONTRACT_STATE.result.operation_cost;
         })
         .then(async operation_cost => {
             const AMOUNT = new Util.BN(operation_cost);
-            const PUB_KEY = Crypto.getPubKeyFromPrivateKey(init.client_privateKey);
-            const CLIENT_BALANCE = await init.API.blockchain.getBalance(init.client_addr);
+            const CLIENT_PUBKEY = zcrypto.getPubKeyFromPrivateKey(input.client_privateKey);
+            const CLIENT_ADDR = zcrypto.getAddressFromPrivateKey(input.client_privateKey);
+            
+            const CLIENT_BALANCE = await input.API.blockchain.getBalance(CLIENT_ADDR);
        
             const TRANSITION: Transition = {
                 _tag: tag,
                 _amount: String(AMOUNT),
-                _sender: init.client_addr,
+                _sender: CLIENT_ADDR,
                 params: params
             };
 
             const TX_OBJECT: TxObject = {
-                version: init.version,
+                version: input.zil_version,
                 amount: AMOUNT,
                 nonce: Number(CLIENT_BALANCE.result.nonce)+ 1,
-                gasLimit: init.gas_limit,
-                gasPrice: init.gas_price,
+                gasLimit: input.gas_limit,
+                gasPrice: input.gas_price,
                 toAddr: tyronAddr,
-                pubKey: PUB_KEY,
+                pubKey: CLIENT_PUBKEY,
                 data: JSON.stringify(TRANSITION),
             };
             
-            const RAW_TX = init.API.transactions.new(TX_OBJECT);
+            const RAW_TX = input.API.transactions.new(TX_OBJECT);
             return RAW_TX;
         })
         .then(async raw_tx  => {
-            init.API.wallet.addByPrivateKey(init.client_privateKey);
-            const SIGNED_TX = await init.API.wallet.signWith(raw_tx, init.client_addr);
+            input.API.wallet.addByPrivateKey(input.client_privateKey);
+            
+            const SIGNED_TX = await input.API.wallet.signWith(raw_tx, input.client_addr);
             return SIGNED_TX;
         })
         .then(async signed_tx => {
             /** Sends the transaction to the Zilliqa blockchain platform */
-            const TX = await init.API.blockchain.createTransaction(signed_tx, 33, 1000);
+            const TX = await input.API.blockchain.createTransaction(signed_tx, 33, 1000);
             return TX;
         })
         .then( async transaction => {
@@ -276,6 +269,8 @@ export default class TyronTransaction extends TyronContract {
 
     public static async create(
         document: string,
+        didContractOwner: string,
+        signature: string,
         updateKey: string,
         recoveryKey: string
     ): Promise<TransitionParams[]> {
@@ -288,6 +283,20 @@ export default class TyronTransaction extends TyronContract {
             value: document,
         };
         PARAMS.push(DOCUMENT);
+
+        const DID_CONTRACT_OWNER: TransitionParams = {
+            vname: 'didContractOwner',
+            type: 'ByStr33',
+            value: didContractOwner,
+        };
+        PARAMS.push(DID_CONTRACT_OWNER);
+        
+        const SIGNATURE: TransitionParams = {
+            vname: 'signature',
+            type: 'ByStr64',
+            value: signature,
+        };
+        PARAMS.push(SIGNATURE);
 
         const UPDATE_KEY: TransitionParams = {
             vname: 'updateKey',
@@ -395,9 +404,9 @@ export default class TyronTransaction extends TyronContract {
     }
 }
 
-/***            ****            ***/
+/***            ** interfaces **            ***/
 
-/** The result of a TSM deployment */
+/** The result of a DID-SC deployment */
 export interface DeployedContract {
     transaction: Transaction,
     contract: Contract

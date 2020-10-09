@@ -81,12 +81,6 @@ export class Sidetree {
         
         for(const patch of patches) {
             switch (patch.action) {
-                case PatchAction.Replace: 
-                    {
-                        PUBLIC_KEYS = patch.document!.public_keys;
-                        SERVICES = patch.document!.service_endpoints!;        
-                    }
-                    break;
                 case PatchAction.AddKeys: 
                     if(patch.keyInput !== undefined) {
                         await this.addKeys(patch.keyInput, KEY_ID_SET)

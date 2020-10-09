@@ -43,8 +43,6 @@ export enum PatchAction {
     RemoveKeys = 'remove-public-keys',
     AddServices = 'add-service-endpoints',
     RemoveServices = 'remove-service-endpoints',
-    /** Acts as a complete state reset that replaces a DID's current PKI metadata with the state provided - also used to create new DIDs */
-    Replace = 'replace',
     // Format of an additional custom action
     CustomAction = '-custom-action',
 }

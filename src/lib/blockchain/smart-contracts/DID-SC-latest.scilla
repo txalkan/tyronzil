@@ -15,11 +15,11 @@
 
 scilla_version 0
 
-(*************************)
-(* The Tyron DID Library *)
-(*************************)
+(****************************)
+(* The Tyron DID-SC Library *)
+(****************************)
 
-library TyronDID
+library DID
 
   (* Messages *)
   (************)
@@ -54,49 +54,51 @@ library TyronDID
   (****************)
 type Error =
     | CodeNotTyron
-    | CodeNotClient
-    | CodeNotOwner
-    | CodeWrongStatus
     | CodeInsufficientFunds
+    | CodeNotClient
+    | CodeWrongStatus
+    | CodeNotOwner
     | CodeWrongSignature
     | CodeUndefinedKey
+    | CodeRepeatedKey
       
   let make_error =
     fun(result: Error) =>
       let result_code = 
         match result with
           | CodeNotTyron              => Int32 -1
-          | CodeNotClient             => Int32 -2
-          | CodeNotOwner              => Int32 -3
+          | CodeInsufficientFunds     => Int32 -2
+          | CodeNotClient             => Int32 -3
           | CodeWrongStatus           => Int32 -4
-          | CodeInsufficientFunds     => Int32 -5
+          | CodeNotOwner              => Int32 -5
           | CodeWrongSignature        => Int32 -6
           | CodeUndefinedKey          => Int32 -7
+          | CodeRepeatedKey           => Int32 -8
         end
       in
       {_exception: "Error"; code: result_code}
 
-(**************************************)
-(* The Tyron DID-Smart-Contract (DSM) *)
-(**************************************)
+(*****************************************)
+(* The Tyron DID-Smart-Contract (DID-SC) *)
+(*****************************************)
 
-contract DSM(
+contract DID(
 
 (* Immutable fields declaration *)
 (********************************)
-  (* The user is the owner of their DSM *)
+  (* The user is the owner of their DID-SC *)
   contract_owner: ByStr20,
-  (* The address of the TyronInit contract *)
-  tyron_init: ByStr20
+  (* The address of the init.tyron contract *)
+  init_tyron: ByStr20
   )
     with
       let init_contract = 0x08392647c23115f1d027b9d2bbcc9f532b0f003a in
-      builtin eq init_contract tyron_init
+      builtin eq init_contract init_tyron
     =>
 
 (* Mutable fields declaration *)
 (******************************)
-  (* The tyronZIL DID *)
+  (* The Tyron DID *)
   field decentralized_identifier: String = undefined
   
   (* The Tyron Hash *)
@@ -105,7 +107,7 @@ contract DSM(
   (* The status of the DID *)
   field did_status: DidStatus = Undefined
   
-  (* The DID-Document *)
+  (* The DID-Document in JSON format, hexadecimal encoded *)
   field did_document: Option ByStr = None{ByStr}
   
   (* The public key for the next DID-Update operation *)
@@ -115,7 +117,7 @@ contract DSM(
   field did_recovery_key: Option ByStr33 = None{ByStr33}
   
   (* The address of the user's client *)
-  field client_address: ByStr20 = 0xccDdFAD074cd608B6B43e14eb3440240f5bFf087
+  field client_address: ByStr20 = contract_owner
   
   (* The block number when the DID-Create operation occurred *)
   field created: BNum = BNum 0
@@ -126,12 +128,12 @@ contract DSM(
   (* A monotonically increasing number representing the amount of DID operations that have taken place *)
   field transaction_number: Uint128 = Uint128 0
 
-  (* The following fields are determined by the TyronInit contract *)
+  (* The following fields are determined by the init.tyron contract *)
   (* The cost of each DID operation *)
   field operation_cost: Uint128 = Uint128 0
   
-  (* The address of the Tyron Pungtas Danish Foundation *)
-  field foundation_address: ByStr20 = 0x45832badF26Bc3F66DA3b9eD242EA84AfFA024a3
+  (* The address of the Tyron Pungtas Foundation *)
+  field foundation_address: ByStr20 = contract_owner
   
   (* The client's commission as a % of the operation_cost *)
   field client_commission: Uint128 = Uint128 0
@@ -139,7 +141,7 @@ contract DSM(
 (* Procedures *)
 (**************)
 
-  (* The tyronZIL DID-Scheme - this procedure generates the user's Decentralized Identifier & the Tyron Hash *)
+  (* The Tyron DID-Scheme - this procedure generates the user's Decentralized Identifier & the Tyron Hash *)
   procedure DidScheme()
       this_did =
         let did_prefix = "did:tyron:zil:test:" in
@@ -150,9 +152,7 @@ contract DSM(
         let hash = builtin sha256hash this_did in
         builtin to_bystr hash;
       th = Some{ByStr} this_th;
-      tyron_hash := th;
-      new_status = Initialized;
-      did_status := new_status
+      tyron_hash := th
   end
   
   (* The procedure to throw an error *)
@@ -163,13 +163,25 @@ contract DSM(
       throw e
   end
   
-  (* Validates that the call comes from the TyronInit contract *)
+  (* Validates that the call comes from the init.tyron contract *)
   procedure IsTyron()
-      is_tyron = builtin eq tyron_init _sender;
+      is_tyron = builtin eq init_tyron _sender;
       match is_tyron with
         | True =>
         | False =>
             err = CodeNotTyron;
+            ThrowError err
+      end
+  end
+  
+  (* Validates that the call comes from the client *)
+  procedure IsClient()
+      this_client <- client_address;
+      is_client = builtin eq this_client _sender;
+      match is_client with
+        | True =>
+        | False =>
+            err = CodeNotClient;
             ThrowError err
       end
   end
@@ -184,15 +196,26 @@ contract DSM(
             ThrowError err
       end
   end
-
-  (* Validates that the call comes from the client *)
-  procedure IsClient()
-      this_client <- client_address;
-      is_client = builtin eq this_client _sender;
-      match is_client with
+  
+  (* Verifies that the public key matches the contract_owner address *)
+  procedure IsOwnerKey(
+    pubk: ByStr33
+    )
+      hash = builtin sha256hash pubk;
+      addr =
+        let s = builtin to_string hash in
+        let start = Uint32 26 in
+        let len = Uint32 40 in
+        builtin substr s start len;
+      hex_addr =
+        let hex = "0x" in
+        builtin concat hex addr;
+      addr_owner = builtin to_string contract_owner;
+      is_owner = builtin eq hex_addr addr_owner;
+      match is_owner with
         | True =>
         | False =>
-            err = CodeNotClient;
+            err = CodeNotOwner;
             ThrowError err
       end
   end
@@ -209,7 +232,7 @@ contract DSM(
   end
   
   (* Verifies that the did_status is neither Deactivated nor Initialized, to execute a DID-Update, Recover or Deactivate operation *)
-  procedure RightStatus()
+  procedure IsRightStatus()
       this_status <- did_status;
       match this_status with
         | Created =>
@@ -221,8 +244,8 @@ contract DSM(
       end
   end
   
-  (* Verifies the Schnorr signature *)
-  procedure RightSignature(
+  (* Verifies the Schnorr signature that comes with the signedData corresponds with the public DID-Keys stored in the contract *)
+  procedure IsRightSignature(
     signedData: ByStr,
     sig: ByStr64,
     key: Option ByStr33
@@ -242,6 +265,26 @@ contract DSM(
       end
   end
   
+  (* Validates that the new public DID-Key is different from before *)
+  procedure IsValidKey(
+    didKey: Option ByStr33,
+    key: ByStr33
+    )
+    match didKey with
+      | Some pubk =>
+          is_same_key = builtin eq pubk key;
+          match is_same_key with
+            | True =>
+                err = CodeRepeatedKey;
+                ThrowError err
+            | False => (* continue *)
+          end
+      | None =>
+          err = CodeUndefinedKey;
+          ThrowError err
+    end
+  end
+  
   (* Executes the payment to the client and foundation *)
   procedure Payment()
       this_cost <- operation_cost;
@@ -249,7 +292,7 @@ contract DSM(
       payment_is_accepted = builtin eq _amount this_cost;
       match payment_is_accepted with
         | True =>
-            (* The DSM accepts the incoming transfer *)
+            (* The DID-SC accepts the incoming transfer *)
             accept;
             (* Calculates payment to the client *)
             this_client_commission <- client_commission;
@@ -292,24 +335,22 @@ contract DSM(
 (* Transitions *)
 (***************)
   
-  (* The user calls this transition to set their client's address 
-   * Sends a message to the TyronInit contract that in return calls the InitParameters transition *)
+  (* Sets the address of the user's client - permissionless (anyone can be a client)
+   * Sends a message to the init.tyron contract that in return calls the InitParameters transition *)
   transition ContractInit(
     clientAddress: ByStr20
     )
-      IsOwner;
       client_address := clientAddress;
       msg_init = {
         _tag: "Initialize";
-        _recipient: tyron_init;
+        _recipient: init_tyron;
         _amount: zero
       };
       init = one_msg msg_init;
       send init
   end
   
-  (* The TyronInit contract calls this transition to set the operation_cost, foundation_address & client_commission
-   * This transition also executes the DidScheme procedure *)
+  (* The init.tyron contract calls this transition to set the operation_cost, foundation_address & client_commission *)
   transition InitParameters(
     operationCost: Uint128,
     foundationAddress: ByStr20,
@@ -319,45 +360,98 @@ contract DSM(
       operation_cost := operationCost;
       foundation_address := foundationAddress;
       client_commission := clientCommission;
-      DidScheme
+      new_status = Initialized;
+      did_status := new_status
   end
 
-  (* Executes a tyronZIL DID-Create operation *)
+  (* Executes a Tyron DID-Create operation *)
   transition DidCreate(
     document: ByStr,
+    didContractOwner: ByStr33,
+    signature: ByStr64,
     updateKey: ByStr33,
     recoveryKey: ByStr33
     )
+      Payment;
       IsClient;
       IsInitialized;
-      Payment;
       DidScheme;
+      IsOwnerKey didContractOwner;
+      did_contract_owner = Some{ByStr33} didContractOwner;
+      IsRightSignature document signature did_contract_owner;
       first_doc = Some{ByStr} document;
       did_document := first_doc;
+      IsValidKey did_contract_owner updateKey;
       update_key = Some{ByStr33} updateKey;
       did_update_key := update_key;
+      IsValidKey did_contract_owner recoveryKey;
       recovery_key = Some{ByStr33} recoveryKey;
       did_recovery_key := recovery_key;
-      new_status = Created;
-      did_status := new_status;
-      this_block <- & BLOCKNUMBER;
-      created := this_block;
-      Timestamp
+      is_same_key = builtin eq updateKey recoveryKey;
+      match is_same_key with
+        | True =>
+            err = CodeRepeatedKey;
+            ThrowError err
+        | False =>
+            new_status = Created;
+            did_status := new_status;
+            this_block <- & BLOCKNUMBER;
+            created := this_block;
+            Timestamp
+      end
   end
   
-  (* Executes a tyronZIL DID-Update operation *)
+  (* Executes a Tyron DID-Recover operation *)
+  transition DidRecover(
+    newDocument: ByStr,
+    signature: ByStr64,
+    newUpdateKey: ByStr33,
+    newRecoveryKey: ByStr33
+    )
+      Payment;
+      IsClient;
+      IsRightStatus;
+      did_key <- did_recovery_key;
+      IsRightSignature newDocument signature did_key;
+      new_doc = Some{ByStr} newDocument;
+      did_document := new_doc;
+      IsValidKey did_key newRecoveryKey;
+      did_ukey <- did_update_key;
+      IsValidKey did_ukey newRecoveryKey;
+      next_recovery_key = Some{ByStr33} newRecoveryKey;
+      did_recovery_key := next_recovery_key;
+      IsValidKey did_key newUpdateKey;
+      IsValidKey did_ukey newUpdateKey;
+      next_update_key = Some{ByStr33} newUpdateKey;
+      did_update_key := next_update_key;
+      is_same_key = builtin eq newUpdateKey newRecoveryKey;
+      match is_same_key with
+        | True =>
+            err = CodeRepeatedKey;
+            ThrowError err
+        | False =>
+            new_status = Recovered;
+            did_status := new_status;
+            Timestamp
+      end
+  end
+  
+  (* Executes a Tyron DID-Update operation *)
   transition DidUpdate(
     newDocument: ByStr,
     signature: ByStr64,
     newUpdateKey: ByStr33
     )
-      IsClient;
-      RightStatus;
-      operation_key <- did_update_key;
-      RightSignature newDocument signature operation_key;
       Payment;
+      IsClient;
+      IsRightStatus;
+      did_key <- did_update_key;
+      IsRightSignature newDocument signature did_key;
       new_doc = Some{ByStr} newDocument;
       did_document := new_doc;
+      IsValidKey did_key newUpdateKey;
+      did_rkey <- did_recovery_key;
+      IsValidKey did_rkey newUpdateKey;
       next_update_key = Some{ByStr33} newUpdateKey;
       did_update_key := next_update_key;
       new_status = Updated;
@@ -365,41 +459,18 @@ contract DSM(
       Timestamp
   end
   
-  (* Executes a tyronZIL DID-Recover operation *)
-  transition DidRecover(
-    newDocument: ByStr,
-    signature: ByStr64,
-    newUpdateKey: ByStr33,
-    newRecoveryKey: ByStr33
-    )
-      IsClient;
-      RightStatus;
-      operation_key <- did_recovery_key;
-      RightSignature newDocument signature operation_key;
-      Payment;
-      new_doc = Some{ByStr} newDocument;
-      did_document := new_doc;
-      next_update_key = Some{ByStr33} newUpdateKey;
-      did_update_key := next_update_key;
-      next_recovery_key = Some{ByStr33} newRecoveryKey;
-      did_recovery_key := next_recovery_key;
-      new_status = Recovered;
-      did_status := new_status;
-      Timestamp
-  end
-  
-  (* Executes a tyronZIL DID-Deactivate operation *)
+  (* Executes a Tyron DID-Deactivate operation *)
   transition DidDeactivate(
     signature: ByStr64
     )
-      IsClient;
-      RightStatus;
       Payment;
-      operation_key <- did_recovery_key;
+      IsClient;
+      IsRightStatus;
+      did_key <- did_recovery_key;
       this_th <- tyron_hash;
       match this_th with
         | Some th =>
-            RightSignature th signature operation_key
+            IsRightSignature th signature did_key
         | None =>
             err = CodeNotTyron;
             ThrowError err
@@ -414,6 +485,7 @@ contract DSM(
       Timestamp
   end
 
+  (* Updates the user's client - only the contract_owner can execute this transition *)
   transition UpdateClient(
     newClientAddress: ByStr20
     )

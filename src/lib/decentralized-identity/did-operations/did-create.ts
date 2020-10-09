@@ -13,6 +13,7 @@
     GNU General Public License for more details.
 */
 
+import * as zcrypto from '@zilliqa-js/crypto';
 import { OperationType } from '../sidetree-protocol/sidetree';
 import { Cryptography, OperationKeyPairInput } from '../util/did-keys';
 import { CliInputModel } from '../../../bin/util';
@@ -22,7 +23,11 @@ import { DocumentModel } from '../sidetree-protocol/models/document-model';
  *  which produces the `DID-Document` & metadata */
 export default class DidCreate {
     public readonly type = OperationType.Create;
-    public readonly documentModel: string;
+    public readonly document: string;
+    
+    /** The public key corresponding to the contract_owner */
+    public readonly didContractOwner: string;
+    public readonly signature: string;
     public readonly updateKey: string;
     public readonly recoveryKey: string;
     public readonly privateKey: string[];
@@ -34,7 +39,9 @@ export default class DidCreate {
     private constructor (
         operation: CreateOperationModel
     ) {
-        this.documentModel = "0x"+ Buffer.from(JSON.stringify(operation.document)).toString('hex');
+        this.document = "0x"+ operation.document;
+        this.didContractOwner = "0x" + operation.didContractOwner;
+        this.signature = "0x" + operation.signature;
         this.updateKey = "0x"+ operation.updateKey;
         this.recoveryKey = "0x"+ operation.recoveryKey;
         this.privateKey = operation.privateKey;
@@ -67,6 +74,12 @@ export default class DidCreate {
             service_endpoints: input.service
         };
         
+        const DOC_HEX = Buffer.from(JSON.stringify(DOCUMENT)).toString('hex');
+            
+        const DID_CONTRACT_OWNER = zcrypto.getPubKeyFromPrivateKey(input.userPrivateKey!);
+            
+        const SIGNATURE = zcrypto.sign(Buffer.from(DOC_HEX, 'hex'), input.userPrivateKey!, DID_CONTRACT_OWNER);
+            
         // Creates the update key-pair (necessary for the next update operation)
         const [UPDATE_KEY, UPDATE_PRIVATE_KEY] = await Cryptography.keyPair();
         
@@ -75,7 +88,9 @@ export default class DidCreate {
         
         /** Output data from a Tyron `DID-Create` operation */
         const OPERATION_OUTPUT: CreateOperationModel = {
-            document: DOCUMENT,
+            document: DOC_HEX,
+            didContractOwner: DID_CONTRACT_OWNER,
+            signature: SIGNATURE,
             updateKey: UPDATE_KEY,
             recoveryKey: RECOVERY_KEY,
             privateKey: PRIVATE_KEYS,
@@ -90,7 +105,9 @@ export default class DidCreate {
 
 /** Defines output data for a Sidetree-based `DID-Create` operation */
 interface CreateOperationModel {
-    document: DocumentModel;
+    document: string;
+    didContractOwner: string;
+    signature: string;
     updateKey: string;
     recoveryKey: string;
     privateKey: string[];

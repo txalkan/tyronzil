@@ -1,7 +1,7 @@
 {
   "name": "tyronzil-js",
-  "version": "0.5.0",
-  "description": "Decentralized identity client for the Zilliqa blockchain platform",
+  "version": "1.0.0",
+  "description": "DID-Client powered by the Zilliqa blockchain",
   "main": "dist/src/core.js",
   "bin": {
     "tyronzil": "./dist/src/bin/index.js"
@@ -17,10 +17,14 @@
   },
   "keywords": [
     "did",
+    "did-client",
     "decentralized-identity",
     "decentralized-identifiers",
     "decentralized-application",
+    "dapp",
+    "self-sovereign identity",
     "tyron",
+    "tyron.did",
     "tyronZIL",
     "zilliqa"
   ],

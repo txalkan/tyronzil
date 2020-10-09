@@ -42,23 +42,6 @@ export default class DidUrlScheme extends DidScheme {
         this.longFormDid = this.did + this.query;
     }
 
-    /** Generates the Sidetree Long-Form DID URI with the initial-state URL parameter */
-    public static async longFormDid(input: LongFormDidInput): Promise<DidUrlScheme> {
-        const INITIAL_STATE_VALUE = input.suffixData + '.' + input.delta;
-        
-        const QUERY: Query = {
-            urlParameter: UrlParameters.InitialState,
-            value: INITIAL_STATE_VALUE
-        }
-
-        const URL_INPUT: UrlInput = {
-            schemeInput: input.schemeInput,
-            query: QUERY.urlParameter + '=' + QUERY.value
-        }
-
-        return new DidUrlScheme(URL_INPUT);
-    }
-
     /** Validates if the given DID is a proper Tyron Decentralized Identifier */
     public static async validate(did: string): Promise<DidUrlScheme> {
         const PREFIX = this.schemeIdentifier + this.methodName + this.blockchain;
