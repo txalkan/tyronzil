@@ -1,112 +1,197 @@
 (*
-    TyronZIL-js: Decentralized identity client for the Zilliqa blockchain platform
-    Copyright (C) 2020 Julio Cesar Cabrapan Duarte
+  Tyron: Decentralized identity application powered by Zilliqa
+  Copyright (C) 2020 Julio Cesar Cabrapan Duarte
 
-    This program is free software: you can redistribute it and/or modify
-    it under the terms of the GNU General Public License as published by
-    the Free Software Foundation, either version 3 of the License, or
-    (at your option) any later version.
+  This program is free software: you can redistribute it and/or modify
+  it under the terms of the GNU General Public License as published by
+  the Free Software Foundation, either version 3 of the License, or
+  (at your option) any later version.
 
-    This program is distributed in the hope that it will be useful,
-    but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-    GNU General Public License for more details.
+  This program is distributed in the hope that it will be useful,
+  but WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+  GNU General Public License for more details.
 *)
 
 scilla_version 0
 
 (*************************)
-(* The TyronInit library *)
+(* The init.tyron library *)
 (*************************)
 
-library TyronInit
-    (* Messages *)
-    (************)
-    let one_msg =
-        fun (msg: Message) =>
-        let nil_msg = Nil {Message} in
-        Cons {Message} msg nil_msg
+library Init
 
-    (* Constants *)
-    (*************)
-    let zero = Uint128 0
+  (* Messages *)
+  (************)
+  let one_msg =
+    fun (msg: Message) =>
+    let nil_msg = Nil {Message} in
+    Cons {Message} msg nil_msg
 
-    (* Error events *)
-    (****************)
-    type Error =
-    | CodeNotPungtas
+  (* Constants *)
+  (*************)
+  let zero = Uint128 0
+  
+  (* Error events *)
+  (****************)
+  type Error =
+    | CodeNotFoundation
+    | CodeInsufficientFunds
+    | CodeDomainTaken
 
-    let make_error =
-        fun (result : Error) =>
-        let result_code = 
-            match result with
-            | CodeNotPungtas    => Int32 -1
-            end
-        in
-        { _exception : "Error"; code : result_code }
+  let make_error =
+    fun (result : Error) =>
+      let result_code = 
+        match result with
+          | CodeNotFoundation       => Int32 -1
+          | CodeInsufficientFunds   => Int32 -2
+          | CodeDomainTaken         => Int32 -3
+        end
+      in
+      {_exception : "Error"; code : result_code}
 
-(********************************)
-(* The TyronInit smart-contract *)
-(********************************)
+(*********************************)
+(* The init.tyron Smart-Contract *)
+(*********************************)
 
-contract TyronInit(
+contract Init(
+
 (* Immutable fields declaration *)
 (********************************)
-    pungtas_addr: ByStr20        (* address of the Pungtas Danish Foundation *)
-)
+  (* The address of the Tyron Pungtas Foundation *)
+  foundationAddr: ByStr20,
+  
+  (* The contract's domain name, e.g. "did" *)
+  domainName: String,
+  
+  (* The previously registered records *)
+  initialRecords: Map String ByStr20
+  )
 
 (* Mutable fields declaration *)
 (******************************)
-    field tyron_smart_contracts: Map String String = Emp String String        (* key: version, value: encoded Base64URL *)
-    field operation_cost: Uint128 = Uint128 1000000000000        (* the cost of processing a DID operation - the initial cost is equal to 1 ZIL *)
-    field client_commission: Uint128 = Uint128 49        (* the % of the operation_cost that the client gets as payment *)       
 
+  (* The DID-Smart-Contract code by version
+  @key: version
+  @value: Base64-encoded code *)
+  field did_sc_code: Map String String = Emp String String
+  
+  (* The cost of each DID operation *)
+  field operation_cost: Uint128 = zero
+  
+  (* The client's commission as a % of the operation_cost *)
+  field client_commission: Uint128 = zero   
+  
+  (* The DNS records 
+  @key: domain_name
+  @value: address of the DID-SC *)
+  field records: Map String ByStr20 = initialRecords
+  
 (* Procedures *)
 (**************)
 
-    procedure ThrowError(err: Error)
-        e = make_error err;
-        throw e
-    end
+  (* The procedure to throw an error *)
+  procedure ThrowError(
+    err: Error
+    )
+      e = make_error err;
+      throw e
+  end
 
-    procedure IsPungtas()
-        is_pungtas = builtin eq pungtas_addr _sender;
-        match is_pungtas with
+  (* Validates that the call comes from the foundation *)
+  procedure IsFoundation()
+      is_foundation = builtin eq foundationAddr _sender;
+      match is_foundation with
         | True =>
         | False =>
-            err = CodeNotPungtas;
+            err = CodeNotFoundation;
             ThrowError err
-        end
-    end
+      end
+  end
+  
+  (* Executes the payment to the foundation *)
+  procedure Payment()
+      this_cost <- operation_cost;
+      (* To be accepted, the payment MUST be exact *)
+      payment_is_accepted = builtin eq _amount this_cost;
+      match payment_is_accepted with
+        | True =>
+            (* The contract accepts the incoming transfer *)
+            accept;
+            msg_to_foundation = {
+              _tag: "";
+              _recipient: foundationAddr;
+              _amount: _amount
+            };
+            msg = one_msg msg_to_foundation;
+            send msg
+        | False => 
+            err = CodeInsufficientFunds;
+            ThrowError err
+      end
+  end
 
 (* Transitions *)
 (***************)
-
-    transition Initialize()
-        this_cost <- operation_cost;
-        this_client_commission <- client_commission;
-        msg_init = {
-            _tag: "InitParameters";
-            _recipient: _sender;
-            _amount: zero;
-            operationCost: this_cost;
-            foundationAddress: pungtas_addr;
-            clientCommission: this_client_commission
-        };
-        init = one_msg msg_init;
-        send init
-    end
-
-    transition SetSmartContract(
-        version: String,
-        encodedContract: String
+  
+  (* Sets the DID-Smart-Contract code *)
+  transition SetDidCode(
+    version: String,
+    code: String
     )
-        IsPungtas;
-        tyron_smart_contracts[version] := encodedContract;
-        e = {
-            _eventname: "UpdatedTyronSmartContracts";
-            smart_contract_version: version;
-            encoded_smart_contract: encodedContract
-        };
-        event e
-    end
+      IsFoundation;
+      did_sc_code[version] := code;
+      e = {
+        _eventname: "UpdatedTyronSmartContracts";
+        did_sc_version: version;
+        did_sc_code: code
+      };
+      event e
+  end
+  
+  (* Sets the operation_cost *)
+  transition OperationCost(
+    cost: Uint128
+    )
+      IsFoundation;
+      operation_cost := cost
+  end
+  
+  (* Sets the client_commission *)
+  transition ClientCommission(
+    commission: Uint128
+    )
+      IsFoundation;
+      client_commission := commission
+  end
+  
+  (* Called by the DID-SC to set the operation_cost, foundation_address & client_commission *)
+  transition Initialize()
+      this_cost <- operation_cost;
+      this_client_commission <- client_commission;
+      msg_init = {
+        _tag: "InitParameters";
+        _recipient: _sender;
+        _amount: zero;
+        operationCost: this_cost;
+        foundationAddress: foundationAddr;
+        clientCommission: this_client_commission
+      };
+      init = one_msg msg_init;
+      send init
+  end
+  
+  (* Sets a domain in the DNS records *)
+  transition SetDomain(
+    domain: String
+    )
+      Payment;
+      taken <- exists records[domain];
+      match taken with
+        | True =>
+            err = CodeDomainTaken;
+            ThrowError err
+        | False =>
+            records[domain] := _sender
+      end
+  end
