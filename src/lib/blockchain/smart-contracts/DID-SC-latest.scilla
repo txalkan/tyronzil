@@ -1,5 +1,5 @@
 (*
-  TyronZIL: Decentralized identity application powered by the Zilliqa blockchain platform
+  Tyron: Decentralized identity application powered by Zilliqa
   Copyright (C) 2020 Julio Cesar Cabrapan Duarte
 
   This program is free software: you can redistribute it and/or modify
@@ -52,7 +52,7 @@ library DID
   
   (* Error events *)
   (****************)
-type Error =
+  type Error =
     | CodeNotTyron
     | CodeInsufficientFunds
     | CodeNotClient
@@ -87,13 +87,13 @@ contract DID(
 (* Immutable fields declaration *)
 (********************************)
   (* The user is the owner of their DID-SC *)
-  contract_owner: ByStr20,
+  contractOwner: ByStr20,
   (* The address of the init.tyron contract *)
-  init_tyron: ByStr20
+  initTyron: ByStr20
   )
     with
       let init_contract = 0x08392647c23115f1d027b9d2bbcc9f532b0f003a in
-      builtin eq init_contract init_tyron
+      builtin eq init_contract initTyron
     =>
 
 (* Mutable fields declaration *)
@@ -117,7 +117,7 @@ contract DID(
   field did_recovery_key: Option ByStr33 = None{ByStr33}
   
   (* The address of the user's client *)
-  field client_address: ByStr20 = contract_owner
+  field client_address: ByStr20 = contractOwner
   
   (* The block number when the DID-Create operation occurred *)
   field created: BNum = BNum 0
@@ -133,7 +133,7 @@ contract DID(
   field operation_cost: Uint128 = Uint128 0
   
   (* The address of the Tyron Pungtas Foundation *)
-  field foundation_address: ByStr20 = contract_owner
+  field foundation_address: ByStr20 = contractOwner
   
   (* The client's commission as a % of the operation_cost *)
   field client_commission: Uint128 = Uint128 0
@@ -165,7 +165,7 @@ contract DID(
   
   (* Validates that the call comes from the init.tyron contract *)
   procedure IsTyron()
-      is_tyron = builtin eq init_tyron _sender;
+      is_tyron = builtin eq initTyron _sender;
       match is_tyron with
         | True =>
         | False =>
@@ -188,7 +188,7 @@ contract DID(
   
   (* Validates that the call comes from the user *)
   procedure IsOwner()
-      is_owner = builtin eq contract_owner _sender;
+      is_owner = builtin eq contractOwner _sender;
       match is_owner with
         | True =>
         | False =>
@@ -197,7 +197,7 @@ contract DID(
       end
   end
   
-  (* Verifies that the public key matches the contract_owner address *)
+  (* Verifies that the public key matches the contractOwner address *)
   procedure IsOwnerKey(
     pubk: ByStr33
     )
@@ -210,7 +210,7 @@ contract DID(
       hex_addr =
         let hex = "0x" in
         builtin concat hex addr;
-      addr_owner = builtin to_string contract_owner;
+      addr_owner = builtin to_string contractOwner;
       is_owner = builtin eq hex_addr addr_owner;
       match is_owner with
         | True =>
@@ -343,7 +343,7 @@ contract DID(
       client_address := clientAddress;
       msg_init = {
         _tag: "Initialize";
-        _recipient: init_tyron;
+        _recipient: initTyron;
         _amount: zero
       };
       init = one_msg msg_init;
@@ -485,7 +485,7 @@ contract DID(
       Timestamp
   end
 
-  (* Updates the user's client - only the contract_owner can execute this transition *)
+  (* Updates the user's client - only the contractOwner can execute this transition *)
   transition UpdateClient(
     newClientAddress: ByStr20
     )
