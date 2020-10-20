@@ -88,12 +88,14 @@ contract DID(
 (********************************)
   (* The user is the owner of their DID-SC *)
   contractOwner: ByStr20,
+  
   (* The address of the init.tyron contract *)
-  initTyron: ByStr20
+  initTyron: ByStr20,
+  initCost: Uint128
   )
     with
-      let init_contract = 0x08392647c23115f1d027b9d2bbcc9f532b0f003a in
-      builtin eq init_contract initTyron
+      let init = 0x4bddd134b67589959ef6299d074ef908c1d2c07d in
+      builtin eq init initTyron
     =>
 
 (* Mutable fields declaration *)
@@ -130,7 +132,7 @@ contract DID(
 
   (* The following fields are determined by the init.tyron contract *)
   (* The cost of each DID operation *)
-  field operation_cost: Uint128 = Uint128 0
+  field operation_cost: Uint128 = initCost
   
   (* The address of the Tyron Pungtas Foundation *)
   field foundation_address: ByStr20 = contractOwner
@@ -289,8 +291,8 @@ contract DID(
   procedure Payment()
       this_cost <- operation_cost;
       (* To be accepted, the payment MUST be exact *)
-      payment_is_accepted = builtin eq _amount this_cost;
-      match payment_is_accepted with
+      amount_is_correct = builtin eq _amount this_cost;
+      match amount_is_correct with
         | True =>
             (* The DID-SC accepts the incoming transfer *)
             accept;
@@ -362,6 +364,29 @@ contract DID(
       client_commission := clientCommission;
       new_status = Initialized;
       did_status := new_status
+  end
+  
+  (* Sets the domain.did for the Decentralized Identifier *)
+  transition DomainDid(
+    domain: String
+    )
+      this_cost <- operation_cost;
+      amount_is_correct = builtin eq _amount this_cost;
+      match amount_is_correct with
+        | True =>
+            accept;
+            msg_domain = {
+              _tag: "SetDomain";
+              _recipient: initTyron;
+              _amount: _amount;
+              domain: domain
+            };
+            setDomain = one_msg msg_domain;
+            send setDomain
+        | False => 
+            err = CodeInsufficientFunds;
+            ThrowError err
+      end
   end
 
   (* Executes a Tyron DID-Create operation *)
