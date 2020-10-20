@@ -1,5 +1,5 @@
 <div align="center">
-<img src="./files/tyronzil-logo.png" alt="tyronZIL" title="tyronZIL-v0.4-logo" width="300"/>
+<img src="./files/tyronzil-logo.png" alt="tyronZIL" title="tyronZIL-v0.4-logo" width="400"/>
 </div>
 <div align="center">
  <p><b>Own your data, empower your world!</b></p>
