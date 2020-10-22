@@ -14,6 +14,7 @@
 *)
 
 scilla_version 0
+import BoolUtils
 
 (****************************)
 (* The Tyron DID-SC Library *)
@@ -21,8 +22,8 @@ scilla_version 0
 
 library DID
 
-  (* Messages *)
-  (************)
+(* Messages *)
+(************)
   let one_msg = 
     fun(msg: Message) => 
     let nil_msg = Nil{Message} in
@@ -34,7 +35,8 @@ library DID
       let msgs_tmp = one_msg msg2 in
       Cons{Message} msg1 msgs_tmp
 
-  (* The DidStatus ADT *)
+(* The DidStatus ADT *)
+(*********************)
   type DidStatus =
     | Undefined
     | Initialized
@@ -43,18 +45,18 @@ library DID
     | Recovered
     | Deactivated
   
-  (* Constants *)
-  (*************)    
+(* Constants *)
+(*************)    
   let zero = Uint128 0
   let hundred = Uint128 100
   let undefined = "undefined"
   let deactivated = "deactivated"
   
-  (* Error events *)
-  (****************)
+(* Error events *)
+(****************)
   type Error =
     | CodeNotTyron
-    | CodeInsufficientFunds
+    | CodeWrongAmount
     | CodeNotClient
     | CodeWrongStatus
     | CodeNotOwner
@@ -67,7 +69,7 @@ library DID
       let result_code = 
         match result with
           | CodeNotTyron              => Int32 -1
-          | CodeInsufficientFunds     => Int32 -2
+          | CodeWrongAmount           => Int32 -2
           | CodeNotClient             => Int32 -3
           | CodeWrongStatus           => Int32 -4
           | CodeNotOwner              => Int32 -5
@@ -86,20 +88,27 @@ contract DID(
 
 (* Immutable fields declaration *)
 (********************************)
+
   (* The user is the owner of their DID-SC *)
   contractOwner: ByStr20,
   
-  (* The address of the init.tyron contract *)
+  (* The address of the init.tyron SC *)
   initTyron: ByStr20,
-  initCost: Uint128
+  
+  (* The address of the XSGD Proxy SC*)
+  xsgdProxy: ByStr20
   )
-    with
-      let init = 0x4bddd134b67589959ef6299d074ef908c1d2c07d in
-      builtin eq init initTyron
-    =>
+      with
+        let init = 0x5b166e13ed3ddbc450f9d8a599f8f09955e123a1 in
+        let init_ok = builtin eq init initTyron in
+        let xsgd = 0x7f4a28aABdE4CCa04b5529EAcB64b1449b317e7F in
+        let xsgd_ok = builtin eq xsgd xsgdProxy in
+        andb init_ok xsgd_ok
+      =>
 
 (* Mutable fields declaration *)
 (******************************)
+
   (* The Tyron DID *)
   field decentralized_identifier: String = undefined
   
@@ -129,21 +138,28 @@ contract DID(
   
   (* A monotonically increasing number representing the amount of DID operations that have taken place *)
   field transaction_number: Uint128 = Uint128 0
-
-  (* The following fields are determined by the init.tyron contract *)
-  (* The cost of each DID operation *)
-  field operation_cost: Uint128 = initCost
   
-  (* The address of the Tyron Pungtas Foundation *)
-  field foundation_address: ByStr20 = contractOwner
-  
-  (* The client's commission as a % of the operation_cost *)
-  field client_commission: Uint128 = Uint128 0
+  (* The current address of the init.tyron SC *)
+  field init_tyron: ByStr20 = initTyron
 
+  (* The following fields are determined by the init.tyron SC in the InitCallBack transition *)
+      (* The cost of each DID operation *)
+      field operation_cost: Uint128 = Uint128 0
+      
+      (* The address of the Tyron Pungtas Foundation *)
+      field foundation_address: ByStr20 = contractOwner
+      
+      (* The client's commission as a % of the operation_cost *)
+      field client_commission: Uint128 = Uint128 0
+  
+  (* The current address of the XSGD Proxy SC *)
+  field xsgd_proxy: ByStr20 = xsgdProxy
+
+(**************)
 (* Procedures *)
 (**************)
 
-  (* The Tyron DID-Scheme - this procedure generates the user's Decentralized Identifier & the Tyron Hash *)
+(* The Tyron DID-Scheme - this procedure generates the user's Decentralized Identifier & the Tyron Hash *)
   procedure DidScheme()
       this_did =
         let did_prefix = "did:tyron:zil:test:" in
@@ -157,7 +173,7 @@ contract DID(
       tyron_hash := th
   end
   
-  (* The procedure to throw an error *)
+(* The procedure to throw an error *)
   procedure ThrowError(
     err: Error
     )
@@ -165,7 +181,7 @@ contract DID(
       throw e
   end
   
-  (* Validates that the call comes from the init.tyron contract *)
+(* Validates that the call comes from the init.tyron contract *)
   procedure IsTyron()
       is_tyron = builtin eq initTyron _sender;
       match is_tyron with
@@ -176,7 +192,7 @@ contract DID(
       end
   end
   
-  (* Validates that the call comes from the client *)
+(* Validates that the call comes from the client *)
   procedure IsClient()
       this_client <- client_address;
       is_client = builtin eq this_client _sender;
@@ -188,7 +204,7 @@ contract DID(
       end
   end
   
-  (* Validates that the call comes from the user *)
+(* Validates that the call comes from the user *)
   procedure IsOwner()
       is_owner = builtin eq contractOwner _sender;
       match is_owner with
@@ -199,7 +215,7 @@ contract DID(
       end
   end
   
-  (* Verifies that the public key matches the contractOwner address *)
+(* Verifies that the public key matches the contractOwner address *)
   procedure IsOwnerKey(
     pubk: ByStr33
     )
@@ -222,7 +238,7 @@ contract DID(
       end
   end
   
-  (* Verifies that the status is 'Initialized' - needed for the DID-Create operation *)
+(* Verifies that the status is 'Initialized' - needed for the DID-Create operation *)
   procedure IsInitialized()
       this_status <- did_status;
       match this_status with
@@ -233,7 +249,7 @@ contract DID(
       end
   end
   
-  (* Verifies that the did_status is neither Deactivated nor Initialized, to execute a DID-Update, Recover or Deactivate operation *)
+(* Verifies that the did_status is neither Deactivated nor Initialized, to execute a DID-Update, Recover or Deactivate operation *)
   procedure IsRightStatus()
       this_status <- did_status;
       match this_status with
@@ -246,7 +262,7 @@ contract DID(
       end
   end
   
-  (* Verifies the Schnorr signature that comes with the signedData corresponds with the public DID-Keys stored in the contract *)
+(* Verifies the Schnorr signature that comes with the signedData corresponds with the public DID-Keys stored in the contract *)
   procedure IsRightSignature(
     signedData: ByStr,
     sig: ByStr64,
@@ -267,7 +283,7 @@ contract DID(
       end
   end
   
-  (* Validates that the new public DID-Key is different from before *)
+(* Validates that the new public DID-Key is different from before *)
   procedure IsValidKey(
     didKey: Option ByStr33,
     key: ByStr33
@@ -287,7 +303,7 @@ contract DID(
     end
   end
   
-  (* Executes the payment to the client and foundation *)
+(* Executes the payment to the client and foundation *)
   procedure Payment()
       this_cost <- operation_cost;
       (* To be accepted, the payment MUST be exact *)
@@ -318,12 +334,12 @@ contract DID(
             msgs = two_msgs msg_to_client msg_to_foundation;
             send msgs
         | False => 
-            err = CodeInsufficientFunds;
+            err = CodeWrongAmount;
             ThrowError err
       end
   end
   
-  (* Generates a timestamp *)
+(* Generates a timestamp *)
   procedure Timestamp()
       this_block <- & BLOCKNUMBER;
       ledger_time := this_block;
@@ -334,12 +350,13 @@ contract DID(
       transaction_number := new_tx_number
   end
 
+(***************)
 (* Transitions *)
 (***************)
   
-  (* Sets the address of the user's client - permissionless (anyone can be a client)
-   * Sends a message to the init.tyron contract that in return calls the InitParameters transition *)
-  transition ContractInit(
+(* Sets the address of the user's client - permissionless (anyone can be a client)
+ * Sends a message to the init.tyron contract that in return calls the InitParameters transition *)
+  transition Init(
     clientAddress: ByStr20
     )
       client_address := clientAddress;
@@ -352,8 +369,8 @@ contract DID(
       send init
   end
   
-  (* The init.tyron contract calls this transition to set the operation_cost, foundation_address & client_commission *)
-  transition InitParameters(
+(* The init.tyron contract calls this transition to set the operation_cost, foundation_address & client_commission *)
+  transition InitCallBack(
     operationCost: Uint128,
     foundationAddress: ByStr20,
     clientCommission: Uint128
@@ -365,31 +382,8 @@ contract DID(
       new_status = Initialized;
       did_status := new_status
   end
-  
-  (* Sets the domain.did for the Decentralized Identifier *)
-  transition DomainDid(
-    domain: String
-    )
-      this_cost <- operation_cost;
-      amount_is_correct = builtin eq _amount this_cost;
-      match amount_is_correct with
-        | True =>
-            accept;
-            msg_domain = {
-              _tag: "SetDomain";
-              _recipient: initTyron;
-              _amount: _amount;
-              domain: domain
-            };
-            setDomain = one_msg msg_domain;
-            send setDomain
-        | False => 
-            err = CodeInsufficientFunds;
-            ThrowError err
-      end
-  end
 
-  (* Executes a Tyron DID-Create operation *)
+(* Executes a Tyron DID-Create operation *)
   transition DidCreate(
     document: ByStr,
     didContractOwner: ByStr33,
@@ -426,7 +420,7 @@ contract DID(
       end
   end
   
-  (* Executes a Tyron DID-Recover operation *)
+(* Executes a Tyron DID-Recover operation *)
   transition DidRecover(
     newDocument: ByStr,
     signature: ByStr64,
@@ -461,7 +455,7 @@ contract DID(
       end
   end
   
-  (* Executes a Tyron DID-Update operation *)
+(* Executes a Tyron DID-Update operation *)
   transition DidUpdate(
     newDocument: ByStr,
     signature: ByStr64,
@@ -484,7 +478,7 @@ contract DID(
       Timestamp
   end
   
-  (* Executes a Tyron DID-Deactivate operation *)
+(* Executes a Tyron DID-Deactivate operation *)
   transition DidDeactivate(
     signature: ByStr64
     )
@@ -510,7 +504,7 @@ contract DID(
       Timestamp
   end
 
-  (* Updates the user's client - only the contractOwner can execute this transition *)
+(* Updates the user's client - only the contractOwner can execute this transition *)
   transition UpdateClient(
     newClientAddress: ByStr20
     )
@@ -521,4 +515,70 @@ contract DID(
         new_client_address: newClientAddress
       };
       event e
+  end
+  
+(* Sets the avatar.did for the Decentralized Identifier *)
+  transition SetDomain(
+    avatar: String
+    )
+      IsRightStatus;
+      this_cost <- operation_cost;
+      amount_is_correct = builtin eq _amount this_cost;
+      match amount_is_correct with
+        | True =>
+            accept;
+            msg = {
+              _tag: "SetDomain";
+              _recipient: initTyron;
+              _amount: _amount;
+              domain: avatar
+            };
+            msg_domain = one_msg msg;
+            send msg_domain
+        | False => 
+            err = CodeWrongAmount;
+            ThrowError err
+      end
+  end
+
+
+(* Callback transition - no action required, but must be defined, since transfers from this wallet will fail otherwise *)
+  transition TransferSuccessCallBack(
+    sender: ByStr20, 
+    recipient: ByStr20,
+    amount : Uint128
+    )
+  end
+
+(* Acceptance transition - no action required, but must be defined, since transfers to this wallet will fail otherwise *)
+  transition RecipientAcceptTransfer(
+    sender : ByStr20,
+    recipient : ByStr20,
+    amount : Uint128
+    )
+end
+
+(* *)
+
+(* Transfers XSGD stablecoins *)
+  transition TransferXSDG(
+    to: ByStr20,
+    amount: Uint128
+    ) 
+      IsRightStatus;
+      current_proxy <- xsgd_proxy;
+      msg = {
+        _tag: "Transfer";
+        _recipient: current_proxy;
+        _amount: zero;
+        to: to;
+        amount: amount
+      };
+      msg_xsgd = one_msg msg;
+      send msg_xsgd
+  end
+
+(* Adds native funds (ZIL) to the DID-Wallet *)
+  transition AddFunds()
+    accept
   end

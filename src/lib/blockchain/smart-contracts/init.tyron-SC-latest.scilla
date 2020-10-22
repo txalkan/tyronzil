@@ -58,14 +58,12 @@ contract Init(
 
 (* Immutable fields declaration *)
 (********************************)
+
   (* The address of the Tyron Pungtas Foundation *)
   foundationAddr: ByStr20,
   
   (* The contract's domain name, e.g. "did" *)
-  domainName: String,
-  
-  (* The previously registered records *)
-  initialRecords: Map String ByStr20
+  domainName: String
   )
 
 (* Mutable fields declaration *)
@@ -85,7 +83,7 @@ contract Init(
   (* The DNS records 
   @key: domain_name
   @value: address of the DID-SC *)
-  field records: Map String ByStr20 = initialRecords
+  field records: Map String ByStr20 = Emp String ByStr20
   
 (* Procedures *)
 (**************)
@@ -113,8 +111,8 @@ contract Init(
   procedure Payment()
       this_cost <- operation_cost;
       (* To be accepted, the payment MUST be exact *)
-      payment_is_accepted = builtin eq _amount this_cost;
-      match payment_is_accepted with
+      amount_is_correct = builtin eq _amount this_cost;
+      match amount_is_correct with
         | True =>
             (* The contract accepts the incoming transfer *)
             accept;
@@ -170,7 +168,7 @@ contract Init(
       this_cost <- operation_cost;
       this_client_commission <- client_commission;
       msg_init = {
-        _tag: "InitParameters";
+        _tag: "InitCallBack";
         _recipient: _sender;
         _amount: zero;
         operationCost: this_cost;
