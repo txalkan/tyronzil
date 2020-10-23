@@ -20,7 +20,7 @@ import { OperationType } from '../decentralized-identity/sidetree-protocol/sidet
 import ErrorCode from '../decentralized-identity/util/ErrorCode';
 
 export default class TyronState {
-    public readonly contract_owner: string;
+    public readonly contractOwner: string;
     public readonly decentralized_identifier: string;
     public readonly tyron_hash: string;
     public readonly did_status: OperationType;
@@ -35,7 +35,7 @@ export default class TyronState {
     private constructor(
         state: TyronStateModel
     ) {
-        this.contract_owner = state.contract_owner;
+        this.contractOwner = state.contractOwner;
         this.decentralized_identifier = state.decentralized_identifier;
         this.tyron_hash = state.tyron_hash;
         this.did_status = state.did_status as OperationType;
@@ -74,7 +74,7 @@ export default class TyronState {
                     throw new ErrorCode("DidDeactivated", "The requested DID is deactivated");
                 default:
                     const STATE: TyronStateModel = {
-                        contract_owner: contract_owner as string,
+                        contractOwner: contract_owner as string,
                         decentralized_identifier: String(SMART_CONTRACT_STATE.result.decentralized_identifier),
                         tyron_hash: await SmartUtil.getValue(SMART_CONTRACT_STATE.result.tyron_hash),
                         did_status: STATUS,
@@ -98,7 +98,7 @@ export default class TyronState {
 
 /** The Tyron State Model */
 export interface TyronStateModel {
-    contract_owner: string;
+    contractOwner: string;
     decentralized_identifier: string;
     tyron_hash: string;
     did_status: string;

@@ -15,7 +15,7 @@
 
 import * as zcrypto from '@zilliqa-js/crypto';
 import { OperationType, Sidetree } from '../sidetree-protocol/sidetree';
-import { Cryptography } from '../util/did-keys';
+import { Cryptography, TyronPrivateKeys } from '../util/did-keys';
 import { PatchModel } from '../sidetree-protocol/models/document-model';
 import DidState from '../did-state';
 
@@ -26,8 +26,7 @@ export default class DidUpdate{
     public readonly newDocument: string;
     public readonly signature: string;
     public readonly newUpdateKey: string;
-    public readonly privateKey?: string[];
-    public readonly newUpdatePrivateKey: string;
+    public readonly privateKeys: TyronPrivateKeys;
     
     private constructor (
         operation: UpdateOperationModel
@@ -36,8 +35,7 @@ export default class DidUpdate{
         this.newDocument = "0x"+ operation.newDocument;
         this.signature = "0x"+ operation.signature;
         this.newUpdateKey = "0x"+ operation.newUpdateKey;
-        this.privateKey = operation.privateKey;
-        this.newUpdatePrivateKey = operation.newUpdatePrivateKey;
+        this.privateKeys = operation.privateKeys;
     }
 
     /***            ****            ***/
@@ -53,7 +51,11 @@ export default class DidUpdate{
             const SIGNATURE = zcrypto.sign(Buffer.from(DOC_HEX, 'hex'), input.updatePrivateKey, PREVIOUS_UPDATE_KEY);
             
             // Generates key-pair for the next DID-Update operation
-            const [NEW_UPDATE_KEY, NEW_UPDATE_PRIVATE_KEY] = await Cryptography.keyPair();
+            const [NEW_UPDATE_KEY, NEW_UPDATE_PRIVATE_KEY] = await Cryptography.keyPair("update");
+            update.privateKeys.push(NEW_UPDATE_PRIVATE_KEY);
+
+            const PRIVATE_KEYS = await Cryptography.processKeys(update.privateKeys);
+
 
             /** Output data from a Tyron `DID-Update` operation */
             const OPERATION_OUTPUT: UpdateOperationModel = {
@@ -61,8 +63,7 @@ export default class DidUpdate{
                 newDocument: DOC_HEX,
                 signature: SIGNATURE,
                 newUpdateKey: NEW_UPDATE_KEY,
-                newUpdatePrivateKey: NEW_UPDATE_PRIVATE_KEY,
-                privateKey: update.privateKey
+                privateKeys: PRIVATE_KEYS
             };
             return new DidUpdate(OPERATION_OUTPUT);
         })
@@ -86,6 +87,5 @@ interface UpdateOperationModel {
     newDocument: string;
     signature: string;
     newUpdateKey: string;
-    privateKey?: string[];
-    newUpdatePrivateKey: string;
+    privateKeys: TyronPrivateKeys;
 }

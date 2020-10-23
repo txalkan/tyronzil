@@ -21,47 +21,74 @@ import { DidServiceEndpointModel } from '../lib/decentralized-identity/sidetree-
 import { PublicKeyPurpose } from '../lib/decentralized-identity/sidetree-protocol/models/verification-method-models';
 import { NetworkNamespace } from '../lib/decentralized-identity/tyronZIL-schemes/did-scheme';
 import ErrorCode from '../lib/decentralized-identity/util/ErrorCode';
+import { TyronPrivateKeys } from '../lib/decentralized-identity/util/did-keys';
 
 export default class Util {
 
     /** Generates the keys' input */
     public static async InputKeys(): Promise<PublicKeyInput[]> {
         console.log(LogColors.brightGreen(`Cryptographic keys for your Decentralized Identifier: `))
-        const amount = readline.question(LogColors.green(`How many keys would you like to add? - `) + LogColors.lightBlue(`Your answer: `));
-        if(!Number(amount) || Number(amount) < 0){
-            throw new ErrorCode("WrongAmount", "It must be a number greater than 0");
-        }
+        console.log(LogColors.brightGreen(`First, let's generate a key pair for your XSGD stablecoins...`))
         
-        const KEYS = [];
         const KEY_ID_SET: Set<string> = new Set();
+        const KEYS = [];
         
+        const XSGD_KEY: PublicKeyInput = {
+            id: PublicKeyPurpose.XSGD
+        };
+        KEY_ID_SET.add(XSGD_KEY.id)
+        KEYS.push(XSGD_KEY);
+
+        console.log(LogColors.brightGreen(`Done! You can have a key for each of the following purposes:
+        General(1),
+        Authentication(2),
+        Assertion(3),
+        Agreement(4),
+        Invocation(5), &
+        Delegation(6)`));
+
+        const amount = readline.question(LogColors.green(`How many of them would you like to have?`) + ` - up to [6] - ` + LogColors.lightBlue(`Your answer: `));
+        if(Number(amount)> 6) {
+            throw new ErrorCode("IncorrectAmount", "You may only have up to 6 keys, one for each purpose")
+        }
         for(let i=0, t= Number(amount); i<t; ++i) {
-            const id = readline.question(LogColors.green(`Next, write down your key ID - `) + LogColors.lightBlue(`Your answer: `));
+            const id = readline.question(LogColors.green(`Next, choose your key purpose`) + ` - [1/2/3/4/5/6] - ` + LogColors.lightBlue(`Your answer: `));
             if (id === "") {
-                throw new ErrorCode("InvalidID", `To register a key you must provide its ID`);
+                throw new ErrorCode("InvalidID", `To register a key you must provide a valid purpose`);
             }
-            const purpose = readline.question(LogColors.green(`What is the key purpose: general(1), authentication(2) or both(3)?`) + ` [1/2/3] - Defaults to both - ` + LogColors.lightBlue(`Your answer: `));
             let PURPOSE;
-            switch (Number(purpose)) {
+            switch (Number(id)) {
                 case 1:
-                    PURPOSE = [PublicKeyPurpose.General];
+                    PURPOSE = PublicKeyPurpose.General;
                     break;
                 case 2:
-                    PURPOSE = [PublicKeyPurpose.Auth];
+                    PURPOSE = PublicKeyPurpose.Auth;
+                    break;
+                case 3:
+                    PURPOSE = PublicKeyPurpose.Assertion;
+                    break;
+                case 4:
+                    PURPOSE = PublicKeyPurpose.Agreement;
+                    break;
+                case 5:
+                    PURPOSE = PublicKeyPurpose.Invocation;
+                    break;
+                case 6:
+                    PURPOSE = PublicKeyPurpose.Delegation;
                     break;
                 default:
-                    PURPOSE = [PublicKeyPurpose.General, PublicKeyPurpose.Auth];
-                    break;
+                    throw new ErrorCode("InvalidID", `To register a key you must provide a valid purpose`);
             }
             const KEY: PublicKeyInput = {
-                id: id,
-                purpose: PURPOSE
+                id: PURPOSE
             }
-            if(!KEY_ID_SET.has(id)) {
-                KEYS.push(KEY);
-            } else {
+
+            // IDs MUST be unique
+            if(KEY_ID_SET.has(id)) {
                 throw new ErrorCode("DuplicatedID", "The key IDs MUST NOT be duplicated");
             }
+            KEY_ID_SET.add(id);
+            KEYS.push(KEY);
         }
         return KEYS;
     }
@@ -97,19 +124,18 @@ export default class Util {
                 endpoint: "https://" + endpoint
             }
 
-            // IDs must be unique
+            // IDs MUST be unique
             if (SERVICE_ID_SET.has(id)) {
-                throw new ErrorCode("CodeDocumentServiceIdDuplicated", "The service's ID MUST NOT be duplicated" );
+                throw new ErrorCode("CodeDocumentServiceIdDuplicated", "The service IDs MUST NOT be duplicated" );
             }
             SERVICE_ID_SET.add(id);
-            
             SERVICE.push(SERVICE_ENDPOINT);
         }
         return SERVICE;
     }
 
     /** Saves the private keys */
-    public static async savePrivateKeys(did: string, keys: PrivateKeys): Promise<void> {
+    public static async savePrivateKeys(did: string, keys: TyronPrivateKeys): Promise<void> {
         const KEY_FILE_NAME = `DID_PRIVATE_KEYS_${did}.json`;
         fs.writeFileSync(KEY_FILE_NAME, JSON.stringify(keys, null, 2));
         console.info(LogColors.yellow(`Private keys saved as: ${LogColors.brightYellow(KEY_FILE_NAME)}`));
@@ -136,12 +162,5 @@ export interface CliInputModel {
 }
   
 export interface PublicKeyInput {
-    id: string;
-    purpose: PublicKeyPurpose[];
-}
-
-export interface PrivateKeys {
-    privateKeys?: string[],
-    updatePrivateKey?: string,
-    recoveryPrivateKey?: string,
+    id: PublicKeyPurpose;
 }

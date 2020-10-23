@@ -15,7 +15,7 @@
 
 import * as zcrypto from '@zilliqa-js/crypto';
 import { OperationType } from '../sidetree-protocol/sidetree';
-import { Cryptography, OperationKeyPairInput } from '../util/did-keys';
+import { Cryptography, OperationKeyPairInput, TyronPrivateKeys, TyronPublicKeys } from '../util/did-keys';
 import { CliInputModel } from '../../../bin/util';
 import { DocumentModel } from '../sidetree-protocol/models/document-model';
 
@@ -30,9 +30,7 @@ export default class DidCreate {
     public readonly signature: string;
     public readonly updateKey: string;
     public readonly recoveryKey: string;
-    public readonly privateKey: string[];
-    public readonly updatePrivateKey: string;
-    public readonly recoveryPrivateKey: string;
+    public readonly privateKeys: TyronPrivateKeys;
     
     /***            ****            ***/
 
@@ -44,29 +42,26 @@ export default class DidCreate {
         this.signature = "0x" + operation.signature;
         this.updateKey = "0x"+ operation.updateKey;
         this.recoveryKey = "0x"+ operation.recoveryKey;
-        this.privateKey = operation.privateKey;
-        this.updatePrivateKey = operation.updatePrivateKey;
-        this.recoveryPrivateKey = operation.recoveryPrivateKey;
+        this.privateKeys = operation.privateKeys;
     }
 
     /***            ****            ***/
    
     /** Generates a Tyron `DID-Create` operation with input from the CLI */
     public static async execute(input: CliInputModel): Promise<DidCreate> {
-        const PUBLIC_KEYS = [];
-        const PRIVATE_KEYS = [];
-
-        const PUBLIC_KEY_INPUT = input.publicKeyInput;
-        for(const key_input of PUBLIC_KEY_INPUT) {
+        const PUBLIC_KEY_MODEL = [];
+        const PRIVATE_KEY_MODEL = [];
+        
+        for(const key_input of input.publicKeyInput) {
             // Creates the cryptographic key pair
             const KEY_PAIR_INPUT: OperationKeyPairInput = {
-                id: key_input.id,
-                purpose: key_input.purpose
+                id: key_input.id
             }
             const [PUBLIC_KEY, PRIVATE_KEY] = await Cryptography.operationKeyPair(KEY_PAIR_INPUT);
-            PUBLIC_KEYS.push(PUBLIC_KEY);
-            PRIVATE_KEYS.push(PRIVATE_KEY);
+            PUBLIC_KEY_MODEL.push(PUBLIC_KEY);
+            PRIVATE_KEY_MODEL.push(PRIVATE_KEY);
         }
+        const PUBLIC_KEYS = await Cryptography.processKeys(PUBLIC_KEY_MODEL) as TyronPublicKeys;
 
         /** The Sidetree Document Model */
         const DOCUMENT: DocumentModel = {
@@ -81,10 +76,14 @@ export default class DidCreate {
         const SIGNATURE = zcrypto.sign(Buffer.from(DOC_HEX, 'hex'), input.userPrivateKey!, DID_CONTRACT_OWNER);
             
         // Creates the update key-pair (necessary for the next update operation)
-        const [UPDATE_KEY, UPDATE_PRIVATE_KEY] = await Cryptography.keyPair();
-        
+        const [UPDATE_KEY, UPDATE_PRIVATE_KEY] = await Cryptography.keyPair("update");
+        PRIVATE_KEY_MODEL.push(UPDATE_PRIVATE_KEY);
+
         // Creates the recovery key-pair (necessary for next recovery or deactivate operation)
-        const [RECOVERY_KEY, RECOVERY_PRIVATE_KEY] = await Cryptography.keyPair();
+        const [RECOVERY_KEY, RECOVERY_PRIVATE_KEY] = await Cryptography.keyPair("recovery");
+        PRIVATE_KEY_MODEL.push(RECOVERY_PRIVATE_KEY);
+
+        const PRIVATE_KEYS = await Cryptography.processKeys(PRIVATE_KEY_MODEL);
         
         /** Output data from a Tyron `DID-Create` operation */
         const OPERATION_OUTPUT: CreateOperationModel = {
@@ -93,9 +92,7 @@ export default class DidCreate {
             signature: SIGNATURE,
             updateKey: UPDATE_KEY,
             recoveryKey: RECOVERY_KEY,
-            privateKey: PRIVATE_KEYS,
-            updatePrivateKey: UPDATE_PRIVATE_KEY,
-            recoveryPrivateKey: RECOVERY_PRIVATE_KEY  
+            privateKeys: PRIVATE_KEYS
         };
         return new DidCreate(OPERATION_OUTPUT);
     }
@@ -110,7 +107,5 @@ interface CreateOperationModel {
     signature: string;
     updateKey: string;
     recoveryKey: string;
-    privateKey: string[];
-    updatePrivateKey: string;
-    recoveryPrivateKey: string;
+    privateKeys: TyronPrivateKeys;
 }

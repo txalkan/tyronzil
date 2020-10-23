@@ -17,7 +17,7 @@ import DidCreate from '../lib/decentralized-identity/did-operations/did-create';
 import DidUpdate, { UpdateOperationInput } from '../lib/decentralized-identity/did-operations/did-update';
 import DidRecover, { RecoverOperationInput } from '../lib/decentralized-identity/did-operations/did-recover';
 import DidDeactivate, { DeactivateOperationInput } from '../lib/decentralized-identity/did-operations/did-deactivate';
-import Util, { CliInputModel, PrivateKeys } from './util';
+import Util, { CliInputModel } from './util';
 import TyronTransaction, { InitTyronSM, TransitionTag } from '../lib/blockchain/tyron-transaction';
 import DidScheme, { NetworkNamespace } from '../lib/decentralized-identity/tyronZIL-schemes/did-scheme';
 import DidState from '../lib/decentralized-identity/did-state';
@@ -60,7 +60,7 @@ export default class TyronCLI {
         const SET_NETWORK = this.network();
         const NETWORK = SET_NETWORK.network;
         
-        console.log(LogColors.brightGreen(`The user is the contract_owner of their Tyron DID-Smart-Contract (DID-SC)`));
+        console.log(LogColors.brightGreen(`The user is the contract owner of their Tyron DID-Smart-Contract (DID-SC)`));
         const user_addr = readline.question(LogColors.green(`What is the user's address?`) + ` - [Bech32 address] - ` + LogColors.lightBlue(`Your answer: `));
 
         const client_privateKey = readline.question(LogColors.green(`What is the client's private key?`) + ` - [Hex-encoded private key] - ` + LogColors.lightBlue(`Your answer: `));
@@ -79,7 +79,7 @@ export default class TyronCLI {
             const PUBLIC_KEYS = await Util.InputKeys();
             const SERVICE = await Util.InputService();
 
-            console.log(LogColors.brightGreen(`As the contract_owner, the user MUST sign their first DID-Document for the DID-SC to accept it.`));
+            console.log(LogColors.brightGreen(`As the contract owner, the user MUST sign their first DID-Document for the DID-SC to accept it.`));
             const user_privateKey = readline.question(LogColors.green(`What is the user's private key?`) + ` - [Hex-encoded private key] - ` + LogColors.lightBlue(`Your answer: `));
             
             const CLI_INPUT: CliInputModel = {
@@ -129,12 +129,7 @@ export default class TyronCLI {
             /***            ****            ***/
             
             // To save the private keys:
-            const PRIVATE_KEYS: PrivateKeys = {
-                privateKeys: didCreate.operation.privateKey,
-                updatePrivateKey: didCreate.operation.updatePrivateKey,
-                recoveryPrivateKey: didCreate.operation.recoveryPrivateKey,
-            };
-            await Util.savePrivateKeys(DID.did, PRIVATE_KEYS);
+            await Util.savePrivateKeys(DID.did, didCreate.operation.privateKeys);
         })
         .catch(err => console.error(LogColors.red(err)))            
     }
@@ -179,10 +174,9 @@ export default class TyronCLI {
             /** Resolves the Tyron DID */        
             await DidDoc.resolution(SET_NETWORK.network, RESOLUTION_INPUT)
             .then(async did_resolved => {
-                const DID_RESOLVED = did_resolved;
                 // Saves the DID-Document
-                const DID = DID_RESOLVED.id;
-                await DidDoc.write(DID, DID_RESOLVED);
+                const DID = did_resolved.id;
+                await DidDoc.write(DID, did_resolved);
             })
             .catch(err => { throw err })
         } catch (err) {
@@ -224,7 +218,7 @@ export default class TyronCLI {
                 cliInput: CLI_INPUT
             };
 
-            const OPERATION = await DidRecover.execute(RECOVER_INPUT) as DidRecover;
+            const OPERATION = await DidRecover.execute(RECOVER_INPUT);
             const TAG = TransitionTag.Recover;
             if(OPERATION !== undefined) {
                 console.log(LogColors.brightGreen(`Your ${TAG} request  got processed!`));
@@ -235,12 +229,7 @@ export default class TyronCLI {
             /***            ****            ***/
             
             // To save the private keys:
-            const PRIVATE_KEYS: PrivateKeys = {
-                privateKeys: OPERATION.privateKey,
-                updatePrivateKey: OPERATION.newUpdatePrivateKey,
-                recoveryPrivateKey: OPERATION.newRecoveryPrivateKey,
-            };
-            await Util.savePrivateKeys(OPERATION.decentralized_identifier, PRIVATE_KEYS);
+            await Util.savePrivateKeys(OPERATION.decentralized_identifier, OPERATION.privateKeys);
 
             return {
                 state: did_state,
@@ -366,11 +355,7 @@ export default class TyronCLI {
             /***            ****            ***/
 
             // To save the private keys:
-            const PRIVATE_KEYS: PrivateKeys = {
-                privateKeys: OPERATION.privateKey,
-                updatePrivateKey: OPERATION.newUpdatePrivateKey,
-            };
-            await Util.savePrivateKeys(OPERATION.decentralized_identifier, PRIVATE_KEYS)
+            await Util.savePrivateKeys(OPERATION.decentralized_identifier, OPERATION.privateKeys)
             
             return {
                 state: did_state,

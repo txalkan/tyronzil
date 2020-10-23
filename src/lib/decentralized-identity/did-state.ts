@@ -21,7 +21,7 @@ import { DocumentModel } from './sidetree-protocol/models/document-model';
 
 /** The Tyron DID-State */
 export default class DidState {
-    public readonly contract_owner: string;
+    public readonly contractOwner: string;
     public readonly decentralized_identifier: string;
     public readonly did_status: OperationType;
     public readonly tyron_hash: string;
@@ -35,7 +35,7 @@ export default class DidState {
     private constructor(
         state: DidStateModel
     ) {
-        this.contract_owner = state.contract_owner;
+        this.contractOwner = state.contractOwner;
         this.decentralized_identifier = state.decentralized_identifier;
         this.did_status = state.did_status;
         this.tyron_hash = state.tyron_hash;
@@ -54,7 +54,7 @@ export default class DidState {
             await DidUrlScheme.validate(tyron_state.decentralized_identifier);
             
             const THIS_STATE: DidStateModel = {
-                contract_owner: tyron_state.contract_owner,
+                contractOwner: tyron_state.contractOwner,
                 decentralized_identifier: tyron_state.decentralized_identifier,
                 did_status: tyron_state.did_status,
                 tyron_hash: tyron_state.tyron_hash,
@@ -73,7 +73,7 @@ export default class DidState {
 
 /** The state model of a Tyron Decentralized Identifier */
 export interface DidStateModel {
-    contract_owner: string;
+    contractOwner: string;
     decentralized_identifier: string;
     did_status: OperationType;
     tyron_hash: string;

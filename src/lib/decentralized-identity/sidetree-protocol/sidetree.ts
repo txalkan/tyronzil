@@ -16,8 +16,8 @@
 import { PublicKeyInput } from '../../../bin/util';
 import LogColors from '../../../bin/log-colors';
 import { PatchModel, DocumentModel, PatchAction } from './models/document-model';
-import { PublicKeyModel } from './models/verification-method-models';
-import { Cryptography, OperationKeyPairInput } from '../util/did-keys';
+import { PrivateKeyModel, PublicKeyModel, PublicKeyPurpose } from './models/verification-method-models';
+import { Cryptography, OperationKeyPairInput, TyronPublicKeys } from '../util/did-keys';
 import ErrorCode from '../util/ErrorCode';
 
 /** Operation types */
@@ -49,13 +49,15 @@ export class Sidetree {
     }
 
     public static async processPatches(patches: PatchModel[], doc: DocumentModel)
-    : Promise<{ patches: PatchModel[], doc: DocumentModel, privateKey: string[] }> {
-        let PUBLIC_KEYS = doc.public_keys;
+    : Promise<{ patches: PatchModel[], doc: DocumentModel, privateKeys: PrivateKeyModel[] }> {
+        let PUBLIC_KEYS = doc.public_keys as TyronPublicKeys;
+        const KEY_IDS = Object.keys(PUBLIC_KEYS)
         const KEY_ID_SET: Set<string> = new Set();
-        for(const key of PUBLIC_KEYS) {
+
+        for(const id of KEY_IDS) {
             // IDs must be unique
-            if(!KEY_ID_SET.has(key.id)) {
-                KEY_ID_SET.add(key.id);
+            if(!KEY_ID_SET.has(id)) {
+                KEY_ID_SET.add(id);
             } else {
                 throw new ErrorCode("KeyDuplicated", "The key ID must be unique");
             }
@@ -77,21 +79,19 @@ export class Sidetree {
         }
         
         const PATCHES = [];
-        const PRIVATE_KEYS: string[] = [];
+        let PRIVATE_KEYS: any;
+        let NEW_PUBLIC_KEYS;
         
         for(const patch of patches) {
             switch (patch.action) {
                 case PatchAction.AddKeys: 
                     if(patch.keyInput !== undefined) {
                         await this.addKeys(patch.keyInput, KEY_ID_SET)
-                        .then(new_keys => {
+                        .then(async new_keys => {
                             PATCHES.push(new_keys.patch);
-                            for (const key of new_keys.publicKey) {
-                                PUBLIC_KEYS.push(key)
-                            }
-                            for (const key of new_keys.privateKey) {
-                                PRIVATE_KEYS.push(key)
-                            }
+                            NEW_PUBLIC_KEYS = await Cryptography.processKeys(new_keys.publicKeys);
+                            Object.assign(PUBLIC_KEYS, NEW_PUBLIC_KEYS);
+                            PRIVATE_KEYS = new_keys.privateKeys;
                         })
                         .catch(err => { throw err })
                     } else {
@@ -105,16 +105,38 @@ export class Sidetree {
                         for(const id of ID) {
                             if(typeof id === 'string' && KEY_ID_SET.has(id)) {
                                    key_ids.push(id);
-                                   KEY_ID_SET.delete(id)
+                                   KEY_ID_SET.delete(id);
                                 } else {
                                     throw new ErrorCode("NotFound", "The key ID does not exist");
                                 }
                         }
-                        const IDs = new Set(key_ids);
-                        PUBLIC_KEYS = PUBLIC_KEYS.filter(key => !IDs.has(key.id));
 
-                        if(PUBLIC_KEYS.length === 0) {
-                            throw new ErrorCode("Insufficient", "The DID-Document must have at least one public key")
+                        for(const id of key_ids) {
+                            switch (id) {
+                                case PublicKeyPurpose.General:
+                                    delete PUBLIC_KEYS.general;               
+                                    break;
+                                case PublicKeyPurpose.Auth:
+                                    delete PUBLIC_KEYS.authentication
+                                    break;
+                                case PublicKeyPurpose.Assertion:
+                                    delete PUBLIC_KEYS.assertion;
+                                    break;
+                                case PublicKeyPurpose.Agreement:
+                                    delete PUBLIC_KEYS.agreement;
+                                    break;
+                                case PublicKeyPurpose.Invocation:
+                                    delete PUBLIC_KEYS.invocation;
+                                    break;
+                                case PublicKeyPurpose.Delegation:
+                                    delete PUBLIC_KEYS.delegation;
+                                    break;
+                                case PublicKeyPurpose.XSGD:
+                                    delete PUBLIC_KEYS.xsgd;
+                                    break;
+                                default:
+                                    throw new ErrorCode("InvalidID", `The client detected an invalid key ID`);
+                            }
                         }
                         PATCHES.push({
                             action: PatchAction.RemoveKeys,
@@ -173,7 +195,7 @@ export class Sidetree {
                 public_keys: PUBLIC_KEYS,
                 service_endpoints: SERVICES
             },
-            privateKey: PRIVATE_KEYS,
+            privateKeys: PRIVATE_KEYS,
         }
     }
 
@@ -185,8 +207,7 @@ export class Sidetree {
 
             /** To create the DID public key */
             const KEY_PAIR_INPUT: OperationKeyPairInput = {
-                id: KEY_INPUT.id,
-                purpose: KEY_INPUT.purpose
+                id: KEY_INPUT.id
             }
             if(idSet.has(KEY_INPUT.id)) {
                 throw new ErrorCode("KeyDuplicated", "The key ID must be unique");
@@ -202,8 +223,8 @@ export class Sidetree {
         };
         const NEW_KEYS: NewKeys = {
             patch: PATCH,
-            publicKey: PUBLIC_KEYS,
-            privateKey: PRIVATE_KEYS
+            publicKeys: PUBLIC_KEYS,
+            privateKeys: PRIVATE_KEYS
         }
         return NEW_KEYS;
         }
@@ -211,8 +232,9 @@ export class Sidetree {
 
 /***            ** interfaces **            ***/
 
+/** Keys generated by the DID-Update operation */
 interface NewKeys {
     patch: PatchModel;
-    publicKey: PublicKeyModel[];
-    privateKey: string[];
+    publicKeys: PublicKeyModel[];
+    privateKeys: PrivateKeyModel[];
 }

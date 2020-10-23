@@ -51,7 +51,8 @@ library DID
   let hundred = Uint128 100
   let undefined = "undefined"
   let deactivated = "deactivated"
-  
+  let xsgd = "xsgd"
+
 (* Error events *)
 (****************)
   type Error =
@@ -117,6 +118,11 @@ contract DID(
   
   (* The status of the DID *)
   field did_status: DidStatus = Undefined
+  
+  (* The Tyron verification methods
+   @key: purpose
+   @value: public key of type "SchnorrSecp256k1VerificationKey2019" *)
+  field verification_methods: Map String ByStr33 = Emp String ByStr33
   
   (* The DID-Document in JSON format, hexadecimal encoded *)
   field did_document: Option ByStr = None{ByStr}
@@ -558,14 +564,18 @@ contract DID(
     )
 end
 
-(* *)
-
 (* Transfers XSGD stablecoins *)
   transition TransferXSDG(
     to: ByStr20,
-    amount: Uint128
+    amount: Uint128,
+    signature: ByStr64
     ) 
       IsRightStatus;
+      xsgd_key <- verification_methods[xsgd];
+      signed_data =
+        let hash = builtin sha256hash to in
+        builtin to_bystr hash;
+      IsRightSignature signed_data signature xsgd_key;
       current_proxy <- xsgd_proxy;
       msg = {
         _tag: "Transfer";

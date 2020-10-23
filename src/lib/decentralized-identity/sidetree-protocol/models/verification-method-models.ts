@@ -13,21 +13,37 @@
     GNU General Public License for more details.
 */
 
-export interface VerificationMethodModel {
+export interface PublicKeyModel {
     id: string;
+    key?: string;
+}
+
+export interface PrivateKeyModel {
+    id: string;
+    key: string;
+}
+
+export interface VerificationMethodModel extends PublicKeyModel {
     type: string;
     publicKeyBase58: string;
 }
 
-export interface PublicKeyModel extends VerificationMethodModel {
-    purpose: PublicKeyPurpose[]
-}
-
 export enum PublicKeyPurpose {
     General = 'general',
-    Auth = 'auth',
-    Agreement = 'agreement',
+    Auth = 'authentication',
     Assertion = 'assertion',
+    Agreement = 'agreement',
+    Invocation = 'invocation',
     Delegation = 'delegation',
-    Invocation = 'invocation'
+    XSGD = 'xsgd'
+}
+
+export interface TyronVerificationMethods {
+    publicKey?: VerificationMethodModel;
+    authentication?: VerificationMethodModel;
+    assertionMethod?: VerificationMethodModel;
+    keyAgreement?: VerificationMethodModel;
+    capabilityInvocation?: VerificationMethodModel;
+    capabilityDelegation?: VerificationMethodModel;
+    xsgdKey: VerificationMethodModel;
 }

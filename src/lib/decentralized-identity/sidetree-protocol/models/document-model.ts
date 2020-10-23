@@ -17,7 +17,7 @@ import { PublicKeyModel } from './verification-method-models';
 import { PublicKeyInput } from '../../../../bin/util';
 
 export interface DocumentModel {
-    public_keys: PublicKeyModel[];
+    public_keys: any;
     service_endpoints?: DidServiceEndpointModel[]; 
 }
 
