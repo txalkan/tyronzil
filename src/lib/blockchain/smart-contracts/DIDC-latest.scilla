@@ -16,9 +16,9 @@
 scilla_version 0
 import BoolUtils
 
-(****************************)
+(**************************)
 (* The Tyron DIDC Library *)
-(****************************)
+(**************************)
 
 library DIDC
 
@@ -35,7 +35,13 @@ library DIDC
       let msgs_tmp = one_msg msg2 in
       Cons{Message} msg1 msgs_tmp
 
-(* The DidStatus ADT *)
+(* The DidTrinity ADT *)
+  type DidTrinity =
+    | User              (* the contract owner *)
+    | Tyron             (* the init.tyron contract *)
+    | Client of String  (* the DID-Client with its tyron avatar *)
+
+(* The Status ADTs *)
 (*********************)
   type DidStatus =
     | Undefined
@@ -45,13 +51,35 @@ library DIDC
     | Recovered
     | Deactivated
   
+  type CheckStatus =
+    | NotDeactivated
+    | Init
+    | Operational   (* created, updated or recovered *)
+
+(* The Service ADTs *)
+(**********************)
+  type DataTransferProtocol =
+    | Https
+    | Git
+    | Ssh
+    
+  type ServiceEndpoint =
+    | ServiceEndpoint of DataTransferProtocol String
+    
+  type DidService =
+    | DidService of String ServiceEndpoint    (* the type & URI *)
+    
 (* Constants *)
-(*************)    
+(*************)
+  let user = User
+  let tyron = Tyron
+  let notDeactivated = NotDeactivated
+  let initialized = Init
+  let operational = Operational
   let zero = Uint128 0
   let hundred = Uint128 100
   let undefined = "undefined"
   let deactivated = "deactivated"
-  let xsgd = "xsgd"
 
 (* Error events *)
 (****************)
@@ -64,6 +92,8 @@ library DIDC
     | CodeWrongSignature
     | CodeUndefinedKey
     | CodeRepeatedKey
+    | CodeNotDidToken
+    | CodeNotProxy
       
   let make_error =
     fun(result: Error) =>
@@ -77,6 +107,8 @@ library DIDC
           | CodeWrongSignature        => Int32 -6
           | CodeUndefinedKey          => Int32 -7
           | CodeRepeatedKey           => Int32 -8
+          | CodeNotDidToken           => Int32 -9
+          | CodeNotProxy              => Int32 -10
         end
       in
       {_exception: "Error"; code: result_code}
@@ -88,9 +120,19 @@ library DIDC
         | _ => zero
       end
 
-(*****************************************)
+(***********************)
+(* The xWallet Library *)
+(***********************)
+  type XDirection =
+    | In
+    | Out
+  
+  let incoming = In
+  let outcoming = Out
+  
+(***************************************)
 (* The Tyron DID-Smart-Contract (DIDC) *)
-(*****************************************)
+(***************************************)
 
 contract DIDC(
 
@@ -101,17 +143,11 @@ contract DIDC(
   contractOwner: ByStr20,
   
   (* The address of the init.tyron contract *)
-  initTyron: ByStr20,
-  
-  (* The address of the XSGD Proxy contract *)
-  xsgdProxy: ByStr20
+  initTyron: ByStr20
   )
       with
         let init = 0x5b166e13ed3ddbc450f9d8a599f8f09955e123a1 in
-        let init_ok = builtin eq init initTyron in
-        let xsgd = 0x7f4a28aABdE4CCa04b5529EAcB64b1449b317e7F in
-        let xsgd_ok = builtin eq xsgd xsgdProxy in
-        andb init_ok xsgd_ok
+        builtin eq init initTyron
       =>
 
 (* Mutable fields declaration *)
@@ -132,14 +168,19 @@ contract DIDC(
   (* The status of the DID *)
   field did_status: DidStatus = Undefined
 
-  (* The Tyron Hash *)
-  field tyron_hash: Option ByStr = None{ByStr}
-
   (* The Tyron verification methods
    @key: purpose
    @value: public key of type "SchnorrSecp256k1VerificationKey2019" *)
   field verification_methods: Map String ByStr33 = Emp String ByStr33
   
+  (* The DID services
+   @key: ID
+   @value: DidService *)
+  field services: Map String DidService = Emp String DidService
+  
+  (* The Tyron Hash *)
+  field tyron_hash: Option ByStr = None{ByStr}
+
   (* The DID-Document in JSON format, hexadecimal encoded *)
   field did_document: Option ByStr = None{ByStr}
   
@@ -170,8 +211,10 @@ contract DIDC(
       field client_commission: Map String Uint128 = Emp String Uint128
       field latest_commission: Uint128 = Uint128 0
   
-  (* The current address of the XSGD Proxy SC *)
-  field xsgd_proxy: ByStr20 = xsgdProxy
+  (* The xWallet fields *)
+  field xWallet: Map ByStr20 String = Emp ByStr20 String
+  field xBalances: Map String Uint128 = Emp String Uint128
+  field xProxies: Map String ByStr20 = Emp String ByStr20
 
 (**************)
 (* Procedures *)
@@ -199,43 +242,72 @@ contract DIDC(
       throw e
   end
   
-(* Validates that the call comes from the init.tyron contract *)
-  procedure IsTyron()
-      this_tyron <- init_tyron;
-      is_tyron = builtin eq this_tyron _sender;
-      match is_tyron with
-        | True =>
-        | False =>
-            err = CodeNotTyron;
-            ThrowError err
+(* Validates that the order comes from a DidTrinity *)
+  procedure IsRightCaller(
+    caller: DidTrinity
+    )
+      match caller with
+        | User =>
+            is_owner = builtin eq contractOwner _sender;
+            match is_owner with
+              | True =>
+              | False =>
+                  err = CodeNotOwner;
+                  ThrowError err
+            end
+        | Tyron =>
+            this_tyron <- init_tyron;
+            is_tyron = builtin eq this_tyron _sender;
+            match is_tyron with
+              | True =>
+              | False =>
+                  err = CodeNotTyron;
+                  ThrowError err
+            end
+        | Client avatar =>
+            this_client <- did_clients[avatar];
+            match this_client with
+              | Some client_address =>
+                  latest_client := client_address;
+                  commission <- client_commission[avatar];
+                  this_client_commission = deconstruct_option_uint128 commission;
+                  latest_commission := this_client_commission
+              | None =>
+                  err = CodeNotClient;
+                  ThrowError err
+            end
       end
   end
 
-(* Validates that the call comes from the user *)
-  procedure IsOwner()
-      is_owner = builtin eq contractOwner _sender;
-      match is_owner with
-        | True =>
-        | False =>
-            err = CodeNotOwner;
-            ThrowError err
-      end
-  end
-  
-(* Validates that the client avatar corresponds to a registered DID-Client *)
-  procedure IsClient(
-    clientAvatar: String
+(* Verifies that the DID-Status is correct for the given operation *)
+  procedure IsRightStatus(
+    check: CheckStatus
     )
-      this_client <- did_clients[clientAvatar];
-      match this_client with
-        | Some client_address =>
-            latest_client := client_address;
-            commission <- client_commission[clientAvatar];
-            this_client_commission = deconstruct_option_uint128 commission;
-            latest_commission := this_client_commission
-        | None =>
-            err = CodeNotClient;
-            ThrowError err
+      this_status <- did_status;
+      match check with
+        | NotDeactivated =>
+            match this_status with
+              | Deactivated =>
+                  err = CodeWrongStatus;
+                  ThrowError err
+              | _ =>
+            end
+        | Init =>
+            match this_status with
+              | Initialized =>
+              | _ =>
+                  err = CodeWrongStatus;
+                  ThrowError err
+            end
+        | Operational =>
+            match this_status with
+              | Created =>
+              | Updated =>
+              | Recovered =>
+              | _ =>
+                  err = CodeWrongStatus;
+                  ThrowError err
+            end
       end
   end
 
@@ -258,30 +330,6 @@ contract DIDC(
         | True =>
         | False =>
             err = CodeNotOwner;
-            ThrowError err
-      end
-  end
-  
-(* Verifies that the status is 'Initialized' - needed for the DID-Create operation *)
-  procedure IsInitialized()
-      this_status <- did_status;
-      match this_status with
-        | Initialized =>
-        | _ =>
-            err = CodeWrongStatus;
-            ThrowError err
-      end
-  end
-  
-(* Verifies that the did_status is neither Deactivated nor Initialized, to execute a DID-Update, Recover or Deactivate operation *)
-  procedure IsRightStatus()
-      this_status <- did_status;
-      match this_status with
-        | Created =>
-        | Updated =>
-        | Recovered =>
-        | _ =>
-            err = CodeWrongStatus;
             ThrowError err
       end
   end
@@ -331,7 +379,8 @@ contract DIDC(
   procedure Payment(
     clientAvatar: String
     )
-      IsClient clientAvatar;
+      client = Client clientAvatar;
+      IsRightCaller client;
       this_cost <- operation_cost;
       (* To be accepted, the payment MUST be exact *)
       amount_is_correct = builtin eq _amount this_cost;
@@ -393,7 +442,7 @@ contract DIDC(
   transition UpdateInit(
     newInit: ByStr20
     )
-      IsOwner;
+      IsRightCaller user;
       init_tyron := newInit;
       e = {
         _eventname: "UpdatedInitTyron";
@@ -408,22 +457,16 @@ contract DIDC(
   transition Init(
     clientAvatar: String
     )
-      this_status <- did_status;
-      match this_status with
-        | Deactivated =>
-            err = CodeWrongStatus;
-            ThrowError err
-        | _ =>
-            this_tyron <- init_tyron;
-            msg_init = {
-              _tag: "Initialize";
-              _recipient: this_tyron;
-              _amount: zero;
-              client: clientAvatar
-            };
-            init = one_msg msg_init;
-            send init
-      end
+      IsRightStatus notDeactivated;
+      this_tyron <- init_tyron;
+      msg_init = {
+        _tag: "Initialize";
+        _recipient: this_tyron;
+        _amount: zero;
+        client: clientAvatar
+      };
+      init = one_msg msg_init;
+      send init
   end
   
 (* The init.tyron contract calls this transition to set the operation_cost, foundation_address & client_commission *)
@@ -434,7 +477,7 @@ contract DIDC(
     clientAddress: ByStr20,
     clientCommission: Uint128
     )
-      IsTyron;
+      IsRightCaller tyron;
       operation_cost := operationCost;
       foundation_address := foundationAddress;
       did_clients[clientAvatar] := clientAddress;
@@ -463,9 +506,9 @@ contract DIDC(
     updateKey: ByStr33,
     recoveryKey: ByStr33
     )
+      IsRightStatus initialized;
       Payment clientAvatar;
-      IsOwner;
-      IsInitialized;
+      IsRightCaller user;
       DidScheme;
       IsOwnerKey didContractOwner;
       did_contract_owner = Some{ByStr33} didContractOwner;
@@ -500,9 +543,9 @@ contract DIDC(
     newUpdateKey: ByStr33,
     newRecoveryKey: ByStr33
     )
+      IsRightStatus operational;
       Payment clientAvatar;
-      IsOwner;
-      IsRightStatus;
+      IsRightCaller user;
       did_key <- did_recovery_key;
       IsRightSignature newDocument signature did_key;
       new_doc = Some{ByStr} newDocument;
@@ -535,9 +578,9 @@ contract DIDC(
     signature: ByStr64,
     newUpdateKey: ByStr33
     )
+      IsRightStatus operational;
       Payment clientAvatar;
-      IsOwner;
-      IsRightStatus;
+      IsRightCaller user;
       did_key <- did_update_key;
       IsRightSignature newDocument signature did_key;
       new_doc = Some{ByStr} newDocument;
@@ -556,10 +599,10 @@ contract DIDC(
   transition DidDeactivate(
     clientAvatar: String,
     signature: ByStr64
-    )
+    ) 
+      IsRightStatus operational;
       Payment clientAvatar;
-      IsOwner;
-      IsRightStatus;
+      IsRightCaller user;
       did_key <- did_recovery_key;
       this_th <- tyron_hash;
       match this_th with
@@ -583,7 +626,7 @@ contract DIDC(
   transition SetDomain(
     avatar: String
     )
-      IsRightStatus;
+      IsRightStatus operational;
       this_cost <- operation_cost;
       amount_is_correct = builtin eq _amount this_cost;
       match amount_is_correct with
@@ -603,47 +646,171 @@ contract DIDC(
       end
   end
 
-(* Callback transition - no action required, but must be defined, since transfers from this wallet will fail otherwise *)
-  transition TransferSuccessCallBack(
-    sender: ByStr20, 
-    recipient: ByStr20,
-    amount : Uint128
+(***********)
+(* xWallet *)
+(***********)
+  
+  procedure XWallet(
+    direction: XDirection,
+    amount: Uint128
     )
+      optToken <- xWallet[_sender];
+      match optToken with
+        | Some token =>
+            optBalance <-xBalances[token];
+            balance = deconstruct_option_uint128 optBalance;
+            match direction with
+              | In =>
+                  newBalance = builtin add balance amount;
+                  xBalances[token] := newBalance
+              | Out =>
+                  newBalance = builtin sub balance amount;
+                  xBalances[token] := newBalance
+            end
+        | None =>
+            err = CodeNotDidToken;
+            ThrowError err
+      end
+  end
+  
+  transition DidToken(
+    token: String
+    )
+      IsRightStatus operational;
+      IsRightCaller user;
+      optToken_key <- verification_methods[token];
+      match optToken_key with
+        | Some token_key =>
+            this_tyron <- init_tyron;
+            msg = {
+              _tag: "DidToken";
+              _recipient: this_tyron;
+              _amount: zero;
+              avatar: token
+            };
+            updateToken = one_msg msg;
+            send updateToken
+        | None =>
+            err = CodeNotDidToken;
+            ThrowError err
+      end
+  end
+  
+(* The init.tyron contract calls this transition to update the DidToken *)
+  transition DidTokenCallBack(
+    token: String,
+    proxyAddr: ByStr20,
+    tokenAddr: ByStr20
+    )
+      IsRightCaller tyron;
+      xWallet[tokenAddr] := token;
+      xProxies[token] := proxyAddr;
+      e = {
+        _eventname: "DidToken Update";
+        didToken: token;
+        proxyAddr: proxyAddr;
+        tokenAddr: tokenAddr
+      };
+      event e
+  end
+  
+(* Adds native funds (ZIL) to the xWallet *)
+  transition ZILIn()
+      IsRightStatus operational;
+      accept
+  end
+  
+(* Sends ZIL from the xWallet to another xWallet (i.e. to another DIDC *)
+  transition ZILOutToDid(
+    to: ByStr20,
+    amount: Uint128
+    )
+      IsRightStatus operational;
+      IsRightCaller user;
+      accept;
+      msg = {
+          _tag: "ZILIn";
+          _recipient: to;
+          _amount: amount
+        };
+      msg_did = one_msg msg;
+      send msg_did
+  end
+  
+(* Sends ZIL from the xWallet to a normal ZIL wallet *)
+  transition ZILOutToZIL(
+    to: ByStr20,
+    amount: Uint128
+    )
+      IsRightStatus operational;
+      IsRightCaller user;
+      accept;
+      msg = {
+          _tag: "";
+          _recipient: to;
+          _amount: amount
+        };
+      msg_zil = one_msg msg;
+      send msg_zil
   end
 
-(* Acceptance transition - no action required, but must be defined, since transfers to this wallet will fail otherwise *)
+(* Acceptance transition - must be defined or transfers to this xWallet will fail otherwise *)
   transition RecipientAcceptTransfer(
     sender : ByStr20,
     recipient : ByStr20,
     amount : Uint128
     )
-end
+      IsRightStatus operational;
+      XWallet incoming amount
+  end
 
-(* Transfers XSGD stablecoins *)
-  transition TransferXSDG(
+(* Transfers ZRC-2 verified tokens *)
+  transition XTransfer(
+    token: String,
     to: ByStr20,
     amount: Uint128,
     signature: ByStr64
     ) 
-      IsRightStatus;
-      xsgd_key <- verification_methods[xsgd];
-      signed_data =
-        let hash = builtin sha256hash to in
-        builtin to_bystr hash;
-      IsRightSignature signed_data signature xsgd_key;
-      current_proxy <- xsgd_proxy;
-      msg = {
-        _tag: "Transfer";
-        _recipient: current_proxy;
-        _amount: zero;
-        to: to;
-        amount: amount
-      };
-      msg_xsgd = one_msg msg;
-      send msg_xsgd
+      IsRightStatus operational;
+      IsRightCaller user;
+      optBalance <- xBalances[token];
+      balance = deconstruct_option_uint128 optBalance;
+      is_enough = builtin lt amount balance;
+      match is_enough with
+        | True =>
+            optToken_key <- verification_methods[token];
+            signed_data =
+              let hash = builtin sha256hash to in
+              builtin to_bystr hash;
+            IsRightSignature signed_data signature optToken_key;
+            optProxy <- xProxies[token];
+            match optProxy with
+              | Some proxy =>
+                  msg = {
+                    _tag: "Transfer";
+                    _recipient: proxy;
+                    _amount: zero;
+                    to: to;
+                    amount: amount
+                  };
+                  xTransfer = one_msg msg;
+                  send xTransfer
+              | None =>
+                  err = CodeNotProxy;
+                  ThrowError err
+            end
+        | False =>
+            err = CodeWrongAmount;
+            ThrowError err
+      end
   end
-
-(* Adds native funds (ZIL) to the xWallet *)
-  transition AddFunds()
-    accept
+  
+(* Callback transition - must be defined or transfers from this xWallet will fail otherwise *)
+  transition TransferSuccessCallBack(
+    sender: ByStr20, 
+    recipient: ByStr20,
+    amount : Uint128
+    )
+      IsRightStatus operational;
+      XWallet outcoming amount
   end
