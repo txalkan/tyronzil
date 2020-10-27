@@ -7,7 +7,7 @@
 
 Decentralized identity client powered by [Zilliqa](https://zilliqa.com) :zap:
 
-For the management of Decentralized Identifiers (DIDs), tyronZIL implements the Tyron SSI Protocol, which includes the deployment of the user-owned [DID-Smart-Contract](./src/lib/blockchain/smart-contracts/DID-SC-latest.scilla). With Tyron, the user is in control of their Decentralized Identifier.
+For the management of Decentralized Identifiers (DIDs), tyronZIL implements the Tyron SSI Protocol, which includes the deployment of the user-owned [DID-Smart-Contract](./src/lib/blockchain/smart-contracts/DIDC-latest.scilla). With Tyron, the user is in control of their Decentralized Identifier.
 
 ## W3C DID-Method
 

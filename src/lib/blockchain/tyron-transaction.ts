@@ -39,7 +39,7 @@ export default class TyronTransaction extends ZilliqaInit {
     /** The client's address */
     public readonly client_addr: string;
 
-    /** The user is the owner of their DID-SC */
+    /** The user is the owner of their DIDC */
     public readonly contract_owner?: string;
 
     public readonly gas_price: Util.BN;
@@ -108,12 +108,12 @@ export default class TyronTransaction extends ZilliqaInit {
 
     /***            ****            ***/
     
-    /** Deploys the DID-SC by version
+    /** Deploys the DIDC by version
      * & calls the ContractInit transition with the client_addr */
     public static async deploy(input: TyronTransaction, version: string): Promise<DeployedContract> {
         const deployed_contract = await SmartUtil.decode(input.API, input.init_tyron, version)
         .then(contract_code => {
-            console.log(LogColors.brightGreen(`DID-SC-code successfully downloaded & decoded from the "init.tyron" smart-contract!`));
+            console.log(LogColors.brightGreen(`DIDC-code successfully downloaded & decoded from the "init.tyron" smart-contract!`));
             
             const CONTRACT_INIT = [
                 {
@@ -136,7 +136,7 @@ export default class TyronTransaction extends ZilliqaInit {
             return CONTRACT;
         })
         .then(async contract => {
-            console.log(LogColors.yellow(`The user's DID-SC got properly instantiated: `) + LogColors.brightYellow(`${JSON.stringify(contract, null, 2)}`));
+            console.log(LogColors.yellow(`The user's DIDC got properly instantiated: `) + LogColors.brightYellow(`${JSON.stringify(contract, null, 2)}`));
             input.API.wallet.addByPrivateKey(input.client_privateKey!);
 
             const CLIENT_BALANCE = await input.API.blockchain.getBalance(input.client_addr);
@@ -155,14 +155,14 @@ export default class TyronTransaction extends ZilliqaInit {
             );
             const IS_DEPLOYED = deployTx.isConfirmed();
             if(!IS_DEPLOYED) {
-                throw new ErrorCode("Wrong-Deployment","The user's DID-SC did not get deployed")
+                throw new ErrorCode("Wrong-Deployment","The user's DIDC did not get deployed")
             }
             console.log(LogColors.yellow(`The user's Tyron DID-Smart-Contract is deployed: `) + LogColors.brightYellow(`${IS_DEPLOYED}`));
             console.log(LogColors.yellow(`Its Zilliqa address is: `) + LogColors.brightYellow(`${tyron_smart_contract.address}`));
             console.log(LogColors.yellow(`Deployment Transaction ID: `) + LogColors.brightYellow(`${deployTx.id}`));
 
             const DEPLOYMENT_GAS = (deployTx.getReceipt())!.cumulative_gas;
-            console.log(LogColors.yellow(`The total gas consumed by deploying the DID-SC was: `) + LogColors.brightYellow(`${DEPLOYMENT_GAS}`));
+            console.log(LogColors.yellow(`The total gas consumed by deploying the DIDC was: `) + LogColors.brightYellow(`${DEPLOYMENT_GAS}`));
             
             const DEPLOYED_CONTRACT = {
                 transaction: deployTx,
@@ -406,7 +406,7 @@ export default class TyronTransaction extends ZilliqaInit {
 
 /***            ** interfaces **            ***/
 
-/** The result of a DID-SC deployment */
+/** The result of a DIDC deployment */
 export interface DeployedContract {
     transaction: Transaction,
     contract: Contract

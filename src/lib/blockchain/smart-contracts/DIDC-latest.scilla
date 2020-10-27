@@ -17,10 +17,10 @@ scilla_version 0
 import BoolUtils
 
 (****************************)
-(* The Tyron DID-SC Library *)
+(* The Tyron DIDC Library *)
 (****************************)
 
-library DID
+library DIDC
 
 (* Messages *)
 (************)
@@ -81,22 +81,29 @@ library DID
       in
       {_exception: "Error"; code: result_code}
 
+  let deconstruct_option_uint128 =
+    fun(option: Option Uint128) =>
+      match option with
+        | Some value => value
+        | _ => zero
+      end
+
 (*****************************************)
-(* The Tyron DID-Smart-Contract (DID-SC) *)
+(* The Tyron DID-Smart-Contract (DIDC) *)
 (*****************************************)
 
-contract DID(
+contract DIDC(
 
 (* Immutable fields declaration *)
 (********************************)
 
-  (* The user is the owner of their DID-SC *)
+  (* The user is the owner of their DIDC *)
   contractOwner: ByStr20,
   
-  (* The address of the init.tyron SC *)
+  (* The address of the init.tyron contract *)
   initTyron: ByStr20,
   
-  (* The address of the XSGD Proxy SC*)
+  (* The address of the XSGD Proxy contract *)
   xsgdProxy: ByStr20
   )
       with
@@ -113,12 +120,21 @@ contract DID(
   (* The Tyron DID *)
   field decentralized_identifier: String = undefined
   
-  (* The Tyron Hash *)
-  field tyron_hash: Option ByStr = None{ByStr}
+  (* The address of the init.tyron contract's latest implementation *)
+  field init_tyron: ByStr20 = initTyron
+  
+  (* The user DID-Clients
+   @key: client avatar
+   @value: client address *)
+  field did_clients: Map String ByStr20 = Emp String ByStr20
+  field latest_client: ByStr20 = contractOwner
   
   (* The status of the DID *)
   field did_status: DidStatus = Undefined
-  
+
+  (* The Tyron Hash *)
+  field tyron_hash: Option ByStr = None{ByStr}
+
   (* The Tyron verification methods
    @key: purpose
    @value: public key of type "SchnorrSecp256k1VerificationKey2019" *)
@@ -133,8 +149,6 @@ contract DID(
   (* The public key for the next DID-Recover or DID-Deactivate operation *)
   field did_recovery_key: Option ByStr33 = None{ByStr33}
   
-  (* The address of the user's client *)
-  field client_address: ByStr20 = contractOwner
   
   (* The block number when the DID-Create operation occurred *)
   field created: BNum = BNum 0
@@ -144,19 +158,17 @@ contract DID(
   
   (* A monotonically increasing number representing the amount of DID operations that have taken place *)
   field transaction_number: Uint128 = Uint128 0
-  
-  (* The current address of the init.tyron SC *)
-  field init_tyron: ByStr20 = initTyron
 
-  (* The following fields are determined by the init.tyron SC in the InitCallBack transition *)
+  (* The following fields are set by the init.tyron contract in the InitCallBack transition *)
       (* The cost of each DID operation *)
       field operation_cost: Uint128 = Uint128 0
       
       (* The address of the Tyron Pungtas Foundation *)
       field foundation_address: ByStr20 = contractOwner
       
-      (* The client's commission as a % of the operation_cost *)
-      field client_commission: Uint128 = Uint128 0
+      (* The client's commission as a % of the operation_cost, per client *)
+      field client_commission: Map String Uint128 = Emp String Uint128
+      field latest_commission: Uint128 = Uint128 0
   
   (* The current address of the XSGD Proxy SC *)
   field xsgd_proxy: ByStr20 = xsgdProxy
@@ -189,7 +201,8 @@ contract DID(
   
 (* Validates that the call comes from the init.tyron contract *)
   procedure IsTyron()
-      is_tyron = builtin eq initTyron _sender;
+      this_tyron <- init_tyron;
+      is_tyron = builtin eq this_tyron _sender;
       match is_tyron with
         | True =>
         | False =>
@@ -197,19 +210,7 @@ contract DID(
             ThrowError err
       end
   end
-  
-(* Validates that the call comes from the client *)
-  procedure IsClient()
-      this_client <- client_address;
-      is_client = builtin eq this_client _sender;
-      match is_client with
-        | True =>
-        | False =>
-            err = CodeNotClient;
-            ThrowError err
-      end
-  end
-  
+
 (* Validates that the call comes from the user *)
   procedure IsOwner()
       is_owner = builtin eq contractOwner _sender;
@@ -221,7 +222,24 @@ contract DID(
       end
   end
   
-(* Verifies that the public key matches the contractOwner address *)
+(* Validates that the client avatar corresponds to a registered DID-Client *)
+  procedure IsClient(
+    clientAvatar: String
+    )
+      this_client <- did_clients[clientAvatar];
+      match this_client with
+        | Some client_address =>
+            latest_client := client_address;
+            commission <- client_commission[clientAvatar];
+            this_client_commission = deconstruct_option_uint128 commission;
+            latest_commission := this_client_commission
+        | None =>
+            err = CodeNotClient;
+            ThrowError err
+      end
+  end
+
+(* Verifies that the public key matches the contract owner address *)
   procedure IsOwnerKey(
     pubk: ByStr33
     )
@@ -310,24 +328,35 @@ contract DID(
   end
   
 (* Executes the payment to the client and foundation *)
-  procedure Payment()
+  procedure Payment(
+    clientAvatar: String
+    )
+      IsClient clientAvatar;
       this_cost <- operation_cost;
       (* To be accepted, the payment MUST be exact *)
       amount_is_correct = builtin eq _amount this_cost;
       match amount_is_correct with
         | True =>
-            (* The DID-SC accepts the incoming transfer *)
+            (* The DIDC accepts the incoming transfer *)
             accept;
+            client_address <- latest_client;
             (* Calculates payment to the client *)
-            this_client_commission <- client_commission;
+            this_client_commission <- latest_commission;
             payment_to_client =
               let percent = builtin div _amount hundred in
               builtin mul this_client_commission percent;
             msg_to_client = {
               _tag: "";
-              _recipient: _sender;
+              _recipient: client_address;
               _amount: payment_to_client
             };
+            e = {
+              _eventname: "ClientPaymentVerified";
+              client_avatar: clientAvatar;
+              did_client: client_address;
+              client_commission: this_client_commission
+            };
+            event e;
             (* Calculates payment to the foundation *)
             payment_to_foundation = builtin sub _amount payment_to_client;
             this_foundation_address <- foundation_address;
@@ -359,46 +388,83 @@ contract DID(
 (***************)
 (* Transitions *)
 (***************)
-  
-(* Sets the address of the user's client - permissionless (anyone can be a client)
+
+(* Updates the init.tyron contract to its latest implementation - only the user aka contract owner can execute this transition *)
+  transition UpdateInit(
+    newInit: ByStr20
+    )
+      IsOwner;
+      init_tyron := newInit;
+      e = {
+        _eventname: "UpdatedInitTyron";
+        new_init_tyron: newInit
+      };
+      event e
+  end
+(**)
+
+(* Sets the DID-Client info into the user's DID account
  * Sends a message to the init.tyron contract that in return calls the InitParameters transition *)
   transition Init(
-    clientAddress: ByStr20
+    clientAvatar: String
     )
-      client_address := clientAddress;
-      msg_init = {
-        _tag: "Initialize";
-        _recipient: initTyron;
-        _amount: zero
-      };
-      init = one_msg msg_init;
-      send init
+      this_status <- did_status;
+      match this_status with
+        | Deactivated =>
+            err = CodeWrongStatus;
+            ThrowError err
+        | _ =>
+            this_tyron <- init_tyron;
+            msg_init = {
+              _tag: "Initialize";
+              _recipient: this_tyron;
+              _amount: zero;
+              client: clientAvatar
+            };
+            init = one_msg msg_init;
+            send init
+      end
   end
   
 (* The init.tyron contract calls this transition to set the operation_cost, foundation_address & client_commission *)
   transition InitCallBack(
     operationCost: Uint128,
     foundationAddress: ByStr20,
+    clientAvatar: String,
+    clientAddress: ByStr20,
     clientCommission: Uint128
     )
       IsTyron;
       operation_cost := operationCost;
       foundation_address := foundationAddress;
-      client_commission := clientCommission;
-      new_status = Initialized;
-      did_status := new_status
+      did_clients[clientAvatar] := clientAddress;
+      client_commission[clientAvatar] := clientCommission;
+      e = {
+        _eventname: "DIDC init";
+        did_client: clientAvatar;
+        client_commission: clientCommission
+      };
+      event e;
+      this_status <- did_status;
+      match this_status with
+        | Undefined =>
+            new_status = Initialized;
+            did_status := new_status
+        | _ =>
+      end
   end
 
 (* Executes a Tyron DID-Create operation *)
   transition DidCreate(
+    clientAvatar: String,
     document: ByStr,
     didContractOwner: ByStr33,
     signature: ByStr64,
     updateKey: ByStr33,
     recoveryKey: ByStr33
     )
-      Payment;
-      IsClient;
+      Payment clientAvatar;
+      IsOwner;
       IsInitialized;
       DidScheme;
       IsOwnerKey didContractOwner;
@@ -428,13 +494,14 @@ contract DID(
   
 (* Executes a Tyron DID-Recover operation *)
   transition DidRecover(
+    clientAvatar: String,
     newDocument: ByStr,
     signature: ByStr64,
     newUpdateKey: ByStr33,
     newRecoveryKey: ByStr33
     )
-      Payment;
-      IsClient;
+      Payment clientAvatar;
+      IsOwner;
       IsRightStatus;
       did_key <- did_recovery_key;
       IsRightSignature newDocument signature did_key;
@@ -463,12 +530,13 @@ contract DID(
   
 (* Executes a Tyron DID-Update operation *)
   transition DidUpdate(
+    clientAvatar: String,
     newDocument: ByStr,
     signature: ByStr64,
     newUpdateKey: ByStr33
     )
-      Payment;
-      IsClient;
+      Payment clientAvatar;
+      IsOwner;
       IsRightStatus;
       did_key <- did_update_key;
       IsRightSignature newDocument signature did_key;
@@ -486,10 +554,11 @@ contract DID(
   
 (* Executes a Tyron DID-Deactivate operation *)
   transition DidDeactivate(
+    clientAvatar: String,
     signature: ByStr64
     )
-      Payment;
-      IsClient;
+      Payment clientAvatar;
+      IsOwner;
       IsRightStatus;
       did_key <- did_recovery_key;
       this_th <- tyron_hash;
@@ -510,20 +579,7 @@ contract DID(
       Timestamp
   end
 
-(* Updates the user's client - only the contractOwner can execute this transition *)
-  transition UpdateClient(
-    newClientAddress: ByStr20
-    )
-      IsOwner;
-      client_address := newClientAddress;
-      e = {
-        _eventname: "UpdatedClient";
-        new_client_address: newClientAddress
-      };
-      event e
-  end
-  
-(* Sets the avatar.did for the Decentralized Identifier *)
+(* Sets the user avatar.did for the Decentralized Identifier *)
   transition SetDomain(
     avatar: String
     )
@@ -546,7 +602,6 @@ contract DID(
             ThrowError err
       end
   end
-
 
 (* Callback transition - no action required, but must be defined, since transfers from this wallet will fail otherwise *)
   transition TransferSuccessCallBack(
@@ -588,7 +643,7 @@ end
       send msg_xsgd
   end
 
-(* Adds native funds (ZIL) to the DID-Wallet *)
+(* Adds native funds (ZIL) to the xWallet *)
   transition AddFunds()
     accept
   end

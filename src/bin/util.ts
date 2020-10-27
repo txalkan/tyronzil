@@ -141,13 +141,13 @@ export default class Util {
         console.info(LogColors.yellow(`Private keys saved as: ${LogColors.brightYellow(KEY_FILE_NAME)}`));
     }
 
-    /** Verifies that the given key matches the DID-Key of the DID-SC (did_update_key OR did_recovery_key) */
+    /** Verifies that the given key matches the DID-Key of the DIDC (did_update_key OR did_recovery_key) */
     public static async verifyKey(privateKey: string, didKey: string): Promise<void> {
         const PUB_KEY = "0x"+ zcrypto.getPubKeyFromPrivateKey(privateKey);
         if(PUB_KEY === didKey) {
-            console.log(LogColors.brightGreen(`Success! The private key corresponds to the public did_key stored in the DID-SC`));
+            console.log(LogColors.brightGreen(`Success! The private key corresponds to the public did_key stored in the DIDC`));
         } else {
-            throw new ErrorCode("WrongKey", "The given key is not matching the corresponding key in the DID-SC")
+            throw new ErrorCode("WrongKey", "The given key is not matching the corresponding key in the DIDC")
         }
     }
 }

@@ -60,7 +60,7 @@ export default class SmartUtil {
         return THIS_CONTRACT;
     }
 
-    /** Gets the value out of a DID-SC field Option */
+    /** Gets the value out of a DIDC field Option */
     public static async getValue(object: any): Promise<string> {
         const ENTRIES = Object.entries(object);
         let VALUE: string;
@@ -72,7 +72,7 @@ export default class SmartUtil {
         return VALUE![0];
     }
 
-    /** Gets the DID-Status out of a DID-SC field Option */
+    /** Gets the DID-Status out of a DIDC field Option */
     public static async getStatus(object: any): Promise<string> {
         const ENTRIES = Object.entries(object);
         let VALUE: string;

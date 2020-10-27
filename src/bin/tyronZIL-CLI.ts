@@ -60,7 +60,7 @@ export default class TyronCLI {
         const SET_NETWORK = this.network();
         const NETWORK = SET_NETWORK.network;
         
-        console.log(LogColors.brightGreen(`The user is the contract owner of their Tyron DID-Smart-Contract (DID-SC)`));
+        console.log(LogColors.brightGreen(`The user is the contract owner of their Tyron DID-Smart-Contract (DIDC)`));
         const user_addr = readline.question(LogColors.green(`What is the user's address?`) + ` - [Bech32 address] - ` + LogColors.lightBlue(`Your answer: `));
 
         const client_privateKey = readline.question(LogColors.green(`What is the client's private key?`) + ` - [Hex-encoded private key] - ` + LogColors.lightBlue(`Your answer: `));
@@ -79,7 +79,7 @@ export default class TyronCLI {
             const PUBLIC_KEYS = await Util.InputKeys();
             const SERVICE = await Util.InputService();
 
-            console.log(LogColors.brightGreen(`As the contract owner, the user MUST sign their first DID-Document for the DID-SC to accept it.`));
+            console.log(LogColors.brightGreen(`As the contract owner, the user MUST sign their first DID-Document for the DIDC to accept it.`));
             const user_privateKey = readline.question(LogColors.green(`What is the user's private key?`) + ` - [Hex-encoded private key] - ` + LogColors.lightBlue(`Your answer: `));
             
             const CLI_INPUT: CliInputModel = {
@@ -107,9 +107,9 @@ export default class TyronCLI {
         .then(async didCreate => {
             console.log(LogColors.brightGreen(`Let's deploy the user's Tyron DID-Smart-Contract!`))
             
-            const version = readline.question(LogColors.green(`What version of the DID-SC would you like to deploy?`)+` - Versions currently supported: [1.0.0] - ` + LogColors.lightBlue(`Your answer: `));
+            const version = readline.question(LogColors.green(`What version of the DIDC would you like to deploy?`)+` - Versions currently supported: [1.0.0] - ` + LogColors.lightBlue(`Your answer: `));
             
-            // The user deploys their DID-SC and calls the TyronInit transition
+            // The user deploys their DIDC and calls the TyronInit transition
             const DEPLOYED_CONTRACT = await TyronTransaction.deploy(didCreate.init, version);
             const TYRON_ADDR = DEPLOYED_CONTRACT.contract.address!;
             
@@ -141,8 +141,8 @@ export default class TyronCLI {
         try {
             const SET_NETWORK = this.network();
             
-            /** Asks for the address of the user's DID-SC */
-            const tyron_addr = readline.question(LogColors.green(`What is the address of the user's Tyron DID-Smart-Contract (DID-SC)`) + ` - [Hex-encoded address] - ` + LogColors.lightBlue(`Your answer: `));
+            /** Asks for the address of the user's DIDC */
+            const tyron_addr = readline.question(LogColors.green(`What is the address of the user's Tyron DID-Smart-Contract (DIDC)`) + ` - [Hex-encoded address] - ` + LogColors.lightBlue(`Your answer: `));
             if(!zcrypto.isValidChecksumAddress(tyron_addr)) {
                 throw new ErrorCode("WrongAddress", "The format of the address is wrong")
             }
@@ -188,12 +188,12 @@ export default class TyronCLI {
 
     /** Handles the `Tyron DID-Recover` operation */
     public static async handleRecover(): Promise<void> {
-        console.log(LogColors.brightGreen(`To recover your Tyron DID, let's fetch its current DID-SC-State from the Zilliqa blockchain platform!`));
+        console.log(LogColors.brightGreen(`To recover your Tyron DID, let's fetch its current DIDC-State from the Zilliqa blockchain platform!`));
         const SET_NETWORK = this.network();
         const NETWORK = SET_NETWORK.network;
         
-        /** Asks for the address of the user's DID-SC */
-        const tyronAddr = readline.question(LogColors.green(`What is the address of the user's Tyron DID-Smart-Contract (DID-SC)? - `) + LogColors.lightBlue(`Your answer: `));
+        /** Asks for the address of the user's DIDC */
+        const tyronAddr = readline.question(LogColors.green(`What is the address of the user's Tyron DID-Smart-Contract (DIDC)? - `) + LogColors.lightBlue(`Your answer: `));
         if(!zcrypto.isValidChecksumAddress(tyronAddr)) {
             throw new ErrorCode("WrongAddress", "The given address is not checksumed")
         }
@@ -266,12 +266,12 @@ export default class TyronCLI {
 
     /** Handles the `Tyron DID-Update` operation */
     public static async handleUpdate(): Promise<void> {
-        console.log(LogColors.brightGreen(`To update your Tyron DID, let's fetch its current DID-SC-State from the Zilliqa blockchain platform!`));
+        console.log(LogColors.brightGreen(`To update your Tyron DID, let's fetch its current DIDC-State from the Zilliqa blockchain platform!`));
         const SET_NETWORK = this.network();
         const NETWORK = SET_NETWORK.network;
         
-        /** Asks for the address of the user's DID-SC */
-        const tyronAddr = readline.question(LogColors.green(`What is the address of the user's Tyron DID-Smart-Contract (DID-SC)? - `) + LogColors.lightBlue(`Your answer: `));
+        /** Asks for the address of the user's DIDC */
+        const tyronAddr = readline.question(LogColors.green(`What is the address of the user's Tyron DID-Smart-Contract (DIDC)? - `) + LogColors.lightBlue(`Your answer: `));
         if(!zcrypto.isValidChecksumAddress(tyronAddr)) {
             throw new ErrorCode("WrongAddress", "The given address is not checksumed")
         }
@@ -391,11 +391,11 @@ export default class TyronCLI {
 
     /** Handles the `Tyron DID-Deactivate` operation */
     public static async handleDeactivate(): Promise<void> {
-        console.log(LogColors.brightGreen(`To deactivate the Tyron DID, let's fetch its current DID-SC-State from the Zilliqa blockchain platform!`));
+        console.log(LogColors.brightGreen(`To deactivate the Tyron DID, let's fetch its current DIDC-State from the Zilliqa blockchain platform!`));
         const SET_NETWORK = this.network();
         const NETWORK = SET_NETWORK.network;
-        /** Asks for the address of the user's DID-SC */
-        const tyronAddr = readline.question(LogColors.green(`What is the address of the user's Tyron DID-Smart-Contract (DID-SC)? - `) + LogColors.lightBlue(`Your answer: `));
+        /** Asks for the address of the user's DIDC */
+        const tyronAddr = readline.question(LogColors.green(`What is the address of the user's Tyron DID-Smart-Contract (DIDC)? - `) + LogColors.lightBlue(`Your answer: `));
         if(!zcrypto.isValidChecksumAddress(tyronAddr)) {
             throw new ErrorCode("WrongAddress", "The given address is not checksumed")
         }

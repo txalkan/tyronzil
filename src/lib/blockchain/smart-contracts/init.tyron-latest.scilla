@@ -82,7 +82,7 @@ contract Init(
   
   (* The DNS records 
   @key: domain_name
-  @value: address of the DID-SC *)
+  @value: address of the DIDC *)
   field records: Map String ByStr20 = Emp String ByStr20
   
 (* Procedures *)
@@ -163,7 +163,7 @@ contract Init(
       client_commission := commission
   end
   
-  (* Called by the DID-SC to set the operation_cost, foundation_address & client_commission *)
+  (* Called by the DIDC to set the operation_cost, foundation_address & client_commission *)
   transition Initialize()
       this_cost <- operation_cost;
       this_client_commission <- client_commission;
