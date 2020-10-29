@@ -16,7 +16,7 @@
 import { NetworkNamespace } from '../decentralized-identity/tyronZIL-schemes/did-scheme';
 import ZilliqaInit from './zilliqa-init';
 import SmartUtil from './smart-contracts/smart-util';
-import { OperationType } from '../decentralized-identity/sidetree-protocol/sidetree';
+import { OperationType } from '../decentralized-identity/protocols/sidetree';
 import ErrorCode from '../decentralized-identity/util/ErrorCode';
 
 export default class TyronState {

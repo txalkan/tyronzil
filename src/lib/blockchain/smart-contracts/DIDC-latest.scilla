@@ -35,14 +35,14 @@ library DIDC
       let msgs_tmp = one_msg msg2 in
       Cons{Message} msg1 msgs_tmp
 
-(* The DidTrinity ADT *)
-  type DidTrinity =
+  (* The SSI Trinity ADT *)
+  type SsiTrinity =
     | User              (* the contract owner *)
     | Tyron             (* the init.tyron contract *)
-    | Client of String  (* the DID-Client with its tyron avatar *)
+    | Agent of String   (* the agent is the entity running the DID-Client - arg: avatar *)
 
 (* The Status ADTs *)
-(*********************)
+(*******************)
   type DidStatus =
     | Undefined
     | Initialized
@@ -69,7 +69,7 @@ library DIDC
   type DidService =
     | DidService of String ServiceEndpoint    (* the type & URI *)
 
-(* The DID-Document ADT *)
+  (* The DID-Document ADT *)
   type Action =
     | Add
     | Remove
@@ -82,7 +82,7 @@ library DIDC
 (*************)
   let user = User
   let tyron = Tyron
-  let dot = "."
+  let dotDid = ".did"
   let notDeactivated = NotDeactivated
   let initialized = Init
   let operational = Operational
@@ -101,7 +101,7 @@ library DIDC
   type Error =
     | CodeNotTyron
     | CodeWrongAmount
-    | CodeNotClient
+    | CodeNotAgent
     | CodeWrongStatus
     | CodeNotOwner
     | CodeWrongSignature
@@ -116,7 +116,7 @@ library DIDC
         match error with
           | CodeNotTyron              => Int32 -1
           | CodeWrongAmount           => Int32 -2
-          | CodeNotClient             => Int32 -3
+          | CodeNotAgent             => Int32 -3
           | CodeWrongStatus           => Int32 -4
           | CodeNotOwner              => Int32 -5
           | CodeWrongSignature        => Int32 -6
@@ -185,7 +185,7 @@ contract DIDC(
   initTyron: ByStr20
   )
       with
-        let init = 0x5b166e13ed3ddbc450f9d8a599f8f09955e123a1 in
+        let init = 0x4fd01aa66d4f648be2aae2763ee2887d0bc2dca5 in
         builtin eq init initTyron
       =>
 
@@ -203,11 +203,11 @@ contract DIDC(
    @value: avatar *)
    field resource_records: Map String String = Emp String String
   
-  (* The user DID-Clients
-   @key: client avatar
-   @value: client address *)
-  field did_clients: Map String ByStr20 = Emp String ByStr20
-  field latest_client: ByStr20 = contractOwner
+  (* The user's agents
+   @key: avatar.agent
+   @value: agent's address *)
+  field did_agents: Map String ByStr20 = Emp String ByStr20
+  field latest_agent: ByStr20 = contractOwner
   
   (* The status of the DID *)
   field did_status: DidStatus = Undefined
@@ -242,14 +242,18 @@ contract DIDC(
   field transaction_number: Uint128 = Uint128 0
 
   (* The following fields are set by the init.tyron contract in the InitCallBack transition *)
-      (* The cost of each DID operation *)
-      field operation_cost: Uint128 = Uint128 0
+      (* The operation cost of tyronZIL transaction
+       @key: domain
+       @value: cost *)
+      field operation_cost: Map String Uint128 = Emp String Uint128
       
       (* The address of the Tyron Pungtas Foundation *)
       field foundation_address: ByStr20 = contractOwner
       
-      (* The client's commission as a % of the operation_cost, per client *)
-      field client_commission: Map String Uint128 = Emp String Uint128
+      (* The agent's commission as a % of the operation_cost
+       @key: avatar.agent
+       @value: comission *)
+      field agent_commission: Map String Uint128 = Emp String Uint128
       field latest_commission: Uint128 = Uint128 0
   
   (* The xWallet fields *)
@@ -261,7 +265,7 @@ contract DIDC(
 (* Procedures *)
 (**************)
 
-(* The Tyron DID-Scheme - this procedure generates the user's Decentralized Identifier & the Tyron Hash *)
+  (* The Tyron DID-Scheme - this procedure generates the user's Decentralized Identifier & the Tyron Hash *)
   procedure DidScheme()
       this_did =
         let did_prefix = "did:tyron:zil:test:" in
@@ -275,7 +279,7 @@ contract DIDC(
       tyron_hash := th
   end
   
-(* The procedure to throw an error *)
+  (* The procedure to throw an error *)
   procedure ThrowError(
     err: Error
     )
@@ -283,9 +287,9 @@ contract DIDC(
       throw e
   end
   
-(* Validates that the order comes from a DidTrinity *)
+  (* Validates that the order comes from an SsiTrinity entity *)
   procedure IsRightCaller(
-    caller: DidTrinity
+    caller: SsiTrinity
     )
       match caller with
         | User =>
@@ -305,22 +309,22 @@ contract DIDC(
                   err = CodeNotTyron;
                   ThrowError err
             end
-        | Client avatar =>
-            this_client <- did_clients[avatar];
-            match this_client with
-              | Some client_address =>
-                  latest_client := client_address;
-                  commission <- client_commission[avatar];
-                  this_client_commission = deconstruct_option_uint128 commission;
-                  latest_commission := this_client_commission
+        | Agent avatar =>
+            this_agent <- did_agents[avatar];
+            match this_agent with
+              | Some agent_addr =>
+                  latest_agent := agent_addr;
+                  commission <- agent_commission[avatar];
+                  this_agent_commission = deconstruct_option_uint128 commission;
+                  latest_commission := this_agent_commission
               | None =>
-                  err = CodeNotClient;
+                  err = CodeNotAgent;
                   ThrowError err
             end
       end
   end
 
-(* Verifies that the DID-Status is correct for the given operation *)
+  (* Verifies that the DID-Status is correct for the given operation *)
   procedure IsRightStatus(
     check: CheckStatus
     )
@@ -352,78 +356,62 @@ contract DIDC(
       end
   end
   
-(* Executes the payment to the client and foundation *)
+  (* Executes the payment to the agent and foundation *)
   procedure Payment(
-    clientAvatar: String
+    domain: String,
+    agent: String
     )
-      client = Client clientAvatar;
-      IsRightCaller client;
-      this_cost <- operation_cost;
-      (* To be accepted, the payment MUST be exact *)
-      amount_is_correct = builtin eq _amount this_cost;
-      match amount_is_correct with
-        | True =>
-            (* The DIDC accepts the incoming transfer *)
-            accept;
-            client_address <- latest_client;
-            (* Calculates payment to the client *)
-            this_client_commission <- latest_commission;
-            payment_to_client =
-              let percent = builtin div _amount hundred in
-              builtin mul this_client_commission percent;
-            msg_to_client = {
-              _tag: "";
-              _recipient: client_address;
-              _amount: payment_to_client
-            };
-            e = {
-              _eventname: "Client_payment_verified";
-              client_avatar: clientAvatar;
-              did_client: client_address;
-              client_commission: this_client_commission
-            };
-            event e;
-            (* Calculates payment to the foundation *)
-            payment_to_foundation = builtin sub _amount payment_to_client;
-            this_foundation_address <- foundation_address;
-            msg_to_foundation = {
-              _tag: "";
-              _recipient: this_foundation_address;
-              _amount: payment_to_foundation
-            };
-            (* Sends both payments at once *)
-            msgs = two_msgs msg_to_client msg_to_foundation;
-            send msgs
-        | False => 
-            err = CodeWrongAmount;
-            ThrowError err
-      end
-  end
-
-(* Verifies that the public key matches the contract owner address *)
-  procedure IsOwnerKey(
-    pubk: ByStr33
-    )
-      hash = builtin sha256hash pubk;
-      addr =
-        let s = builtin to_string hash in
-        let start = Uint32 26 in
-        let len = Uint32 40 in
-        builtin substr s start len;
-      hex_addr =
-        let hex = "0x" in
-        builtin concat hex addr;
-      addr_owner = builtin to_string contractOwner;
-      is_owner = builtin eq hex_addr addr_owner;
-      match is_owner with
-        | True =>
-        | False =>
-            err = CodeNotOwner;
+      calling_agent = Agent agent;
+      IsRightCaller calling_agent;
+      optOp_cost <- operation_cost[domain];
+      match optOp_cost with
+        | Some op_cost =>
+            (* To be accepted, the payment MUST be exact *)
+            amount_is_correct = builtin eq _amount op_cost;
+            match amount_is_correct with
+              | True =>
+                  (* The DIDC accepts the incoming transfer *)
+                  accept;
+                  agent_addr <- latest_agent;
+                  (* Calculates payment to the agent *)
+                  this_agent_commission <- latest_commission;
+                  payment_to_agent =
+                    let percent = builtin div _amount hundred in
+                    builtin mul this_agent_commission percent;
+                  msg_to_agent = {
+                    _tag: "";
+                    _recipient: agent_addr;
+                    _amount: payment_to_agent
+                  };
+                  e = {
+                    _eventname: "Agent_payment_verified";
+                    agent: agent;
+                    agent_address: agent_addr;
+                    agent_commission: this_agent_commission
+                  };
+                  event e;
+                  (* Calculates payment to the foundation *)
+                  payment_to_foundation = builtin sub _amount payment_to_agent;
+                  this_foundation_address <- foundation_address;
+                  msg_to_foundation = {
+                    _tag: "";
+                    _recipient: this_foundation_address;
+                    _amount: payment_to_foundation
+                  };
+                  (* Sends both payments at once *)
+                  msgs = two_msgs msg_to_agent msg_to_foundation;
+                  send msgs
+              | False => 
+                  err = CodeWrongAmount;
+                  ThrowError err
+            end
+        | None =>
+            err = CodeNotSsiToken;
             ThrowError err
       end
   end
   
-(* Verifies the Schnorr signature that comes with the signedData corresponds with the public DID-Keys stored in the contract *)
+  (* Verifies the Schnorr signature that comes with the signedData corresponds with the public DID-Keys stored in the contract *)
   procedure IsRightSignature(
     signedData: ByStr,
     sig: ByStr64,
@@ -444,10 +432,9 @@ contract DIDC(
       end
   end
   
-  procedure SetDocument(
+  procedure UpdateDocument(
     document: List Document
     )
-      
       get_element = @get_element Document;
       element = get_element document;
       match element with
@@ -468,7 +455,7 @@ contract DIDC(
       end
   end
     
-(* Validates that the new public DID-Key is different from before *)
+  (* Validates that the new public DID-Key is different from before *)
   procedure IsValidKey(
     didKey: Option ByStr33,
     key: ByStr33
@@ -488,7 +475,7 @@ contract DIDC(
     end
   end
 
-(* Generates a timestamp *)
+  (* Generates a timestamp *)
   procedure Timestamp()
       this_block <- & BLOCKNUMBER;
       ledger_time := this_block;
@@ -503,7 +490,7 @@ contract DIDC(
 (* Transitions *)
 (***************)
 
-(* Updates the init.tyron contract to its latest implementation - only the user aka contract owner can execute this transition *)
+  (* Updates the init.tyron contract to its latest implementation - only the user aka contract owner can execute this transition *)
   transition UpdateInit(
     newInit: ByStr20
     )
@@ -515,38 +502,37 @@ contract DIDC(
       };
       event e
   end
-(**)
 
-(* Sets the DID-Client info into the user's DID account
- * Sends a message to the init.tyron contract that in return calls the InitParameters transition *)
+  (* Sets the agent's info into the user's DID account
+   * Sends a message to the init.tyron contract that in return calls the InitCallBack transition *)
   transition Init(
-    clientAvatar: String
+    agent: String
     )
       IsRightStatus notDeactivated;
       this_tyron <- init_tyron;
-      msg_init = {
-        _tag: "Initialize";
+      msg = {
+        _tag: "Init";
         _recipient: this_tyron;
         _amount: zero;
-        client: clientAvatar
+        agent: agent
       };
-      init = one_msg msg_init;
-      send init
+      msg_init = one_msg msg;
+      send msg_init
   end
   
-(* The init.tyron contract calls this transition to set the operation_cost, foundation_address & client_commission *)
+  (* The init.tyron contract calls this transition to set the operation cost, foundation's address and agent's avatar, address & commission *)
   transition InitCallBack(
     operationCost: Uint128,
-    foundationAddress: ByStr20,
-    clientAvatar: String,
-    clientAddress: ByStr20,
-    clientCommission: Uint128
+    foundationAddr: ByStr20,
+    agent: String,
+    agentAddr: ByStr20,
+    agentCommission: Uint128
     )
       IsRightCaller tyron;
-      operation_cost := operationCost;
-      foundation_address := foundationAddress;
-      did_clients[clientAvatar] := clientAddress;
-      client_commission[clientAvatar] := clientCommission;
+      operation_cost[dotDid] := operationCost;
+      foundation_address := foundationAddr;
+      did_agents[agent] := agentAddr;
+      agent_commission[agent] := agentCommission;
       this_status <- did_status;
       match this_status with
         | Undefined =>
@@ -558,50 +544,54 @@ contract DIDC(
       e = {
         _eventname: "DIDC_initialized";
         decentralized_identifier: did;
-        did_client: clientAvatar;
-        client_commission: clientCommission
+        agent: agent;
+        agent_commission: agentCommission
       };
       event e;
       Timestamp
   end
 
-(* Sets a domain name for the Decentralized Identifier *)
+  (* Sets a domain name for the Decentralized Identifier *)
   transition SetDomain(
     domain: String,
     avatar: String
     )
       IsRightStatus operational;
-      this_cost <- operation_cost;
-      amount_is_correct = builtin eq _amount this_cost;
-      this_tyron <- init_tyron;
-      match amount_is_correct with
-        | True =>
-            accept;
-            msg = {
-              _tag: "SetDomain";
-              _recipient: this_tyron;
-              _amount: _amount;
-              domain: domain;
-              avatar: avatar
-            };
-            msg_domain = one_msg msg;
-            send msg_domain
-        | False => 
-            err = CodeWrongAmount;
+      optOp_cost <- operation_cost[dotDid];
+      match optOp_cost with
+        | Some op_cost =>
+            amount_is_correct = builtin eq _amount op_cost;
+            this_tyron <- init_tyron;
+            match amount_is_correct with
+              | True =>
+                  accept;
+                  msg = {
+                    _tag: "SetDomain";
+                    _recipient: this_tyron;
+                    _amount: _amount;
+                    domain: domain;
+                    avatar: avatar
+                  };
+                  msg_domain = one_msg msg;
+                  send msg_domain
+              | False =>
+                  err = CodeWrongAmount;
+                  ThrowError err
+            end
+        | None =>
+            err = CodeNotSsiToken;
             ThrowError err
       end
   end
 
-(* The init.tyron contract calls this transition to set a user's domain name *)
+  (* The init.tyron contract calls this transition to set a user's domain name *)
   transition SetDomainCallBack(
     domain: String,
     avatar: String
     )
       IsRightCaller tyron;
       resource_records[domain] := avatar;
-      domain_name = 
-        let avatar_dot = builtin concat avatar dot in
-        builtin concat avatar_dot domain;
+      domain_name = builtin concat avatar domain;
       did <- decentralized_identifier;
       e = {
         _eventname: "Updated_domain";
@@ -612,36 +602,33 @@ contract DIDC(
       Timestamp
   end
 
-(* Executes a Tyron DID-Create operation *)
+  (* Executes a Tyron DID-Create operation *)
   transition DidCreate(
-    clientAvatar: String,
+    agent: String,
     document: List Document,
-    didContractOwner: ByStr33,
-    signature: ByStr64,
     updateKey: ByStr33,
     recoveryKey: ByStr33
     )
       IsRightStatus initialized;
-      Payment clientAvatar;
+      Payment dotDid agent;
       IsRightCaller user;
       DidScheme;
-      IsOwnerKey didContractOwner;
-      did_contract_owner = Some{ByStr33} didContractOwner;
-      doc = hash_document document;
-      IsRightSignature doc signature did_contract_owner;
-      SetDocument document;
-      IsValidKey did_contract_owner updateKey;
-      update_key = Some{ByStr33} updateKey;
-      did_update_key := update_key;
-      IsValidKey did_contract_owner recoveryKey;
-      recovery_key = Some{ByStr33} recoveryKey;
-      did_recovery_key := recovery_key;
+      ev = {
+        _eventname: "Doc";
+        doc: document
+      };
+      event ev;
+      UpdateDocument document;
       is_same_key = builtin eq updateKey recoveryKey;
       match is_same_key with
         | True =>
             err = CodeRepeatedKey;
             ThrowError err
         | False =>
+            update_key = Some{ByStr33} updateKey;
+            did_update_key := update_key;
+            recovery_key = Some{ByStr33} recoveryKey;
+            did_recovery_key := recovery_key;
             new_status = Created;
             did_status := new_status;
             this_block <- & BLOCKNUMBER;
@@ -656,21 +643,21 @@ contract DIDC(
       end
   end
   
-(* Executes a Tyron DID-Recover operation *)
+  (* Executes a Tyron DID-Recover operation *)
   transition DidRecover(
-    clientAvatar: String,
+    agent: String,
     newDocument: List Document,
     signature: ByStr64,
     newUpdateKey: ByStr33,
     newRecoveryKey: ByStr33
     )
       IsRightStatus operational;
-      Payment clientAvatar;
+      Payment dotDid agent;
       IsRightCaller user;
       doc = hash_document newDocument;
       did_key <- did_recovery_key;
       IsRightSignature doc signature did_key;
-      SetDocument newDocument;
+      UpdateDocument newDocument;
       IsValidKey did_key newRecoveryKey;
       did_ukey <- did_update_key;
       IsValidKey did_ukey newRecoveryKey;
@@ -698,20 +685,20 @@ contract DIDC(
       end
   end
   
-(* Executes a Tyron DID-Update operation *)
+  (* Executes a Tyron DID-Update operation *)
   transition DidUpdate(
-    clientAvatar: String,
+    agent: String,
     newDocument: List Document,
     signature: ByStr64,
     newUpdateKey: ByStr33
     )
       IsRightStatus operational;
-      Payment clientAvatar;
+      Payment dotDid agent;
       IsRightCaller user;
       doc = hash_document newDocument;
       did_key <- did_update_key;
       IsRightSignature doc signature did_key;
-      SetDocument newDocument;
+      UpdateDocument newDocument;
       IsValidKey did_key newUpdateKey;
       did_rkey <- did_recovery_key;
       IsValidKey did_rkey newUpdateKey;
@@ -728,13 +715,13 @@ contract DIDC(
       Timestamp
   end
   
-(* Executes a Tyron DID-Deactivate operation *)
+  (* Executes a Tyron DID-Deactivate operation *)
   transition DidDeactivate(
-    clientAvatar: String,
+    agent: String,
     signature: ByStr64
     ) 
       IsRightStatus operational;
-      Payment clientAvatar;
+      Payment dotDid agent;
       IsRightCaller user;
       did_key <- did_recovery_key;
       this_th <- tyron_hash;
@@ -786,7 +773,7 @@ contract DIDC(
       end
   end
   
-(* Updates an SSI token to its latest implementation *)
+  (* Updates an SSI token to its latest implementation *)
   transition SsiToken(
     token: String
     )
@@ -800,7 +787,7 @@ contract DIDC(
               _tag: "SsiToken";
               _recipient: this_tyron;
               _amount: zero;
-              avatar: token
+              token: token
             };
             update_token = one_msg msg;
             send update_token
@@ -810,7 +797,7 @@ contract DIDC(
       end
   end
   
-(* The init.tyron contract calls this transition to update an SSI token to its latest implementation *)
+  (* The init.tyron contract calls this transition to update an SSI token to its latest implementation *)
   transition SsiTokenCallBack(
     token: String,
     proxyAddr: ByStr20,
@@ -828,7 +815,7 @@ contract DIDC(
       event e
   end
   
-(* Adds native funds (ZIL) to the xWallet *)
+  (* Adds native funds (ZIL) to the xWallet *)
   transition ZilIn()
       IsRightStatus operational;
       accept;
@@ -842,7 +829,7 @@ contract DIDC(
       event e
   end
   
-(* Sends ZIL from the xWallet to any recipient that implements the tag (e.g. "ZilIn", "") *)
+  (* Sends ZIL from the xWallet to any recipient that implements the tag (e.g. "ZilIn", "") *)
   transition ZilOut(
     tag: String,
     to: ByStr20,
@@ -870,7 +857,7 @@ contract DIDC(
       Timestamp
   end
 
-(* Acceptance transition - must be defined or transfers to this xWallet will fail otherwise *)
+  (* Acceptance transition - must be defined or transfers to this xWallet will fail otherwise *)
   transition RecipientAcceptTransfer(
     sender : ByStr20,
     recipient : ByStr20,
@@ -888,15 +875,17 @@ contract DIDC(
       event e
   end
 
-(* Transfers ZRC-2 verified tokens *)
+  (* Transfers ZRC-2 verified tokens *)
   transition XTransfer(
     token: String,
+    agent: String,
     to: ByStr20,
     amount: Uint128,
     signature: ByStr64
     ) 
       IsRightStatus operational;
       IsRightCaller user;
+      Payment token agent;
       optBalance <- xBalances[token];
       balance = deconstruct_option_uint128 optBalance;
       is_enough = builtin lt amount balance;
@@ -929,7 +918,7 @@ contract DIDC(
       end
   end
   
-(* Callback transition - must be defined or transfers from this xWallet will fail otherwise *)
+  (* Callback transition - must be defined or transfers from this xWallet will fail otherwise *)
   transition TransferSuccessCallBack(
     sender: ByStr20, 
     recipient: ByStr20,

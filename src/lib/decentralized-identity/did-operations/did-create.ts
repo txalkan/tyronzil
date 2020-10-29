@@ -13,21 +13,17 @@
     GNU General Public License for more details.
 */
 
-import * as zcrypto from '@zilliqa-js/crypto';
-import { OperationType } from '../sidetree-protocol/sidetree';
-import { Cryptography, OperationKeyPairInput, TyronPrivateKeys, TyronPublicKeys } from '../util/did-keys';
+import { OperationType } from '../protocols/sidetree';
+import { Cryptography, OperationKeyPairInput, TyronPrivateKeys } from '../util/did-keys';
 import { CliInputModel } from '../../../bin/util';
-import { DocumentModel } from '../sidetree-protocol/models/document-model';
+import { TransitionValue } from '../../blockchain/tyronzil';
+import { PrivateKeyModel } from '../protocols/models/verification-method-models';
 
 /** Generates a `Tyron DID-Create` operation
  *  which produces the `DID-Document` & metadata */
 export default class DidCreate {
     public readonly type = OperationType.Create;
-    public readonly document: string;
-    
-    /** The public key corresponding to the contract_owner */
-    public readonly didContractOwner: string;
-    public readonly signature: string;
+    public readonly document: TransitionValue[];
     public readonly updateKey: string;
     public readonly recoveryKey: string;
     public readonly privateKeys: TyronPrivateKeys;
@@ -37,9 +33,7 @@ export default class DidCreate {
     private constructor (
         operation: CreateOperationModel
     ) {
-        this.document = "0x"+ operation.document;
-        this.didContractOwner = "0x" + operation.didContractOwner;
-        this.signature = "0x" + operation.signature;
+        this.document = operation.document;
         this.updateKey = "0x"+ operation.updateKey;
         this.recoveryKey = "0x"+ operation.recoveryKey;
         this.privateKeys = operation.privateKeys;
@@ -49,31 +43,21 @@ export default class DidCreate {
    
     /** Generates a Tyron `DID-Create` operation with input from the CLI */
     public static async execute(input: CliInputModel): Promise<DidCreate> {
-        const PUBLIC_KEY_MODEL = [];
-        const PRIVATE_KEY_MODEL = [];
-        
+        const VERIFICATION_METHODS: TransitionValue[] = [];
+        const PRIVATE_KEY_MODEL: PrivateKeyModel[] = [];
+
         for(const key_input of input.publicKeyInput) {
             // Creates the cryptographic key pair
             const KEY_PAIR_INPUT: OperationKeyPairInput = {
                 id: key_input.id
             }
-            const [PUBLIC_KEY, PRIVATE_KEY] = await Cryptography.operationKeyPair(KEY_PAIR_INPUT);
-            PUBLIC_KEY_MODEL.push(PUBLIC_KEY);
+            const [VERIFICATION_METHOD, PRIVATE_KEY] = await Cryptography.operationKeyPair(KEY_PAIR_INPUT);
+            VERIFICATION_METHODS.push(VERIFICATION_METHOD);
             PRIVATE_KEY_MODEL.push(PRIVATE_KEY);
         }
-        const PUBLIC_KEYS = await Cryptography.processKeys(PUBLIC_KEY_MODEL) as TyronPublicKeys;
 
-        /** The Sidetree Document Model */
-        const DOCUMENT: DocumentModel = {
-            public_keys: PUBLIC_KEYS,
-            service_endpoints: input.service
-        };
-        
-        const DOC_HEX = Buffer.from(JSON.stringify(DOCUMENT)).toString('hex');
-            
-        const DID_CONTRACT_OWNER = zcrypto.getPubKeyFromPrivateKey(input.userPrivateKey!);
-            
-        const SIGNATURE = zcrypto.sign(Buffer.from(DOC_HEX, 'hex'), input.userPrivateKey!, DID_CONTRACT_OWNER);
+        const DOCUMENT = VERIFICATION_METHODS.concat(input.services);
+        console.log(DOCUMENT);
             
         // Creates the update key-pair (necessary for the next update operation)
         const [UPDATE_KEY, UPDATE_PRIVATE_KEY] = await Cryptography.keyPair("update");
@@ -87,9 +71,7 @@ export default class DidCreate {
         
         /** Output data from a Tyron `DID-Create` operation */
         const OPERATION_OUTPUT: CreateOperationModel = {
-            document: DOC_HEX,
-            didContractOwner: DID_CONTRACT_OWNER,
-            signature: SIGNATURE,
+            document: DOCUMENT,
             updateKey: UPDATE_KEY,
             recoveryKey: RECOVERY_KEY,
             privateKeys: PRIVATE_KEYS
@@ -102,9 +84,7 @@ export default class DidCreate {
 
 /** Defines output data for a Sidetree-based `DID-Create` operation */
 interface CreateOperationModel {
-    document: string;
-    didContractOwner: string;
-    signature: string;
+    document: TransitionValue[];
     updateKey: string;
     recoveryKey: string;
     privateKeys: TyronPrivateKeys;

@@ -14,31 +14,38 @@
 */
 
 import * as zcrypto from '@zilliqa-js/crypto';
-import { PrivateKeyModel, PublicKeyModel, PublicKeyPurpose } from '../sidetree-protocol/models/verification-method-models';
+import TyronZIL, { TransitionValue } from '../../blockchain/tyronzil';
+import { Action, DocumentElement } from '../protocols/models/document-model';
+import { PrivateKeyModel, PublicKeyModel, PublicKeyPurpose } from '../protocols/models/verification-method-models';
 import ErrorCode from './ErrorCode';
 
 /** Defines input data to generate a cryptographic key pair */
 export interface OperationKeyPairInput {
-    id: string
+  id: string        //the key purpose      
 }
 
 /** Generates cryptographic operations */
 export class Cryptography {
   /** Asymmetric cryptography to generate the key pair using the KEY_ALGORITHM (secp256k1)
    * @returns [publicKey, privateKey] */
-  public static async operationKeyPair(input: OperationKeyPairInput): Promise<[PublicKeyModel, PrivateKeyModel]> {
+  public static async operationKeyPair(input: OperationKeyPairInput): Promise<[TransitionValue, PrivateKeyModel]> {
     const PRIVATE_KEY = zcrypto.schnorr.generatePrivateKey();
-    const PUBLIC_KEY = zcrypto.getPubKeyFromPrivateKey(PRIVATE_KEY);
-    const PUBKEY_MODEL: PublicKeyModel = {
+    const PUBLIC_KEY = "0x"+ zcrypto.getPubKeyFromPrivateKey(PRIVATE_KEY);
+    const VERIFICATION_METHOD: PublicKeyModel = {
       id: input.id,
       key: PUBLIC_KEY
     };
+    const DOC_ELEMENT = await TyronZIL.documentElement(
+      DocumentElement.VerificationMethod,
+      Action.Adding,
+      VERIFICATION_METHOD
+    );
     const PRIVATE_KEY_MODEL: PrivateKeyModel = {
       id: input.id,
       key: PRIVATE_KEY
     };
 
-    return [PUBKEY_MODEL, PRIVATE_KEY_MODEL];
+    return [DOC_ELEMENT, PRIVATE_KEY_MODEL];
   }
 
   /** Generates a secp256k1 key pair

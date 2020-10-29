@@ -31,6 +31,9 @@ library Init
   (* Constants *)
   (*************)
   let zero = Uint128 0
+  let dotDid = ".did"
+  let dotTyron = ".tyron"
+  let dotAgent = ".agent"
   
   (* Error events *)
   (****************)
@@ -38,97 +41,138 @@ library Init
     | CodeNotFoundation
     | CodeInsufficientFunds
     | CodeDomainTaken
+    | CodeNotAgent
+    | CodeNotSsiDomain
+    | CodeNotRightCaller
 
   let make_error =
-    fun (result : Error) =>
-      let result_code = 
-        match result with
+    fun (error: Error) =>
+      let result = 
+        match error with
           | CodeNotFoundation       => Int32 -1
           | CodeInsufficientFunds   => Int32 -2
           | CodeDomainTaken         => Int32 -3
+          | CodeNotAgent            => Int32 -4
+          | CodeNotSsiDomain        => Int32 -5
+          | CodeNotRightCaller      => Int32 -6
         end
       in
-      {_exception : "Error"; code : result_code}
+      {_exception : "Error"; code : result}
 
-(*********************************)
-(* The init.tyron Smart-Contract *)
-(*********************************)
+  let deconstruct_option_uint128 =
+    fun(option: Option Uint128) =>
+      match option with
+        | Some value => value
+        | _ => zero
+      end
+
+(**************************************************************************)
+(* init.tyron: The DID Initialization & Domain Name System Smart Contract *)
+(**************************************************************************)
 
 contract Init(
-
 (* Immutable fields declaration *)
-(********************************)
 
   (* The address of the Tyron Pungtas Foundation *)
-  foundationAddr: ByStr20,
-  
-  (* The contract's domain name, e.g. "did" *)
-  domainName: String
+  foundationAddress: ByStr20
   )
 
 (* Mutable fields declaration *)
-(******************************)
 
-  (* The DID-Smart-Contract code by version
+(* The DID-Smart-Contract code by version
   @key: version
-  @value: Base64-encoded code *)
-  field did_sc_code: Map String String = Emp String String
+  @value: hex-encoded code *)
+  field didc_code: Map String String = Emp String String
   
-  (* The cost of each DID operation *)
-  field operation_cost: Uint128 = zero
+  (* The cost of a tyronZIL transaction
+   @key: domain OR contract.tyron
+   @value: cost as % of the amount *)
+  field operation_cost: Map String Uint128 = Emp String Uint128
   
-  (* The client's commission as a % of the operation_cost *)
-  field client_commission: Uint128 = zero   
+  (* the operation cost is sent to the xDID/ZIL liquidity pool*)
   
-  (* The DNS records 
-  @key: domain_name
-  @value: address of the DIDC *)
-  field records: Map String ByStr20 = Emp String ByStr20
+  (* The agent's commission as a % of share 
+   - the user has 51% of the share
+   - Tyron Pungtas Foundation 51% of the remaining 49 %
+   - the agent earns the rest and can offer promotions
+   @key: avatar.agent
+   @value: max 24% *)
+  field agent_commission: Map String Uint128 = Emp String Uint128
   
+  (* The DNS records
+   @key: SsiDomain (e.g. ".did", ".tyron", ".agent")
+   @value: Map of
+            @key: avatar
+            @value: address *)
+  field dns: Map String (Map String ByStr20) = Emp String (Map String ByStr20)
+
+  (* The SSI Tokens *)
+  (* Proxies
+   @key: token 
+   @value: proxy address *)
+   field ssi_tokens: Map String ByStr20 = Emp String ByStr20
+  
+  (* Token implementations
+   @key: proxy address
+   @value: implementation address *)
+   field ssi_token_implementations: Map ByStr20 ByStr20 = Emp ByStr20 ByStr20
+
+(**************)
 (* Procedures *)
 (**************)
 
-  (* The procedure to throw an error *)
+(* The procedure to throw an error *)
   procedure ThrowError(
     err: Error
     )
       e = make_error err;
       throw e
   end
-
-  (* Validates that the call comes from the foundation *)
-  procedure IsFoundation()
-      is_foundation = builtin eq foundationAddr _sender;
-      match is_foundation with
-        | True =>
-        | False =>
-            err = CodeNotFoundation;
+  
+(* Executes the payment to the foundation *)
+  procedure Payment(
+    domain: String
+    )
+      optRegistrationCost <- operation_cost[domain];
+      match optRegistrationCost with
+        | Some registrationCost =>
+            (* To be accepted, the payment MUST be exact *)
+            amount_is_correct = builtin eq _amount registrationCost;
+            match amount_is_correct with
+              | True =>
+                  (* The contract accepts the incoming transfer *)
+                  accept;
+                  msg = {
+                    _tag: "";
+                    _recipient: foundationAddress;
+                    _amount: _amount
+                  };
+                  msg_to_foundation = one_msg msg;
+                  send msg_to_foundation
+              | False => 
+                  err = CodeInsufficientFunds;
+                  ThrowError err
+            end
+        | None =>
+            err = CodeNotSsiDomain;
             ThrowError err
       end
   end
   
-  (* Executes the payment to the foundation *)
-  procedure Payment()
-      this_cost <- operation_cost;
-      (* To be accepted, the payment MUST be exact *)
-      amount_is_correct = builtin eq _amount this_cost;
-      match amount_is_correct with
-        | True =>
-            (* The contract accepts the incoming transfer *)
-            accept;
-            msg_to_foundation = {
-              _tag: "";
-              _recipient: foundationAddr;
-              _amount: _amount
-            };
-            msg = one_msg msg_to_foundation;
-            send msg
-        | False => 
-            err = CodeInsufficientFunds;
-            ThrowError err
-      end
+(* Validates the _sender *)
+  procedure IsRightCaller(
+    check: ByStr20
+    )
+      is_correct = builtin eq check _sender;
+        match is_correct with
+          | True =>
+          | False =>
+              err = CodeNotRightCaller;
+              ThrowError err
+        end
   end
 
+(***************)
 (* Transitions *)
 (***************)
   
@@ -137,59 +181,121 @@ contract Init(
     version: String,
     code: String
     )
-      IsFoundation;
-      did_sc_code[version] := code;
+      IsRightCaller foundationAddress;
+      didc_code[version] := code;
       e = {
-        _eventname: "UpdatedTyronSmartContracts";
-        did_sc_version: version;
-        did_sc_code: code
+        _eventname: "Updated_DIDC";
+        version: version;
+        code: code
       };
       event e
   end
   
   (* Sets the operation_cost *)
   transition OperationCost(
+    domain: String,
     cost: Uint128
     )
-      IsFoundation;
-      operation_cost := cost
+      IsRightCaller foundationAddress;
+      operation_cost[domain] := cost
   end
   
-  (* Sets the client_commission *)
-  transition ClientCommission(
+  (* Sets the agent_commission *)
+  transition AgentCommission(
+    agent: String,
     commission: Uint128
     )
-      IsFoundation;
-      client_commission := commission
+      this_agent_addr <- dns[dotAgent][agent];
+      match this_agent_addr with
+        | Some agentAddr =>
+            IsRightCaller agentAddr;
+            agent_commission[agent] := commission   (*to-do make sure about %*)
+        | None =>
+            err = CodeNotAgent;
+            ThrowError err
+      end
   end
   
-  (* Called by the DIDC to set the operation_cost, foundation_address & client_commission *)
-  transition Initialize()
-      this_cost <- operation_cost;
-      this_client_commission <- client_commission;
-      msg_init = {
-        _tag: "InitCallBack";
-        _recipient: _sender;
-        _amount: zero;
-        operationCost: this_cost;
-        foundationAddress: foundationAddr;
-        clientCommission: this_client_commission
-      };
-      init = one_msg msg_init;
-      send init
-  end
-  
-  (* Sets a domain in the DNS records *)
-  transition SetDomain(
-    domain: String
+  (* Called by the DIDC to set the operation_cost, foundation_address & agent_commission *)
+  transition Init(
+    agent: String
     )
-      Payment;
-      taken <- exists records[domain];
+      this_agent_addr <- dns[dotAgent][agent];
+      match this_agent_addr with
+        | Some agentAddr =>
+            this_cost <- operation_cost[dotDid];
+            operation_cost = deconstruct_option_uint128 this_cost;
+            this_commission <- agent_commission[agent];
+            agent_commission = deconstruct_option_uint128 this_commission;
+            msg = {
+              _tag: "InitCallBack";
+              _recipient: _sender;
+              _amount: zero;
+              operationCost: operation_cost;
+              foundationAddr: foundationAddress;
+              agent: agent;
+              agentAddr: agentAddr;
+              agentCommission: agent_commission
+            };
+            msg_init = one_msg msg;
+            send msg_init
+        | None =>
+            err = CodeNotAgent;
+            ThrowError err
+      end
+  end
+  
+  (* Sets a Self-Sovereign Identity domain name in the DNS *)
+  transition SetSsiDomain(
+    domain: String,
+    avatar: String
+    )
+      Payment domain;
+      taken <- exists dns[domain][avatar];
       match taken with
         | True =>
             err = CodeDomainTaken;
             ThrowError err
         | False =>
-            records[domain] := _sender
+            dns[domain][avatar] := _sender;
+            msg = {
+              _tag: "SetDomainCallBack";
+              _recipient: _sender;
+              _amount: zero;
+              domain: domain;
+              avatar: avatar
+            };
+            msg_domain = one_msg msg;
+            send msg_domain
       end
   end
+
+  transition SsiToken(
+    token: String
+    )
+      this_proxy_addr <- ssi_tokens[token];
+      match this_proxy_addr with
+        | Some proxy_addr =>
+            this_token_impl <- ssi_token_implementations[proxy_addr];
+            match this_token_impl with
+              | Some token_impl =>
+                  msg = {
+                    _tag: "SsiTokenCallBack";
+                    _recipient: _sender;
+                    _amount: zero;
+                    token: token;
+                    proxyAddr: proxy_addr;
+                    tokenAddr: token_impl
+                  };
+                  msg_token = one_msg msg;
+                  send msg_token
+              | None =>
+                  err = CodeNotSsiDomain;
+                  ThrowError err
+            end
+        | None =>
+            err = CodeNotSsiDomain;
+            ThrowError err
+      end
+  end
+  

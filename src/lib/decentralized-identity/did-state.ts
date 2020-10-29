@@ -16,8 +16,8 @@
 import TyronState from '../blockchain/tyron-state';
 import { NetworkNamespace } from './tyronZIL-schemes/did-scheme';
 import DidUrlScheme from './tyronZIL-schemes/did-url-scheme';
-import { OperationType, Sidetree } from './sidetree-protocol/sidetree';
-import { DocumentModel } from './sidetree-protocol/models/document-model';
+import { OperationType, Sidetree } from './protocols/sidetree';
+import { DocumentModel } from './protocols/models/document-model';
 
 /** The Tyron DID-State */
 export default class DidState {

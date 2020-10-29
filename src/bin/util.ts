@@ -17,11 +17,12 @@ import * as zcrypto from '@zilliqa-js/crypto';
 import * as fs from 'fs';
 import LogColors from './log-colors';
 import * as readline from 'readline-sync';
-import { DidServiceEndpointModel } from '../lib/decentralized-identity/sidetree-protocol/models/document-model';
-import { PublicKeyPurpose } from '../lib/decentralized-identity/sidetree-protocol/models/verification-method-models';
+import { Action, DataTransferProtocol, DocumentElement, ServiceModel } from '../lib/decentralized-identity/protocols/models/document-model';
+import { PublicKeyPurpose } from '../lib/decentralized-identity/protocols/models/verification-method-models';
 import { NetworkNamespace } from '../lib/decentralized-identity/tyronZIL-schemes/did-scheme';
 import ErrorCode from '../lib/decentralized-identity/util/ErrorCode';
 import { TyronPrivateKeys } from '../lib/decentralized-identity/util/did-keys';
+import TyronZIL, { TransitionValue } from '../lib/blockchain/tyronzil';
 
 export default class Util {
 
@@ -31,13 +32,13 @@ export default class Util {
         console.log(LogColors.brightGreen(`First, let's generate a key pair for your XSGD stablecoins...`))
         
         const KEY_ID_SET: Set<string> = new Set();
-        const KEYS = [];
+        const KEY_INPUT = [];
         
         const XSGD_KEY: PublicKeyInput = {
             id: PublicKeyPurpose.XSGD
         };
         KEY_ID_SET.add(XSGD_KEY.id)
-        KEYS.push(XSGD_KEY);
+        KEY_INPUT.push(XSGD_KEY);
 
         console.log(LogColors.brightGreen(`Done! You can have a key for each of the following purposes:
         General(1),
@@ -88,27 +89,42 @@ export default class Util {
                 throw new ErrorCode("DuplicatedID", "The key IDs MUST NOT be duplicated");
             }
             KEY_ID_SET.add(id);
-            KEYS.push(KEY);
+            KEY_INPUT.push(KEY);
         }
-        return KEYS;
+        return KEY_INPUT;
     }
 
     /***            ****            ***/
 
-    /** Generates the services' input */
-    public static async InputService(): Promise<DidServiceEndpointModel[]> {
+    /** Generates the DID services */
+    public static async services(): Promise<TransitionValue[]> {
         console.log(LogColors.brightGreen(`Service endpoints for your Decentralized Identifier:`));
-        const SERVICE = [];
+        const SERVICES: TransitionValue[] = [];
         const SERVICE_ID_SET: Set<string> = new Set();
         
-        const amount = readline.question(LogColors.green(`How many service endpoints would you like to add? - `) + LogColors.lightBlue(`Your answer: `));
+        const amount = readline.question(LogColors.green(`How many services would you like to add? - `) + LogColors.lightBlue(`Your answer: `));
         if(!Number(amount) && Number(amount) !== 0 || Number(amount) < 0) {
             throw new ErrorCode("WrongAmount", "It must be a number greater than or equal to 0");
         }
         for(let i=0, t= Number(amount); i<t; ++i) {
-            const id = readline.question(LogColors.green(`Write down your service ID - `) + LogColors.lightBlue(`Your answer: `));
-            const type = readline.question(LogColors.green(`Write down your service type - `) + ` - Defaults to 'website' - ` + LogColors.lightBlue(`Your answer: `));
-            const endpoint = readline.question(LogColors.green(`Write down your service URL - `) + ` - [yourwebsite.com] - ` + LogColors.lightBlue(`Your answer: `));
+            const id = readline.question(LogColors.green(`What is the service ID? - `) + LogColors.lightBlue(`Your answer: `));
+            const type = readline.question(LogColors.green(`What is the service type? - `) + ` - Defaults to 'website' - ` + LogColors.lightBlue(`Your answer: `));
+            const data_transfer = readline.question(LogColors.green(`What is the data transfer protocol? https(1), git(2) or ssh(3)`) + ` - [1/2/3] - ` + LogColors.lightBlue(`Your answer: `));
+            let DATA_TRANSFER;
+            switch (Number(data_transfer)) {
+                case 1:
+                    DATA_TRANSFER = DataTransferProtocol.Https;
+                    break;
+                case 2:
+                    DATA_TRANSFER = DataTransferProtocol.Git;
+                    break;
+                case 3:
+                    DATA_TRANSFER = DataTransferProtocol.Ssh;
+                    break;
+                default:
+                    throw new ErrorCode("InvalidInput", `That input in not allowed`);
+            }
+            const endpoint = readline.question(LogColors.green(`What is the service URI?`) + ` - [www.yourwebsite.com] - ` + LogColors.lightBlue(`Your answer: `));
             if (id === "" || endpoint === "") {
                 throw new ErrorCode("Invalid parameter", "To register a service-endpoint you must provide its ID, type and URL");
             }
@@ -118,20 +134,28 @@ export default class Util {
             } else {
                 TYPE = "website"
             }
-            const SERVICE_ENDPOINT: DidServiceEndpointModel = {
-                id: id,
-                type: TYPE,
-                endpoint: "https://" + endpoint
-            }
 
             // IDs MUST be unique
-            if (SERVICE_ID_SET.has(id)) {
+            if(!SERVICE_ID_SET.has(id)) {
+                SERVICE_ID_SET.add(id);
+                const SERVICE: ServiceModel = {
+                    id: id,
+                    type: TYPE,
+                    transferProtocol: DATA_TRANSFER,
+                    uri: endpoint
+                };
+                const DOC_ELEMENT = await TyronZIL.documentElement(
+                    DocumentElement.Service,
+                    Action.Adding,
+                    undefined,
+                    SERVICE
+                );
+                SERVICES.push(DOC_ELEMENT);
+            } else {            
                 throw new ErrorCode("CodeDocumentServiceIdDuplicated", "The service IDs MUST NOT be duplicated" );
             }
-            SERVICE_ID_SET.add(id);
-            SERVICE.push(SERVICE_ENDPOINT);
         }
-        return SERVICE;
+        return SERVICES;
     }
 
     /** Saves the private keys */
@@ -157,7 +181,7 @@ export default class Util {
 export interface CliInputModel {
     network: NetworkNamespace;
     publicKeyInput: PublicKeyInput[];
-    service: DidServiceEndpointModel[];
+    services: TransitionValue[];
     userPrivateKey?: string;
 }
   

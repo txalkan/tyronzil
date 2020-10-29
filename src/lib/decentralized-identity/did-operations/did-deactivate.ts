@@ -14,7 +14,7 @@
 */
 
 import * as zcrypto from '@zilliqa-js/crypto';
-import { OperationType } from '../sidetree-protocol/sidetree';
+import { OperationType } from '../protocols/sidetree';
 import DidState from '../did-state';
 
 /** Generates a `Tyron DID-Deactivate` operation */

@@ -18,11 +18,11 @@ import DidUpdate, { UpdateOperationInput } from '../lib/decentralized-identity/d
 import DidRecover, { RecoverOperationInput } from '../lib/decentralized-identity/did-operations/did-recover';
 import DidDeactivate, { DeactivateOperationInput } from '../lib/decentralized-identity/did-operations/did-deactivate';
 import Util, { CliInputModel } from './util';
-import TyronTransaction, { InitTyronSM, TransitionTag } from '../lib/blockchain/tyron-transaction';
+import TyronZIL, { InitTyron, TransitionTag } from '../lib/blockchain/tyronzil';
 import DidScheme, { NetworkNamespace } from '../lib/decentralized-identity/tyronZIL-schemes/did-scheme';
 import DidState from '../lib/decentralized-identity/did-state';
 import DidDoc, {ResolutionInput, Accept } from '../lib/decentralized-identity/did-document';
-import { PatchAction, PatchModel } from '../lib/decentralized-identity/sidetree-protocol/models/document-model';
+import { PatchAction, PatchModel } from '../lib/decentralized-identity/protocols/models/document-model';
 import ErrorCode from '../lib/decentralized-identity/util/ErrorCode';
 import LogColors from './log-colors';
 import * as readline from 'readline-sync';
@@ -31,25 +31,29 @@ import * as readline from 'readline-sync';
 export default class TyronCLI {
 
     /** Gets network choice from the user */
-    private static network(): { network: NetworkNamespace, init_tyron: InitTyronSM } {
-        const network = readline.question(LogColors.green(`On which Zilliqa network would you like to operate, mainnet(m) or testnet(t)?`) + ` - [m/t] - Defaults to testnet - ` + LogColors.lightBlue(`Your answer: `));
+    private static network(): { network: NetworkNamespace, initTyron: InitTyron } {
+        const network = readline.question(LogColors.green(`On which Zilliqa network would you like to operate, mainnet(m), testnet(t) or isolated server(i)?`) + ` - [m/t/i] - Defaults to testnet - ` + LogColors.lightBlue(`Your answer: `));
         // Both default to testnet
         let NETWORK;
-        let INIT_TYRON;        //address of the init_tyron smart-contract
+        let INIT_TYRON;        //address of the init.tyron smart contract
         switch(network.toLowerCase()) {
             case 'm':
                 NETWORK = NetworkNamespace.Mainnet;
-                INIT_TYRON = InitTyronSM.Mainnet;
+                INIT_TYRON = InitTyron.Mainnet;
+                break;
+            case 'i':
+                NETWORK = NetworkNamespace.Isolated;
+                INIT_TYRON = InitTyron.Isolated;
                 break;
             default:
                 // Defaults to testnet
                 NETWORK = NetworkNamespace.Testnet;
-                INIT_TYRON = InitTyronSM.Testnet;
+                INIT_TYRON = InitTyron.Testnet;
                 break;
         }
         return {
             network: NETWORK,
-            init_tyron: INIT_TYRON
+            initTyron: INIT_TYRON
         }
     }
 
@@ -61,31 +65,26 @@ export default class TyronCLI {
         const NETWORK = SET_NETWORK.network;
         
         console.log(LogColors.brightGreen(`The user is the contract owner of their Tyron DID-Smart-Contract (DIDC)`));
-        const user_addr = readline.question(LogColors.green(`What is the user's address?`) + ` - [Bech32 address] - ` + LogColors.lightBlue(`Your answer: `));
+        const user_privateKey = readline.question(LogColors.green(`What is the user's private key?`) + ` - [Hex-encoded private key] - ` + LogColors.lightBlue(`Your answer: `));
 
-        const client_privateKey = readline.question(LogColors.green(`What is the client's private key?`) + ` - [Hex-encoded private key] - ` + LogColors.lightBlue(`Your answer: `));
-        const gas_limit = readline.question(LogColors.green(`What is the gas limit?`) + ` - [Recommended value: 20,000] - ` + LogColors.lightBlue(`Your answer: `));
+        const gas_limit = readline.question(LogColors.green(`What is the gas limit?`) + ` - [Recommended value: 50,000] - ` + LogColors.lightBlue(`Your answer: `));
             
         console.log(LogColors.brightGreen(`Initializing...`));
-        await TyronTransaction.initialize(
+        await TyronZIL.initialize(
             NETWORK,
-            SET_NETWORK.init_tyron,
-            client_privateKey,
-            gas_limit,
-            user_addr
+            SET_NETWORK.initTyron,
+            user_privateKey,
+            gas_limit
         )
         .then(async init => {
-            // Adds public keys and service endpoints:
-            const PUBLIC_KEYS = await Util.InputKeys();
-            const SERVICE = await Util.InputService();
-
-            console.log(LogColors.brightGreen(`As the contract owner, the user MUST sign their first DID-Document for the DIDC to accept it.`));
-            const user_privateKey = readline.question(LogColors.green(`What is the user's private key?`) + ` - [Hex-encoded private key] - ` + LogColors.lightBlue(`Your answer: `));
+            // Adds verification-method inputs & services:
+            const KEY_INPUT = await Util.InputKeys();
+            const SERVICES = await Util.services();
             
             const CLI_INPUT: CliInputModel = {
                 network: NETWORK,
-                publicKeyInput: PUBLIC_KEYS,
-                service: SERVICE,
+                publicKeyInput: KEY_INPUT,
+                services: SERVICES,
                 userPrivateKey: user_privateKey
             };
 
@@ -107,24 +106,23 @@ export default class TyronCLI {
         .then(async didCreate => {
             console.log(LogColors.brightGreen(`Let's deploy the user's Tyron DID-Smart-Contract!`))
             
-            const version = readline.question(LogColors.green(`What version of the DIDC would you like to deploy?`)+` - Versions currently supported: [1.0.0] - ` + LogColors.lightBlue(`Your answer: `));
+            const version = readline.question(LogColors.green(`What version of the DIDC would you like to deploy?`)+` - Versions currently supported: [2.0] - ` + LogColors.lightBlue(`Your answer: `));
             
             // The user deploys their DIDC and calls the TyronInit transition
-            const DEPLOYED_CONTRACT = await TyronTransaction.deploy(didCreate.init, version);
+            const DEPLOYED_CONTRACT = await TyronZIL.deploy(didCreate.init, version);
             const TYRON_ADDR = DEPLOYED_CONTRACT.contract.address!;
             
             const DID = await DidScheme.newDID({network: NETWORK, didUniqueSuffix: TYRON_ADDR});
             console.log(LogColors.green(`The user's Tyron Decentralized Identifier is: `) + LogColors.green(DID.did));
 
-            const PARAMS = await TyronTransaction.create(
+            const PARAMS = await TyronZIL.create(
+                "pungtas",
                 didCreate.operation.document,
-                didCreate.operation.didContractOwner,
-                didCreate.operation.signature,
                 didCreate.operation.updateKey,
                 didCreate.operation.recoveryKey
             );
 
-            await TyronTransaction.submit(didCreate.init, TYRON_ADDR!, didCreate.tag, PARAMS);
+            await TyronZIL.submit(didCreate.init, TYRON_ADDR!, didCreate.tag, PARAMS, ".did");
 
             /***            ****            ***/
             
@@ -203,14 +201,14 @@ export default class TyronCLI {
             const RECOVERY_PRIVATE_KEY = readline.question(LogColors.brightGreen(`DID-State retrieved!`) + LogColors.green(` - Provide the recovery private key - `) + LogColors.lightBlue(`Your answer: `));
             await Util.verifyKey(RECOVERY_PRIVATE_KEY, did_state.did_recovery_key);
             
-            // Adds public keys and service endpoints:
-            const PUBLIC_KEYS = await Util.InputKeys();
-            const SERVICE = await Util.InputService();
+            // Adds verification-method inputs & services:
+            const KEY_INPUT = await Util.InputKeys();
+            const SERVICES = await Util.services();
 
             const CLI_INPUT: CliInputModel = {
                 network: NETWORK,
-                publicKeyInput: PUBLIC_KEYS,
-                service: SERVICE
+                publicKeyInput: KEY_INPUT,
+                services: SERVICES
             };
             const RECOVER_INPUT: RecoverOperationInput = {
                 did: did_state.decentralized_identifier,
@@ -240,7 +238,8 @@ export default class TyronCLI {
         .then(async didRecover => {
             console.log(LogColors.brightGreen(`Next, let's save the DID-Recover operation on the Zilliqa blockchain platform, so it stays immutable!`));
             
-            const PARAMS = await TyronTransaction.recover(
+            const PARAMS = await TyronZIL.recover(
+                'test',
                 didRecover.operation.newDocument,
                 didRecover.operation.signature,
                 didRecover.operation.newUpdateKey,
@@ -250,14 +249,14 @@ export default class TyronCLI {
             const client_privateKey = readline.question(LogColors.green(`What is the client's private key?`) + ` - [Hex-encoded private key] - ` + LogColors.lightBlue(`Your answer: `));
             const gas_limit = readline.question(LogColors.green(`What is the gas limit?`) + ` - [Recommended value: 5,000] - ` + LogColors.lightBlue(`Your answer: `));
             
-            const INITIALIZED = await TyronTransaction.initialize(
+            const INITIALIZED = await TyronZIL.initialize(
                 NETWORK,
-                SET_NETWORK.init_tyron,
+                SET_NETWORK.initTyron,
                 client_privateKey,
                 gas_limit,
             );
             
-            await TyronTransaction.submit(INITIALIZED, tyronAddr, didRecover.tag, PARAMS);
+            await TyronZIL.submit(INITIALIZED, tyronAddr, didRecover.tag, PARAMS, ".did");
         })
         .catch(err => console.error(LogColors.red(err)))
     }
@@ -286,20 +285,20 @@ export default class TyronCLI {
             for(let i=0, t= Number(patches_amount); i<t; ++i) {
                 // Asks for the specific patch action to update the DID:
                 const action = readline.question(LogColors.green(`You may choose one of the following actions to update the DID:
-                'add-keys'(1),
-                'remove-keys'(2),
-                'add-services'(3),
+                'add-keys'(1) - if the key id already exists, then its value will get updated;
+                'remove-keys'(2);
+                'add-services'(3) - if the service id already exists, then its value will get updated;
                 'remove-services'(4)`)
                 + ` - [1/2/3/4] - ` + LogColors.lightBlue(`Your answer: `));
-        
-                const ID = [];
-                let KEYS;
-                let SERVICE;
+                
+                let KEY_INPUT;
+                let SERVICES;
+                const ID = []
                 let PATCH_ACTION;
                 switch (action) {
                     case '1':
                         PATCH_ACTION = PatchAction.AddKeys;
-                        KEYS = await Util.InputKeys();
+                        KEY_INPUT = await Util.InputKeys();
                         break;
                     case '2':
                         PATCH_ACTION = PatchAction.RemoveKeys;
@@ -313,7 +312,7 @@ export default class TyronCLI {
                         break;
                     case '3':
                         PATCH_ACTION = PatchAction.AddServices;
-                        SERVICE = await Util.InputService();
+                        SERVICES = await Util.services();
                         break;
                     case '4':
                         PATCH_ACTION = PatchAction.RemoveServices;
@@ -331,10 +330,9 @@ export default class TyronCLI {
             
                 const PATCH: PatchModel = {
                     action: PATCH_ACTION,
-                    keyInput: KEYS,
-                    service_endpoints: SERVICE,
-                    ids: ID,
-                    public_keys: ID
+                    keyInput: KEY_INPUT,
+                    services: SERVICES,
+                    ids: ID
                 }
                 PATCHES.push(PATCH)
             }            
@@ -366,7 +364,8 @@ export default class TyronCLI {
         .then(async didUpdate => {
             console.log(LogColors.brightGreen(`Next, let's save the DID-Update operation on the Zilliqa blockchain platform, so it stays immutable!`));
             
-            const PARAMS = await TyronTransaction.update(
+            const PARAMS = await TyronZIL.update(
+                "pungtas",
                 didUpdate.operation.newDocument,
                 didUpdate.operation.signature,
                 didUpdate.operation.newUpdateKey
@@ -375,14 +374,14 @@ export default class TyronCLI {
             const client_privateKey = readline.question(LogColors.green(`What is the client's private key?`) + ` - [Hex-encoded private key] - ` + LogColors.lightBlue(`Your answer: `));
             const gas_limit = readline.question(LogColors.green(`What is the gas limit?`) + ` - [Recommended value: 5,000] - ` + LogColors.lightBlue(`Your answer: `));
             
-            const INITIALIZED = await TyronTransaction.initialize(
+            const INITIALIZED = await TyronZIL.initialize(
                 NETWORK,
-                SET_NETWORK.init_tyron,
+                SET_NETWORK.initTyron,
                 client_privateKey,
                 gas_limit,
             );
             
-            await TyronTransaction.submit(INITIALIZED, tyronAddr, didUpdate.tag, PARAMS);
+            await TyronZIL.submit(INITIALIZED, tyronAddr, didUpdate.tag, PARAMS, ".did");
         })
         .catch(err => console.error(LogColors.red(err)))
     }
@@ -433,21 +432,22 @@ export default class TyronCLI {
         .then(async didDeactivate => {
             console.log(LogColors.brightGreen(`Next, let's save your DID-Deactivate operation on the Zilliqa blockchain platform, so it stays immutable!`));
             
-            const PARAMS = await TyronTransaction.deactivate(
+            const PARAMS = await TyronZIL.deactivate(
+                "pungtas",
                 didDeactivate.operation.signature
             );
 
             const client_privateKey = readline.question(LogColors.green(`What is the client's private key?`) + ` - [Hex-encoded private key] - ` + LogColors.lightBlue(`Your answer: `));
             const gas_limit = readline.question(LogColors.green(`What is the gas limit?`) + ` - [Recommended value: 5,000] - ` + LogColors.lightBlue(`Your answer: `));
             
-            const INITIALIZED = await TyronTransaction.initialize(
+            const INITIALIZED = await TyronZIL.initialize(
                 NETWORK,
-                SET_NETWORK.init_tyron,
+                SET_NETWORK.initTyron,
                 client_privateKey,
                 gas_limit,
             );
             
-            await TyronTransaction.submit(INITIALIZED, tyronAddr, didDeactivate.tag, PARAMS);
+            await TyronZIL.submit(INITIALIZED, tyronAddr, didDeactivate.tag, PARAMS, ".did");
         })
         .catch(err => console.error(LogColors.red(err)))
     }
