@@ -28,8 +28,8 @@ export enum DocumentElement {
 
 export interface ServiceModel {
     id: string;
-    type: string;
     transferProtocol: DataTransferProtocol;
+    type: string;
     uri: string
 }
 

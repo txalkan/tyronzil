@@ -64,7 +64,7 @@ export default class DidDoc {
         const BLOCKCHAIN_INFO = await ZIL_INIT.API.blockchain.getBlockChainInfo();
         let RESOLUTION_RESULT;
 
-        const DID_RESOLVED = await DidState.fetch(network, input.tyronAddr)
+        const DID_RESOLVED = await DidState.fetch(network, input.didcAddr)
         .then(async did_state => {
             const DID_DOC = await DidDoc.read(did_state);
                 switch (ACCEPT) {
@@ -97,7 +97,7 @@ export default class DidDoc {
             const ID = did_scheme.did;
             
             /** Reads the public keys */
-            const VERIFICATION_METHODS = state.did_document.public_keys;
+            const VERIFICATION_METHODS = state.verification_methods;
             let PUBLIC_KEY;
             let AUTHENTICATION;
             let ASSERTION_METHOD;
@@ -107,61 +107,46 @@ export default class DidDoc {
             let XSGD_KEY: VerificationMethodModel;
 
             // Every key MUST have a Public Key Purpose as its ID
-            const PURPOSES = Object.keys(VERIFICATION_METHODS);
-            const KEYS = Object.entries(VERIFICATION_METHODS);            
-            let KEY: string;
-            
-            if(Array.isArray(PURPOSES)) {
-                for(const purpose of PURPOSES) {
-                    /** The key ID */
-                    const DID_URL: string = ID + '#' + purpose;
-
-                    // The public key
-                    KEYS.forEach((value: [string, unknown]) => {
-                        if (value[0] === purpose) {
-                            KEY = value[1] as string;
-                        }
-                    });
-
-                    /** The verification method */
-                    const VERIFICATION_METHOD: VerificationMethodModel = {
-                        id: DID_URL,
-                        type: 'SchnorrSecp256k1VerificationKey2019',
-                        publicKeyBase58: zcrypto.encodeBase58(KEY!)
-                    };
-                    console.log(VERIFICATION_METHOD);
-                    switch (purpose) {
-                        case PublicKeyPurpose.General:
-                            PUBLIC_KEY = VERIFICATION_METHOD;                            
-                            break;
-                        case PublicKeyPurpose.Auth:
-                            AUTHENTICATION = VERIFICATION_METHOD;
-                            break;
-                        case PublicKeyPurpose.Assertion:
-                            ASSERTION_METHOD = VERIFICATION_METHOD;
-                            break;
-                        case PublicKeyPurpose.Agreement:
-                            KEY_AGREEMENT = VERIFICATION_METHOD;
-                            break;
-                        case PublicKeyPurpose.Invocation:
-                            CAPABILITY_INVOCATION = VERIFICATION_METHOD;
-                            break;
-                        case PublicKeyPurpose.Delegation:
-                            CAPABILITY_DELEGATION = VERIFICATION_METHOD;
-                            break;
-                        case PublicKeyPurpose.XSGD:
-                            XSGD_KEY = VERIFICATION_METHOD;
-                            break;                  
-                        default:
-                            throw new ErrorCode("InvalidPurpose", `The resolver detected an invalid Public Key Purpose`);
-                    }
+            for (let purpose of VERIFICATION_METHODS.keys()) {
+                console.log(purpose);
+                const DID_URL: string = ID + '#' + purpose;
+                const KEY = VERIFICATION_METHODS.get(purpose);
+                const VERIFICATION_METHOD: VerificationMethodModel = {
+                    id: DID_URL,
+                    type: 'SchnorrSecp256k1VerificationKey2019',
+                    publicKeyBase58: zcrypto.encodeBase58(KEY!)
+                };
+                switch (purpose) {
+                    case PublicKeyPurpose.General:
+                        PUBLIC_KEY = VERIFICATION_METHOD;                            
+                        break;
+                    case PublicKeyPurpose.Auth:
+                        AUTHENTICATION = VERIFICATION_METHOD;
+                        break;
+                    case PublicKeyPurpose.Assertion:
+                        ASSERTION_METHOD = VERIFICATION_METHOD;
+                        break;
+                    case PublicKeyPurpose.Agreement:
+                        KEY_AGREEMENT = VERIFICATION_METHOD;
+                        break;
+                    case PublicKeyPurpose.Invocation:
+                        CAPABILITY_INVOCATION = VERIFICATION_METHOD;
+                        break;
+                    case PublicKeyPurpose.Delegation:
+                        CAPABILITY_DELEGATION = VERIFICATION_METHOD;
+                        break;
+                    case PublicKeyPurpose.XSGD:
+                        XSGD_KEY = VERIFICATION_METHOD;
+                        break;                  
+                    default:
+                        throw new ErrorCode("InvalidPurpose", `The resolver detected an invalid Public Key Purpose`);
                 }
-            }
-
+            };
+            
             /***            ****            ***/
 
             /** Service property */
-            const services = state.did_document.service_endpoints;
+            const services = state.services;
             const SERVICES = [];
             if(services !== undefined) {            
                 if (Array.isArray(services)) {
@@ -244,7 +229,7 @@ interface DidDocScheme {
 }
 
 export interface ResolutionInput {
-    tyronAddr: string;
+    didcAddr: string;
     metadata: ResolutionInputMetadata;
 }
 

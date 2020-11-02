@@ -57,7 +57,6 @@ export default class DidCreate {
         }
 
         const DOCUMENT = VERIFICATION_METHODS.concat(input.services);
-        console.log(DOCUMENT);
             
         // Creates the update key-pair (necessary for the next update operation)
         const [UPDATE_KEY, UPDATE_PRIVATE_KEY] = await Cryptography.keyPair("update");

@@ -29,18 +29,12 @@ export default class Util {
     /** Generates the keys' input */
     public static async InputKeys(): Promise<PublicKeyInput[]> {
         console.log(LogColors.brightGreen(`Cryptographic keys for your Decentralized Identifier: `))
-        console.log(LogColors.brightGreen(`First, let's generate a key pair for your XSGD stablecoins...`))
         
         const KEY_ID_SET: Set<string> = new Set();
         const KEY_INPUT = [];
         
-        const XSGD_KEY: PublicKeyInput = {
-            id: PublicKeyPurpose.XSGD
-        };
-        KEY_ID_SET.add(XSGD_KEY.id)
-        KEY_INPUT.push(XSGD_KEY);
-
-        console.log(LogColors.brightGreen(`Done! You can have a key for each of the following purposes:
+        console.log(LogColors.brightGreen(`You can have a key for each of the following purposes:
+        $xSGD stablecoin(0),
         General(1),
         Authentication(2),
         Assertion(3),
@@ -53,12 +47,15 @@ export default class Util {
             throw new ErrorCode("IncorrectAmount", "You may only have up to 6 keys, one for each purpose")
         }
         for(let i=0, t= Number(amount); i<t; ++i) {
-            const id = readline.question(LogColors.green(`Next, choose your key purpose`) + ` - [1/2/3/4/5/6] - ` + LogColors.lightBlue(`Your answer: `));
+            const id = readline.question(LogColors.green(`Next, choose your key purpose`) + ` - [0/1/2/3/4/5/6] - ` + LogColors.lightBlue(`Your answer: `));
             if (id === "") {
                 throw new ErrorCode("InvalidID", `To register a key you must provide a valid purpose`);
             }
             let PURPOSE;
             switch (Number(id)) {
+                case 0:
+                    PURPOSE = PublicKeyPurpose.XSGD;
+                    break;
                 case 1:
                     PURPOSE = PublicKeyPurpose.General;
                     break;

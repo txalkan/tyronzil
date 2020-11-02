@@ -19,7 +19,7 @@ import { PatchModel, DocumentModel, PatchAction, Action, DataTransferProtocol, D
 import { PrivateKeyModel, PublicKeyModel } from './models/verification-method-models';
 import { Cryptography, OperationKeyPairInput } from '../util/did-keys';
 import ErrorCode from '../util/ErrorCode';
-import TyronZIL, { TransitionValue } from '../../blockchain/tyronzil';
+import TyronZIL from '../../blockchain/tyronzil';
 
 /** Operation types */
 export enum OperationType {
@@ -51,7 +51,7 @@ export class Sidetree {
 
     public static async processPatches(patches: PatchModel[])
     : Promise<{ updateDocument: any[], privateKeys: PrivateKeyModel[] }> {
-        let UPDATE_DOCUMENT: TransitionValue[] = [];
+        let UPDATE_DOCUMENT: any[] = [];
         let PRIVATE_KEYS: PrivateKeyModel[] = [];
         
         for(const patch of patches) {
@@ -60,8 +60,13 @@ export class Sidetree {
                     if(patch.keyInput !== undefined) {
                         await this.addKeys(patch.keyInput)
                         .then(async new_keys => {
-                            UPDATE_DOCUMENT.concat(new_keys.publicKeys);
-                            PRIVATE_KEYS = new_keys.privateKeys;
+                            for (let key of new_keys.publicKeys) {
+                                UPDATE_DOCUMENT.push(key);
+                                PRIVATE_KEYS.push()
+                            }
+                            for (let key of new_keys.privateKeys) {
+                                PRIVATE_KEYS.push(key)
+                            }
                         })
                         .catch(err => { throw err })
                     } else {
@@ -70,7 +75,6 @@ export class Sidetree {
                     break;
                 case PatchAction.RemoveKeys:
                     if(patch.ids !== undefined) {
-                        const KEYS_TO_REMOVE: TransitionValue[] = [];
                         for(const id of patch.ids) {
                             const KEY: PublicKeyModel = {
                                 id: id
@@ -80,22 +84,22 @@ export class Sidetree {
                                 Action.Removing,
                                 KEY
                             );
-                            KEYS_TO_REMOVE.push(DOC_ELEMENT);
+                            UPDATE_DOCUMENT.push(DOC_ELEMENT);
                         }
-                        UPDATE_DOCUMENT.concat(KEYS_TO_REMOVE);
                     }
                     break;
                 case PatchAction.AddServices: 
                     if (patch.services !== undefined) {
-                        UPDATE_DOCUMENT.concat(patch.services)
+                        for (let service of patch.services) {
+                            UPDATE_DOCUMENT.push(service)
+                        }
                     } else {
                         throw new ErrorCode("Missing", "No services given to add")
                     }
                     break;
                 case PatchAction.RemoveServices:
                     if(patch.ids !== undefined) {
-                        const SERVICES_TO_REMOVE: TransitionValue[] = [];
-                        for(const id of patch.ids) {
+                         for(const id of patch.ids) {
                             const SERVICE: ServiceModel = {
                                 id: id,
                                 type: "",
@@ -108,9 +112,8 @@ export class Sidetree {
                                 undefined,
                                 SERVICE
                             );
-                            SERVICES_TO_REMOVE.push(DOC_ELEMENT);
+                            UPDATE_DOCUMENT.push(DOC_ELEMENT);
                         }
-                        UPDATE_DOCUMENT.concat(SERVICES_TO_REMOVE);
                     } else {
                         throw new ErrorCode("Missing", "No service ID given to remove")
                     }
@@ -119,6 +122,7 @@ export class Sidetree {
                     throw new ErrorCode("CodeIncorrectPatchAction", "The chosen action is not valid");
             }
         }
+        console.log(UPDATE_DOCUMENT);
         return {
             updateDocument: UPDATE_DOCUMENT,
             privateKeys: PRIVATE_KEYS,

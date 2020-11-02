@@ -65,7 +65,7 @@ export default class TyronCLI {
         const NETWORK = SET_NETWORK.network;
         
         console.log(LogColors.brightGreen(`The user is the contract owner of their Tyron DID-Smart-Contract (DIDC)`));
-        const user_privateKey = readline.question(LogColors.green(`What is the user's private key?`) + ` - [Hex-encoded private key] - ` + LogColors.lightBlue(`Your answer: `));
+        const contractOwner_privateKey = readline.question(LogColors.green(`What is the user's private key (contract owner key)?`) + ` - [Hex-encoded private key] - ` + LogColors.lightBlue(`Your answer: `));
 
         const gas_limit = readline.question(LogColors.green(`What is the gas limit?`) + ` - [Recommended value: 50,000] - ` + LogColors.lightBlue(`Your answer: `));
             
@@ -73,7 +73,7 @@ export default class TyronCLI {
         await TyronZIL.initialize(
             NETWORK,
             SET_NETWORK.initTyron,
-            user_privateKey,
+            contractOwner_privateKey,
             gas_limit
         )
         .then(async init => {
@@ -85,7 +85,7 @@ export default class TyronCLI {
                 network: NETWORK,
                 publicKeyInput: KEY_INPUT,
                 services: SERVICES,
-                userPrivateKey: user_privateKey
+                userPrivateKey: contractOwner_privateKey
             };
 
             /** Executes the `Tyron DID-Create` operation */
@@ -110,9 +110,9 @@ export default class TyronCLI {
             
             // The user deploys their DIDC and calls the TyronInit transition
             const DEPLOYED_CONTRACT = await TyronZIL.deploy(didCreate.init, version);
-            const TYRON_ADDR = DEPLOYED_CONTRACT.contract.address!;
+            const DIDC_ADDR = DEPLOYED_CONTRACT.contract.address!;
             
-            const DID = await DidScheme.newDID({network: NETWORK, didUniqueSuffix: TYRON_ADDR});
+            const DID = await DidScheme.newDID({network: NETWORK, didUniqueSuffix: DIDC_ADDR});
             console.log(LogColors.green(`The user's Tyron Decentralized Identifier is: `) + LogColors.green(DID.did));
 
             const PARAMS = await TyronZIL.create(
@@ -122,10 +122,8 @@ export default class TyronCLI {
                 didCreate.operation.recoveryKey
             );
 
-            await TyronZIL.submit(didCreate.init, TYRON_ADDR!, didCreate.tag, PARAMS, ".did");
+            await TyronZIL.submit(didCreate.init, DIDC_ADDR!, didCreate.tag, PARAMS, ".did");
 
-            /***            ****            ***/
-            
             // To save the private keys:
             await Util.savePrivateKeys(DID.did, didCreate.operation.privateKeys);
         })
@@ -140,8 +138,8 @@ export default class TyronCLI {
             const SET_NETWORK = this.network();
             
             /** Asks for the address of the user's DIDC */
-            const tyron_addr = readline.question(LogColors.green(`What is the address of the user's Tyron DID-Smart-Contract (DIDC)`) + ` - [Hex-encoded address] - ` + LogColors.lightBlue(`Your answer: `));
-            if(!zcrypto.isValidChecksumAddress(tyron_addr)) {
+            const didc_addr = readline.question(LogColors.green(`What is the address of the user's Tyron DID-Smart-Contract (DIDC)`) + ` - [Hex-encoded address] - ` + LogColors.lightBlue(`Your answer: `));
+            if(!zcrypto.isValidChecksumAddress(didc_addr)) {
                 throw new ErrorCode("WrongAddress", "The format of the address is wrong")
             }
 
@@ -162,7 +160,7 @@ export default class TyronCLI {
             }
 
             const RESOLUTION_INPUT: ResolutionInput = {
-                tyronAddr: tyron_addr,
+                didcAddr: didc_addr,
                 metadata : {
                     accept: ACCEPT
                 }
@@ -191,12 +189,12 @@ export default class TyronCLI {
         const NETWORK = SET_NETWORK.network;
         
         /** Asks for the address of the user's DIDC */
-        const tyronAddr = readline.question(LogColors.green(`What is the address of the user's Tyron DID-Smart-Contract (DIDC)? - `) + LogColors.lightBlue(`Your answer: `));
-        if(!zcrypto.isValidChecksumAddress(tyronAddr)) {
+        const didcAddr = readline.question(LogColors.green(`What is the address of the user's Tyron DID-Smart-Contract (DIDC)? - `) + LogColors.lightBlue(`Your answer: `));
+        if(!zcrypto.isValidChecksumAddress(didcAddr)) {
             throw new ErrorCode("WrongAddress", "The given address is not checksumed")
         }
 
-        await DidState.fetch(NETWORK, tyronAddr)
+        await DidState.fetch(NETWORK, didcAddr)
         .then(async did_state => {
             const RECOVERY_PRIVATE_KEY = readline.question(LogColors.brightGreen(`DID-State retrieved!`) + LogColors.green(` - Provide the recovery private key - `) + LogColors.lightBlue(`Your answer: `));
             await Util.verifyKey(RECOVERY_PRIVATE_KEY, did_state.did_recovery_key);
@@ -224,11 +222,6 @@ export default class TyronCLI {
                 throw new ErrorCode("RequestUnsuccessful", "Wrong choice. Try again.")
             }
 
-            /***            ****            ***/
-            
-            // To save the private keys:
-            await Util.savePrivateKeys(OPERATION.decentralized_identifier, OPERATION.privateKeys);
-
             return {
                 state: did_state,
                 operation: OPERATION,
@@ -239,24 +232,28 @@ export default class TyronCLI {
             console.log(LogColors.brightGreen(`Next, let's save the DID-Recover operation on the Zilliqa blockchain platform, so it stays immutable!`));
             
             const PARAMS = await TyronZIL.recover(
-                'test',
+                'pungtas',
                 didRecover.operation.newDocument,
                 didRecover.operation.signature,
                 didRecover.operation.newUpdateKey,
                 didRecover.operation.newRecoveryKey
             );
             
-            const client_privateKey = readline.question(LogColors.green(`What is the client's private key?`) + ` - [Hex-encoded private key] - ` + LogColors.lightBlue(`Your answer: `));
+            const contractOwner_privateKey = readline.question(LogColors.green(`What is the user's private key (contract owner key)?`) + ` - [Hex-encoded private key] - ` + LogColors.lightBlue(`Your answer: `));
             const gas_limit = readline.question(LogColors.green(`What is the gas limit?`) + ` - [Recommended value: 5,000] - ` + LogColors.lightBlue(`Your answer: `));
             
             const INITIALIZED = await TyronZIL.initialize(
                 NETWORK,
                 SET_NETWORK.initTyron,
-                client_privateKey,
+                contractOwner_privateKey,
                 gas_limit,
             );
             
-            await TyronZIL.submit(INITIALIZED, tyronAddr, didRecover.tag, PARAMS, ".did");
+            await TyronZIL.submit(INITIALIZED, didcAddr, didRecover.tag, PARAMS, ".did");
+            
+            // To save the private keys:
+            await Util.savePrivateKeys(didRecover.operation.decentralized_identifier, didRecover.operation.privateKeys);
+
         })
         .catch(err => console.error(LogColors.red(err)))
     }
@@ -265,17 +262,17 @@ export default class TyronCLI {
 
     /** Handles the `Tyron DID-Update` operation */
     public static async handleUpdate(): Promise<void> {
-        console.log(LogColors.brightGreen(`To update your Tyron DID, let's fetch its current DIDC-State from the Zilliqa blockchain platform!`));
+        console.log(LogColors.brightGreen(`To update your Tyron DID, let's fetch its current DIDC from the Zilliqa blockchain platform!`));
         const SET_NETWORK = this.network();
         const NETWORK = SET_NETWORK.network;
         
-        /** Asks for the address of the user's DIDC */
-        const tyronAddr = readline.question(LogColors.green(`What is the address of the user's Tyron DID-Smart-Contract (DIDC)? - `) + LogColors.lightBlue(`Your answer: `));
-        if(!zcrypto.isValidChecksumAddress(tyronAddr)) {
+        /** The address of the user's DIDC */
+        const didcAddr = readline.question(LogColors.green(`What is the address of the user's Tyron DID-Smart-Contract (DIDC)? - `) + LogColors.lightBlue(`Your answer: `));
+        if(!zcrypto.isValidChecksumAddress(didcAddr)) {
             throw new ErrorCode("WrongAddress", "The given address is not checksumed")
         }
 
-        await DidState.fetch(NETWORK, tyronAddr)
+        await DidState.fetch(NETWORK, didcAddr)
         .then(async did_state => {
             const UPDATE_PRIVATE_KEY = readline.question(LogColors.brightGreen(`DID-State retrieved!`) + LogColors.green(` - Provide the update private key - `) + LogColors.lightBlue(`Your answer: `));
             await Util.verifyKey(UPDATE_PRIVATE_KEY, did_state.did_update_key);
@@ -302,13 +299,11 @@ export default class TyronCLI {
                         break;
                     case '2':
                         PATCH_ACTION = PatchAction.RemoveKeys;
-                        {
-                            const amount = readline.question(LogColors.green(`How many keys would you like to remove? - `) + LogColors.lightBlue(`Your answer: `));
+                        const amount = readline.question(LogColors.green(`How many keys would you like to remove? - `) + LogColors.lightBlue(`Your answer: `));
                             for(let i=0, t= Number(amount); i<t; ++i) {
                                 const KEY_ID = readline.question(LogColors.green(`Next, provide the ID of the key that you would like to remove - `) + LogColors.lightBlue(`Your answer: `));
                                 ID.push(KEY_ID)
                             }
-                        }
                         break;
                     case '3':
                         PATCH_ACTION = PatchAction.AddServices;
@@ -350,11 +345,6 @@ export default class TyronCLI {
                 throw new ErrorCode("RequestUnsuccessful", "Wrong choice. Try again.")
             }
             
-            /***            ****            ***/
-
-            // To save the private keys:
-            await Util.savePrivateKeys(OPERATION.decentralized_identifier, OPERATION.privateKeys)
-            
             return {
                 state: did_state,
                 operation: OPERATION,
@@ -371,17 +361,20 @@ export default class TyronCLI {
                 didUpdate.operation.newUpdateKey
             );
 
-            const client_privateKey = readline.question(LogColors.green(`What is the client's private key?`) + ` - [Hex-encoded private key] - ` + LogColors.lightBlue(`Your answer: `));
+            const contractOwner_privateKey = readline.question(LogColors.green(`What is the user's private key (contract owner key)?`) + ` - [Hex-encoded private key] - ` + LogColors.lightBlue(`Your answer: `));
             const gas_limit = readline.question(LogColors.green(`What is the gas limit?`) + ` - [Recommended value: 5,000] - ` + LogColors.lightBlue(`Your answer: `));
             
             const INITIALIZED = await TyronZIL.initialize(
                 NETWORK,
                 SET_NETWORK.initTyron,
-                client_privateKey,
+                contractOwner_privateKey,
                 gas_limit,
             );
             
-            await TyronZIL.submit(INITIALIZED, tyronAddr, didUpdate.tag, PARAMS, ".did");
+            await TyronZIL.submit(INITIALIZED, didcAddr, didUpdate.tag, PARAMS, ".did");
+
+            // To save the private keys:
+            await Util.savePrivateKeys(didUpdate.operation.decentralized_identifier, didUpdate.operation.privateKeys)
         })
         .catch(err => console.error(LogColors.red(err)))
     }
@@ -394,12 +387,12 @@ export default class TyronCLI {
         const SET_NETWORK = this.network();
         const NETWORK = SET_NETWORK.network;
         /** Asks for the address of the user's DIDC */
-        const tyronAddr = readline.question(LogColors.green(`What is the address of the user's Tyron DID-Smart-Contract (DIDC)? - `) + LogColors.lightBlue(`Your answer: `));
-        if(!zcrypto.isValidChecksumAddress(tyronAddr)) {
+        const didcAddr = readline.question(LogColors.green(`What is the address of the user's Tyron DID-Smart-Contract (DIDC)? - `) + LogColors.lightBlue(`Your answer: `));
+        if(!zcrypto.isValidChecksumAddress(didcAddr)) {
             throw new ErrorCode("WrongAddress", "The given address is not checksumed")
         }
         
-        await DidState.fetch(NETWORK, tyronAddr)
+        await DidState.fetch(NETWORK, didcAddr)
         .then(async did_state => {
             const RECOVERY_PRIVATE_KEY = readline.question(LogColors.brightGreen(`DID-State retrieved!`) + LogColors.green(` - Provide the recovery private key - `) + LogColors.lightBlue(`Your answer: `));
             await Util.verifyKey(RECOVERY_PRIVATE_KEY, did_state.did_recovery_key);
@@ -437,17 +430,17 @@ export default class TyronCLI {
                 didDeactivate.operation.signature
             );
 
-            const client_privateKey = readline.question(LogColors.green(`What is the client's private key?`) + ` - [Hex-encoded private key] - ` + LogColors.lightBlue(`Your answer: `));
+            const contractOwner_privateKey = readline.question(LogColors.green(`What is the user's private key (contract owner key)?`) + ` - [Hex-encoded private key] - ` + LogColors.lightBlue(`Your answer: `));
             const gas_limit = readline.question(LogColors.green(`What is the gas limit?`) + ` - [Recommended value: 5,000] - ` + LogColors.lightBlue(`Your answer: `));
             
             const INITIALIZED = await TyronZIL.initialize(
                 NETWORK,
                 SET_NETWORK.initTyron,
-                client_privateKey,
+                contractOwner_privateKey,
                 gas_limit,
             );
             
-            await TyronZIL.submit(INITIALIZED, tyronAddr, didDeactivate.tag, PARAMS, ".did");
+            await TyronZIL.submit(INITIALIZED, didcAddr, didDeactivate.tag, PARAMS, ".did");
         })
         .catch(err => console.error(LogColors.red(err)))
     }

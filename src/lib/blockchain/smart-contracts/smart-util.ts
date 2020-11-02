@@ -95,4 +95,38 @@ export default class SmartUtil {
         });
         return VALUE![0];
     }
+
+    /** Turns the smart contract's map into a Map */
+    public static async intoMap(object: any): Promise<Map<string, any>> {
+        const ENTRIES = Object.entries(object);
+        let MAP = new Map();
+        ENTRIES.forEach((value: [string, unknown]) => {
+            MAP.set(value[0], value[1])
+        });
+        console.log(MAP);
+        return MAP;
+    }
+
+    /** Turns the `services` DIDC's map into a Map */
+    public static async fromServices(object: any): Promise<Map<string, [string, string]>> {
+        const PREV_MAP = await this.intoMap(object);
+        let MAP = new Map();
+        
+        for (let id of PREV_MAP.keys()) {
+            const OBJECT = PREV_MAP.get(id);
+            const ENTRIES = Object.entries(OBJECT);
+            
+            ENTRIES.forEach((value: [string, unknown]) => {
+                if (value[0] === "arguments") {
+                    const VALUE = value[1] as [string, string];
+                    const TYPE = VALUE[0];
+                    const URI = VALUE[1];
+                    MAP.set(id, [TYPE, URI]);
+                }
+            });
+
+        };
+        console.log(MAP);
+        return MAP;
+    }
 }

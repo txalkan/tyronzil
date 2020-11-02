@@ -428,18 +428,24 @@ export default class TyronZIL extends ZilliqaInit {
         key?: PublicKeyModel,
         service?: ServiceModel
     ): Promise<TransitionValue> {
-        let VALUE: TransitionValue = {
-            constructor: "VerificationMethod",
+        let VALUE: TransitionValue;
+        let ADD: TransitionValue = {
+            constructor: Action.Adding,
             argtypes: [],
             arguments: []
         };
-        let ADD: TransitionValue = {
-            constructor: "Add",
+        let REMOVE: TransitionValue = {
+            constructor: Action.Removing,
             argtypes: [],
             arguments: []
         };
         switch (element) {
             case DocumentElement.VerificationMethod:
+                VALUE = {
+                    argtypes: [],
+                    arguments: [],
+                    constructor: "VerificationMethod"
+                };
                 switch (action) {
                     case Action.Adding:
                         Object.assign(VALUE, {
@@ -453,7 +459,7 @@ export default class TyronZIL extends ZilliqaInit {
                     case Action.Removing:
                         Object.assign(VALUE, {
                             arguments: [
-                                `${Action.Removing}`,
+                                REMOVE,
                                 `${key!.id}`,
                                 "0x024caf04aa4f660db04adf65daf5b993b3383fcdb2ef0479ca8866b1336334b5b4"
                             ]
@@ -462,59 +468,48 @@ export default class TyronZIL extends ZilliqaInit {
                 }
                 break;
             case DocumentElement.Service:
-                Object.assign(VALUE, {argtypes: ["Action", "String", "DidService"]});
+                VALUE = {
+                    argtypes: [],
+                    arguments: [],
+                    constructor: "Service"
+                };
+                let DID_SERVICE = {
+                    constructor: "DidService",
+                    argtypes: [],
+                    arguments: [
+                        `${service!.type}`,
+                        {
+                            constructor: "ServiceEndpoint",
+                            argtypes: [],
+                            arguments: [
+                                {
+                                    constructor: `${service!.transferProtocol}`,
+                                    argtypes: [],
+                                    arguments: []
+                                },
+                                `${service!.uri}`
+                            ]
+                        }
+                    ]
+                };
                 switch (action) {
                     case Action.Adding:
-                        {   
-                            const SERVICE_ENDPOINT: TransitionValue = {
-                                constructor: "ServiceEndpoint",
-                                argtypes: ["DataTransferProtocol", "String"],
-                                arguments: [
-                                    service!.transferProtocol,
-                                    service!.uri
-                                ]
-                            };
-                            let DID_SERVICE_ARGUMENTS = [];
-                            DID_SERVICE_ARGUMENTS.push(service!.type);
-                            DID_SERVICE_ARGUMENTS.push(JSON.stringify(SERVICE_ENDPOINT, null, 2));
-                            const DID_SERVICE: TransitionValue = {
-                                constructor: "DidService",
-                                argtypes: ["String", "ServiceEndpoint"],
-                                arguments: DID_SERVICE_ARGUMENTS
-                            }
-                            let ARGUMENTS = [];
-                            ARGUMENTS.push(Action.Adding)
-                            ARGUMENTS.push(service!.id);
-                            ARGUMENTS.push(JSON.stringify(DID_SERVICE, null, 2));
-                            
-                            Object.assign(VALUE, {arguments: ARGUMENTS});
-                        }
+                        Object.assign(VALUE, {
+                            arguments: [
+                                ADD,
+                                `${service!.id}`,
+                                DID_SERVICE
+                            ]
+                        });
                         break;
                     case Action.Removing:
-                        {   
-                            const SERVICE_ENDPOINT: TransitionValue = {
-                                constructor: "ServiceEndpoint",
-                                argtypes: ["DataTransferProtocol", "String"],
-                                arguments: [
-                                    service!.transferProtocol,
-                                    service!.uri
-                                ]
-                            };
-                            let DID_SERVICE_ARGUMENTS = [];
-                            DID_SERVICE_ARGUMENTS.push(service!.type);
-                            DID_SERVICE_ARGUMENTS.push(JSON.stringify(SERVICE_ENDPOINT));
-                            const DID_SERVICE: TransitionValue = {
-                                constructor: "DidService",
-                                argtypes: ["String", "ServiceEndpoint"],
-                                arguments: DID_SERVICE_ARGUMENTS
-                            }
-                            let ARGUMENTS = [];
-                            ARGUMENTS.push(Action.Removing)
-                            ARGUMENTS.push(service!.id);
-                            ARGUMENTS.push(JSON.stringify(DID_SERVICE));
-                            
-                            Object.assign(VALUE, {arguments: ARGUMENTS});
-                        }
+                        Object.assign(VALUE, {
+                            arguments: [
+                                REMOVE,
+                                `${service!.id}`,
+                                DID_SERVICE
+                            ]
+                        });
                         break;
                 }
                 break;

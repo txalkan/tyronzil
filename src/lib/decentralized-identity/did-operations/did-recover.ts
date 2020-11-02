@@ -61,7 +61,9 @@ export default class DidRecover {
         }
         
         const DOCUMENT = VERIFICATION_METHODS.concat(input.cliInput.services);
-        const DOC_HASH = "0x" + sha256().update(DOCUMENT).digest('hex');
+        const DOC_BUFFER = Buffer.from(DOCUMENT);
+        console.log(DOC_BUFFER);
+        const DOC_HASH = sha256().update(DOCUMENT).digest('hex');
             
         const DID_CONTRACT_OWNER = zcrypto.getPubKeyFromPrivateKey(input.recoveryPrivateKey!);
             

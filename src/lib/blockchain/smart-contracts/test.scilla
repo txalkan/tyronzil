@@ -56,27 +56,20 @@ library DIDC
     | Init
     | Operational   (* created, updated or recovered *)
 
-(* The Service ADTs *)
-(**********************)
-  type DataTransferProtocol =
-    | Https
-    | Git
-    | Ssh
-    
-  type ServiceEndpoint =
-    | ServiceEndpoint of DataTransferProtocol String
-    
-  type DidService =
-    | DidService of String ServiceEndpoint    (* the type & URI *)
-
-  (* The DID-Document ADT *)
+(* The Document ADTs *)
+(*********************)
   type Action =
     | Add
     | Remove
-  
+
+  type Uri =
+    | Https of String String        (* type & endpoint *)
+    | Git of String String
+    | Ssh of String String
+    
   type Document =
-    | VerificationMethod of Action String ByStr33
-    | Service of Action String DidService
+    | VerificationMethod of Action String ByStr33       (* string: key purpose OR service ID *)
+    | Service of Action String Uri
     
 (* Constants *)
 (*************)
@@ -84,17 +77,13 @@ library DIDC
   let tyron = Tyron
   let dotDid = ".did"
   let notDeactivated = NotDeactivated
-  let initialized = Init
+  let init = Init
   let operational = Operational
-  let https = Https
-  let git = Git
-  let ssh = Ssh
-  let adding = Add
-  let removing = Remove
   let zero = Uint128 0
   let hundred = Uint128 100
   let undefined = "undefined"
   let deactivated = "deactivated"
+  let a= Add
 
 (* Error events *)
 (****************)
@@ -139,25 +128,67 @@ library DIDC
     fun(doc: List Document) =>
       let hash = builtin sha256hash doc in
       builtin to_bystr hash
-  
-  let get_element: forall 'A. List 'A -> Document =
-    tfun 'A =>
-    fun(l: List 'A) =>
-      let foldl = @list_foldl 'A Document in
-      let s1 = ServiceEndpoint git undefined in
-      let s2 = DidService undefined s1 in
-      let init = Service adding undefined s2 in
-        let iter =
-          fun(e: Document) =>
-          fun(a: 'A) =>
-            match e with
-              | VerificationMethod action purpose key =>
-                  VerificationMethod action purpose key 
-              | Service action id service =>
-                  Service action id service
-            end
+ 
+  let update_methods: forall 'A. List Document -> Map String ByStr33 -> Map String ByStr33 =
+  tfun 'A =>
+  fun(l: List Document) =>
+  fun(prevMethods: Map String ByStr33) =>
+    let foldl = @list_foldl Document Map String ByStr33 in
+      let iter =
+        fun(map: Map String ByStr33) =>
+        fun(h: Document) =>
+          match h with
+            | VerificationMethod action purpose key =>
+                match action with
+                  | Add =>
+                      builtin put map purpose key
+                  | Remove =>
+                      builtin remove map purpose
+                end
+            | _ => map
+          end
       in
-      foldl iter init l
+    foldl iter prevMethods l
+  
+  let make_endpoint =
+    fun(i: Uri) =>
+      match i with
+        | Https t e =>
+            let prefix = "https://" in
+            let this_uri = builtin concat prefix e in
+            Https t this_uri
+        | Git t e =>
+            let prefix = "git://" in
+            let this_uri = builtin concat prefix e in
+            Git t this_uri
+        | Ssh t e =>
+            let prefix = "ssh://" in
+            let this_uri = builtin concat prefix e in
+            Ssh t this_uri
+      end
+         
+
+  let update_services: forall 'A. List Document -> Map String Uri -> Map String Uri =
+  tfun 'A =>
+  fun(l: List Document) =>
+  fun(prevServices: Map String Uri) =>
+    let foldl = @list_foldl Document Map String Uri in
+      let iter =
+        fun(map: Map String Uri) =>
+        fun(h: Document) =>
+          match h with
+            | Service action id uri =>
+                match action with
+                  | Add =>
+                      let endpoint = make_endpoint uri in 
+                      builtin put map id endpoint
+                  | Remove =>
+                      builtin remove map id
+                end
+            | _ => map
+          end
+      in
+    foldl iter prevServices l
 
 (***********************)
 (* The xWallet Library *)
@@ -219,8 +250,8 @@ contract DIDC(
   
   (* The DID services
    @key: ID
-   @value: DidService *)
-  field services: Map String DidService = Emp String DidService
+   @value: the URI ADT *)
+  field services: Map String Uri = Emp String Uri
   
   (* The Tyron Hash *)
   field tyron_hash: Option ByStr = None{ByStr}
@@ -433,26 +464,27 @@ contract DIDC(
   end
   
   procedure UpdateDocument(
-    document: List Document
+    status: CheckStatus,
+    newDocument: List Document
     )
-      get_element = @get_element Document;
-      element = get_element document;
-      match element with
-        | VerificationMethod action purpose key =>
-            match action with
-              | Add =>
-                  verification_methods[purpose] := key
-              | Remove =>
-                  delete verification_methods[purpose]
-            end
-        | Service action id service =>
-            match action with
-              | Add =>
-                  services[id] := service
-              | Remove =>
-                  delete services[id]
-            end
-      end
+      current_methods <- verification_methods;
+      prev_methods =
+        match status with
+          | Operational => current_methods
+          | _ => Emp String ByStr33
+        end;
+      update_methods = @update_methods Document;
+      updated_methods = update_methods newDocument prev_methods;
+      verification_methods := updated_methods;
+      current_services <- services;
+      prev_services =
+        match status with
+          | Operational => current_services
+          | _ => Emp String Uri
+        end;
+      update_services = @update_services Document;
+      updated_services = update_services newDocument prev_services;
+      services := updated_services
   end
     
   (* Validates that the new public DID-Key is different from before *)
@@ -609,16 +641,11 @@ contract DIDC(
     updateKey: ByStr33,
     recoveryKey: ByStr33
     )
-      IsRightStatus initialized;
+      IsRightStatus init;
       Payment dotDid agent;
       IsRightCaller user;
       DidScheme;
-      ev = {
-        _eventname: "Doc";
-        doc: document
-      };
-      event ev;
-      UpdateDocument document;
+      UpdateDocument init document;
       is_same_key = builtin eq updateKey recoveryKey;
       match is_same_key with
         | True =>
@@ -657,7 +684,7 @@ contract DIDC(
       doc = hash_document newDocument;
       did_key <- did_recovery_key;
       IsRightSignature doc signature did_key;
-      UpdateDocument newDocument;
+      UpdateDocument init newDocument;
       IsValidKey did_key newRecoveryKey;
       did_ukey <- did_update_key;
       IsValidKey did_ukey newRecoveryKey;
@@ -695,10 +722,15 @@ contract DIDC(
       IsRightStatus operational;
       Payment dotDid agent;
       IsRightCaller user;
-      doc = hash_document newDocument;
+      (*doc = hash_document newDocument;*)
+      ev = {
+        _eventname: "Doc";
+        doc: newDocument
+      };
+      event ev;
       did_key <- did_update_key;
-      IsRightSignature doc signature did_key;
-      UpdateDocument newDocument;
+      (*IsRightSignature doc signature did_key;*)
+      UpdateDocument operational newDocument;
       IsValidKey did_key newUpdateKey;
       did_rkey <- did_recovery_key;
       IsValidKey did_rkey newUpdateKey;
@@ -937,3 +969,19 @@ contract DIDC(
       event e;
       Timestamp
   end
+
+
+
+transition Test(
+  t: String,
+  e: String)
+    uri = Git t e;
+    s = Service a t uri;
+    even = {
+      _eventname: "test";
+      uri: uri;
+      service: s
+    };
+    event even
+    end
+  
