@@ -257,9 +257,9 @@ export default class TyronZIL extends ZilliqaInit {
             const STATUS = transaction.isConfirmed();
             console.log(LogColors.yellow(`The transaction is confirmed: `) + LogColors.brightYellow(`${STATUS}`));
             if(STATUS){
-                console.log(LogColors.brightGreen(`The ${tag} tyronZIL transaction has been successful!`));
+                console.log(LogColors.brightGreen(`The ${tag} tyronZIL transaction was successful!`));
             } else {
-                console.log(LogColors.red(`The ${tag} tyronZIL transaction has been unsuccessful!`));
+                console.log(LogColors.red(`The ${tag} tyronZIL transaction was unsuccessful!`));
             }
             
             const TX_RECEIPT = transaction.getReceipt();
@@ -421,6 +421,29 @@ export default class TyronZIL extends ZilliqaInit {
         return PARAMS;
     }
 
+    public static async dns(
+        domain: string,
+        avatar: string
+    ): Promise<TransitionParams[]> {
+        
+        const PARAMS = [];
+
+        const DOMAIN: TransitionParams = {
+            vname: 'domain',
+            type: 'String',
+            value: domain,
+        };
+        PARAMS.push(DOMAIN);
+
+        const AVATAR: TransitionParams = {
+            vname: 'avatar',
+            type: 'String',
+            value: avatar,
+        };
+        PARAMS.push(AVATAR);
+        return PARAMS;
+    }
+    
     /** Returns a DID-Document element transition value */
     public static async documentElement(
         element: DocumentElement,       
@@ -539,7 +562,8 @@ export enum TransitionTag {
     Create = 'DidCreate',
     Update = "DidUpdate",
     Recover = "DidRecover",
-    Deactivate = "DidDeactivate"
+    Deactivate = "DidDeactivate",
+    Dns = "SetSsiDomain"
 }
 
 interface TransitionParams {

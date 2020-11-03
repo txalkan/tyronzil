@@ -14,15 +14,15 @@
 */
 
 import * as zcrypto from '@zilliqa-js/crypto';
-import ZilliqaInit from '../blockchain/zilliqa-init';
-import { DidServiceEndpointModel } from './protocols/models/document-model';
-import { PublicKeyPurpose, TyronVerificationMethods, VerificationMethodModel } from './protocols/models/verification-method-models';
-import { NetworkNamespace } from './tyronZIL-schemes/did-scheme';
-import DidUrlScheme from './tyronZIL-schemes/did-url-scheme';
+import ZilliqaInit from '../../../blockchain/zilliqa-init';
+import { DidServiceEndpointModel } from '../../protocols/models/document-model';
+import { PublicKeyPurpose, TyronVerificationMethods, VerificationMethodModel } from '../../protocols/models/verification-method-models';
+import { NetworkNamespace } from '../../tyronZIL-schemes/did-scheme';
+import DidUrlScheme from '../../tyronZIL-schemes/did-url-scheme';
 import DidState from './did-state';
-import ErrorCode from './util/ErrorCode';
+import ErrorCode from '../../util/ErrorCode';
 import * as fs from 'fs';
-import LogColors from '../../bin/log-colors';
+import LogColors from '../../../../bin/log-colors';
 
 export enum Accept {
     contentType = "application/did+json",        //requests a DID-Document as output

@@ -85,15 +85,15 @@ export default class SmartUtil {
     }
 
     /** Gets the value out of a map key */
-    public static async getValuefromMap(object: any, key: string): Promise<string> {
+    public static async getValuefromMap(object: any, key: string): Promise<any> {
         const ENTRIES = Object.entries(object);
-        let VALUE: string;
+        let VALUE;
         ENTRIES.forEach((value: [string, unknown]) => {
             if (value[0] === key) {
-                VALUE = value[1] as string;
+                VALUE = value[1]
             }
         });
-        return VALUE![0];
+        return VALUE;
     }
 
     /** Turns the smart contract's map into a Map */
@@ -103,7 +103,6 @@ export default class SmartUtil {
         ENTRIES.forEach((value: [string, unknown]) => {
             MAP.set(value[0], value[1])
         });
-        console.log(MAP);
         return MAP;
     }
 
@@ -126,7 +125,6 @@ export default class SmartUtil {
             });
 
         };
-        console.log(MAP);
         return MAP;
     }
 }

@@ -52,7 +52,7 @@ export default class DidUrlScheme extends DidScheme {
 
         const NETWORK = did.substring(14, 19);
         
-        if (NETWORK !== NetworkNamespace.Mainnet && NETWORK !== NetworkNamespace.Testnet) {
+        if (NETWORK !== NetworkNamespace.Mainnet && NETWORK !== NetworkNamespace.Testnet && NETWORK !== NetworkNamespace.Isolated) {
             throw new ErrorCode("CodeIncorrectNetwork", "The network namespace is invalid")
         }
         const DID_SUFFIX = did.substring(19);

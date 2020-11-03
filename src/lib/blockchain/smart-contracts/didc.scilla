@@ -89,6 +89,7 @@ library DIDC
   let hundred = Uint128 100
   let undefined = "undefined"
   let deactivated = "deactivated"
+  let period = Uint128 3
 
 (* Error events *)
 (****************)
@@ -103,6 +104,7 @@ library DIDC
     | CodeRepeatedKey
     | CodeNotSsiToken
     | CodeNotProxy
+    | CodeNotValid
  
   let make_error =
     fun(error: Error) =>
@@ -110,7 +112,7 @@ library DIDC
         match error with
           | CodeNotTyron              => Int32 -1
           | CodeWrongAmount           => Int32 -2
-          | CodeNotAgent             => Int32 -3
+          | CodeNotAgent              => Int32 -3
           | CodeWrongStatus           => Int32 -4
           | CodeNotOwner              => Int32 -5
           | CodeWrongSignature        => Int32 -6
@@ -118,6 +120,7 @@ library DIDC
           | CodeRepeatedKey           => Int32 -8
           | CodeNotSsiToken           => Int32 -9
           | CodeNotProxy              => Int32 -10
+          | CodeNotValid              => Int32 -11
         end
       in
       {_exception: "Error"; code: result}
@@ -272,7 +275,6 @@ contract DIDC(
   (* The public key for the next DID-Recover or DID-Deactivate operation *)
   field did_recovery_key: Option ByStr33 = None{ByStr33}
   
-  
   (* The block number when the DID-Create operation occurred *)
   field created: BNum = BNum 0
   
@@ -296,11 +298,14 @@ contract DIDC(
        @value: comission *)
       field agent_commission: Map String Uint128 = Emp String Uint128
       field latest_commission: Uint128 = Uint128 0
-  
+
   (* The xWallet fields *)
   field xWallet: Map ByStr20 String = Emp ByStr20 String
   field xBalances: Map String Uint128 = Emp String Uint128
   field xProxies: Map String ByStr20 = Emp String ByStr20
+  
+  (* The Donation Scheme *)
+  field donation: Map String BNum = Emp String BNum
 
 (**************)
 (* Procedures *)
@@ -309,7 +314,7 @@ contract DIDC(
   (* The Tyron DID-Scheme - this procedure generates the user's Decentralized Identifier & the Tyron Hash *)
   procedure DidScheme()
       this_did =
-        let did_prefix = "did:tyron:zil:test:" in
+        let did_prefix = "did:tyron:zil:isol:" in
         let did_suffix = builtin to_string _this_address in
         builtin concat did_prefix did_suffix;
       decentralized_identifier := this_did;
@@ -397,6 +402,28 @@ contract DIDC(
       end
   end
   
+  procedure Donation(
+    campaign: String
+    )
+      this_starting_block <- donation[campaign];
+      current_block <- & BLOCKNUMBER;
+      match this_starting_block with
+        | Some starting_block =>
+            is_valid =
+              let limit = builtin badd starting_block period in
+              builtin blt current_block limit;
+            match is_valid with
+              | True =>
+              | False =>
+                  err = CodeNotValid;
+                  ThrowError err
+            end
+        | None =>
+            err = CodeNotValid;
+            ThrowError err
+      end
+  end
+  
   (* Executes the payment to the agent and foundation *)
   procedure Payment(
     domain: String,
@@ -404,47 +431,52 @@ contract DIDC(
     )
       calling_agent = Agent agent;
       IsRightCaller calling_agent;
-      optOp_cost <- operation_cost[domain];
-      match optOp_cost with
-        | Some op_cost =>
-            (* To be accepted, the payment MUST be exact *)
-            amount_is_correct = builtin eq _amount op_cost;
-            match amount_is_correct with
-              | True =>
-                  (* The DIDC accepts the incoming transfer *)
-                  accept;
-                  agent_addr <- latest_agent;
-                  (* Calculates payment to the agent *)
-                  this_agent_commission <- latest_commission;
-                  payment_to_agent =
-                    let percent = builtin div _amount hundred in
-                    builtin mul this_agent_commission percent;
-                  msg_to_agent = {
-                    _tag: "";
-                    _recipient: agent_addr;
-                    _amount: payment_to_agent
-                  };
-                  e = {
-                    _eventname: "Agent_payment_verified";
-                    agent: agent;
-                    agent_address: agent_addr;
-                    agent_commission: this_agent_commission
-                  };
-                  event e;
-                  (* Calculates payment to the foundation *)
-                  payment_to_foundation = builtin sub _amount payment_to_agent;
-                  this_foundation_address <- foundation_address;
-                  msg_to_foundation = {
-                    _tag: "";
-                    _recipient: this_foundation_address;
-                    _amount: payment_to_foundation
-                  };
-                  (* Sends both payments at once *)
-                  msgs = two_msgs msg_to_agent msg_to_foundation;
-                  send msgs
-              | False => 
-                  err = CodeWrongAmount;
-                  ThrowError err
+      this_cost <- operation_cost[domain];
+      match this_cost with
+        | Some cost =>
+            is_donation = builtin eq cost zero;
+            match is_donation with
+              | True => Donation domain
+              | False =>
+                  (* To be accepted, the payment MUST be exact *)
+                  amount_is_correct = builtin eq _amount cost;
+                  match amount_is_correct with
+                    | True =>
+                        (* The DIDC accepts the incoming transfer *)
+                        accept;
+                        agent_addr <- latest_agent;
+                        (* Calculates payment to the agent *)
+                        this_agent_commission <- latest_commission;
+                        payment_to_agent =
+                          let percent = builtin div _amount hundred in
+                          builtin mul this_agent_commission percent;
+                        msg_to_agent = {
+                          _tag: "";
+                          _recipient: agent_addr;
+                          _amount: payment_to_agent
+                        };
+                        e = {
+                          _eventname: "Agent_payment_verified";
+                          agent: agent;
+                          agent_address: agent_addr;
+                          agent_commission: this_agent_commission
+                        };
+                        event e;
+                        (* Calculates payment to the foundation *)
+                        payment_to_foundation = builtin sub _amount payment_to_agent;
+                        this_foundation_address <- foundation_address;
+                        msg_to_foundation = {
+                          _tag: "";
+                          _recipient: this_foundation_address;
+                          _amount: payment_to_foundation
+                        };
+                        (* Sends both payments at once *)
+                        msgs = two_msgs msg_to_agent msg_to_foundation;
+                        send msgs
+                    | False => 
+                        err = CodeWrongAmount;
+                        ThrowError err
+                  end
             end
         | None =>
             err = CodeNotSsiToken;
@@ -519,8 +551,8 @@ contract DIDC(
 
   (* Generates a timestamp *)
   procedure Timestamp()
-      this_block <- & BLOCKNUMBER;
-      ledger_time := this_block;
+      current_block <- & BLOCKNUMBER;
+      ledger_time := current_block;
       latest_tx_number <- transaction_number;
       new_tx_number =
         let incrementor = Uint128 1 in
@@ -561,7 +593,7 @@ contract DIDC(
       msg_init = one_msg msg;
       send msg_init
   end
-  
+
   (* The init.tyron contract calls this transition to set the operation cost, foundation's address and agent's avatar, address & commission *)
   transition InitCallBack(
     operationCost: Uint128,
@@ -594,7 +626,7 @@ contract DIDC(
   end
 
   (* Sets a domain name for the Decentralized Identifier *)
-  transition SetDomain(
+  transition SetSsiDomain(
     domain: String,
     avatar: String
     )
@@ -608,7 +640,7 @@ contract DIDC(
               | True =>
                   accept;
                   msg = {
-                    _tag: "SetDomain";
+                    _tag: "SetSsiDomain";
                     _recipient: this_tyron;
                     _amount: _amount;
                     domain: domain;
@@ -668,8 +700,8 @@ contract DIDC(
             did_recovery_key := recovery_key;
             new_status = Created;
             did_status := new_status;
-            this_block <- & BLOCKNUMBER;
-            created := this_block;
+            current_block <- & BLOCKNUMBER;
+            created := current_block;
             did <- decentralized_identifier;
             e = {
               _eventname: "DID_created";
@@ -732,14 +764,19 @@ contract DIDC(
       IsRightStatus operational;
       Payment dotDid agent;
       IsRightCaller user;
-      doc = hash_document newDocument;
+      doc_hash = hash_document newDocument;
       ev = {
         _eventname: "Doc";
         doc: newDocument
       };
       event ev;
+      ev = {
+        _eventname: "doc hash";
+        hash: doc_hash
+      };
+      event ev;
       did_key <- did_update_key;
-      IsRightSignature doc signature did_key;
+      (*IsRightSignature doc signature did_key;*)
       UpdateDocument operational newDocument;
       IsValidKey did_key newUpdateKey;
       did_rkey <- did_recovery_key;
@@ -919,6 +956,7 @@ contract DIDC(
 
   (* Transfers ZRC-2 verified tokens *)
   transition XTransfer(
+    domain: String,
     token: String,
     agent: String,
     to: ByStr20,
@@ -927,19 +965,19 @@ contract DIDC(
     ) 
       IsRightStatus operational;
       IsRightCaller user;
-      Payment token agent;
-      optBalance <- xBalances[token];
-      balance = deconstruct_option_uint128 optBalance;
+      Payment domain agent;
+      this_balance <- xBalances[token];
+      balance = deconstruct_option_uint128 this_balance;
       is_enough = builtin lt amount balance;
       match is_enough with
         | True =>
-            optToken_key <- verification_methods[token];
+            this_token_key <- verification_methods[token];
             signed_data =
               let hash = builtin sha256hash to in
               builtin to_bystr hash;
-            IsRightSignature signed_data signature optToken_key;
-            optProxy <- xProxies[token];
-            match optProxy with
+            IsRightSignature signed_data signature this_token_key;
+            this_proxy <- xProxies[token];
+            match this_proxy with
               | Some proxy =>
                   msg = {
                     _tag: "Transfer";
@@ -948,8 +986,8 @@ contract DIDC(
                     to: to;
                     amount: amount
                   };
-                  xTransfer = one_msg msg;
-                  send xTransfer
+                  transfer = one_msg msg;
+                  send transfer
               | None =>
                   err = CodeNotProxy;
                   ThrowError err
@@ -979,3 +1017,37 @@ contract DIDC(
       event e;
       Timestamp
   end
+  
+  transition Donate(
+    campaign: String
+  )
+    IsRightStatus operational;
+    this_tyron <- init_tyron;
+      msg = {
+        _tag: "Donate";
+        _recipient: this_tyron;
+        _amount: zero;
+        campaign: campaign
+      };
+      msg_donate = one_msg msg;
+      send msg_donate
+  end
+
+  transition DonateCallBack(
+    campaign: String
+    )
+      IsRightCaller tyron;
+      operation_cost[campaign] := zero;
+      current_block <- & BLOCKNUMBER;
+      donation[campaign] := current_block;
+      did <- decentralized_identifier;
+      e = {
+        _eventname: "Donation_campaign";
+        decentralized_identifier: did;
+        campaign: campaign
+      };
+      event e;
+      Timestamp
+  end
+  
+

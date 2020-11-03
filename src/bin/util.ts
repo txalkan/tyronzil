@@ -42,9 +42,9 @@ export default class Util {
         Invocation(5), &
         Delegation(6)`));
 
-        const amount = readline.question(LogColors.green(`How many of them would you like to have?`) + ` - up to [6] - ` + LogColors.lightBlue(`Your answer: `));
+        const amount = readline.question(LogColors.green(`How many of them would you like to add?`) + ` - up to [7] - ` + LogColors.lightBlue(`Your answer: `));
         if(Number(amount)> 6) {
-            throw new ErrorCode("IncorrectAmount", "You may only have up to 6 keys, one for each purpose")
+            throw new ErrorCode("IncorrectAmount", "You may only have up to 7 keys, one for each purpose")
         }
         for(let i=0, t= Number(amount); i<t; ++i) {
             const id = readline.question(LogColors.green(`Next, choose your key purpose`) + ` - [0/1/2/3/4/5/6] - ` + LogColors.lightBlue(`Your answer: `));

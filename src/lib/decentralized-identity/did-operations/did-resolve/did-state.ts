@@ -13,10 +13,10 @@
     GNU General Public License for more details.
 */
 
-import TyronState from '../blockchain/tyron-state';
-import { NetworkNamespace } from './tyronZIL-schemes/did-scheme';
-import DidUrlScheme from './tyronZIL-schemes/did-url-scheme';
-import { OperationType } from './protocols/sidetree';
+import TyronState from '../../../blockchain/tyron-state';
+import { NetworkNamespace } from '../../tyronZIL-schemes/did-scheme';
+import DidUrlScheme from '../../tyronZIL-schemes/did-url-scheme';
+import { OperationType } from '../../protocols/sidetree';
 
 /** The Tyron DID-State */
 export default class DidState {

@@ -12,7 +12,7 @@
     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
     GNU General Public License for more details.
 */
-import * as zcrypto from '@zilliqa-js/crypto';
+
 import DidCreate from '../lib/decentralized-identity/did-operations/did-create';
 import DidUpdate, { UpdateOperationInput } from '../lib/decentralized-identity/did-operations/did-update';
 import DidRecover, { RecoverOperationInput } from '../lib/decentralized-identity/did-operations/did-recover';
@@ -20,12 +20,13 @@ import DidDeactivate, { DeactivateOperationInput } from '../lib/decentralized-id
 import Util, { CliInputModel } from './util';
 import TyronZIL, { InitTyron, TransitionTag } from '../lib/blockchain/tyronzil';
 import DidScheme, { NetworkNamespace } from '../lib/decentralized-identity/tyronZIL-schemes/did-scheme';
-import DidState from '../lib/decentralized-identity/did-state';
-import DidDoc, {ResolutionInput, Accept } from '../lib/decentralized-identity/did-document';
+import DidState from '../lib/decentralized-identity/did-operations/did-resolve/did-state';
+import DidDoc, {ResolutionInput, Accept } from '../lib/decentralized-identity/did-operations/did-resolve/did-document';
 import { PatchAction, PatchModel } from '../lib/decentralized-identity/protocols/models/document-model';
 import ErrorCode from '../lib/decentralized-identity/util/ErrorCode';
 import LogColors from './log-colors';
 import * as readline from 'readline-sync';
+import Resolver from '../lib/decentralized-identity/did-operations/did-resolve/resolver';
 
 /** Handles the command-line interface Tyron DID operations */
 export default class TyronCLI {
@@ -122,10 +123,27 @@ export default class TyronCLI {
                 didCreate.operation.recoveryKey
             );
 
-            await TyronZIL.submit(didCreate.init, DIDC_ADDR!, didCreate.tag, PARAMS, ".did");
+            await TyronZIL.submit(didCreate.init, DIDC_ADDR, didCreate.tag, PARAMS, ".did");
 
+            // Sets the DIDC's domain name
+            const domainName = readline.question(LogColors.green(`What domain name avatar.did would you like to register for your DIDC?`)+` - [e.g.: julio.did] - ` + LogColors.lightBlue(`Your answer: `));
+            const DOT_INDEX = domainName.lastIndexOf(".");
+            const SSI_DOMAIN = domainName.substring(DOT_INDEX);
+            if(SSI_DOMAIN !== ".did") {
+                throw new ErrorCode("CodeNotDidDomain", "The DIDC MUST first get registered on a .did domain")
+            }
+            const AVATAR = domainName.substring(0, DOT_INDEX);
+                    
+            const DNS_PARAMS = await TyronZIL.dns(".did", AVATAR);
+            await TyronZIL.submit(didCreate.init, DIDC_ADDR, TransitionTag.Dns, DNS_PARAMS, ".did");
+            return {
+                did: DID.did,
+                operation: didCreate.operation
+            };
+        })
+        .then( async create => {
             // To save the private keys:
-            await Util.savePrivateKeys(DID.did, didCreate.operation.privateKeys);
+            await Util.savePrivateKeys(create.did, create.operation.privateKeys);
         })
         .catch(err => console.error(LogColors.red(err)))            
     }
@@ -138,11 +156,8 @@ export default class TyronCLI {
             const SET_NETWORK = this.network();
             
             /** Asks for the address of the user's DIDC */
-            const didc_addr = readline.question(LogColors.green(`What is the address of the user's Tyron DID-Smart-Contract (DIDC)`) + ` - [Hex-encoded address] - ` + LogColors.lightBlue(`Your answer: `));
-            if(!zcrypto.isValidChecksumAddress(didc_addr)) {
-                throw new ErrorCode("WrongAddress", "The format of the address is wrong")
-            }
-
+            const DIDC_ADDR = readline.question(LogColors.green(`What is the address of the user's Tyron DID-Smart-Contract (DIDC)`) + ` - [Hex-encoded address] - ` + LogColors.lightBlue(`Your answer: `));
+            
             /** Whether to resolve the DID as a document or resolution result */
             const RESOLUTION_CHOICE = readline.question(LogColors.green(`Would you like to resolve your DID as a document(1) or as a resolution result(2)? `) + `- [1/2] - Defaults to document - ` + LogColors.lightBlue(`Your answer: `));
             
@@ -160,7 +175,7 @@ export default class TyronCLI {
             }
 
             const RESOLUTION_INPUT: ResolutionInput = {
-                didcAddr: didc_addr,
+                didcAddr: DIDC_ADDR,
                 metadata : {
                     accept: ACCEPT
                 }
@@ -188,13 +203,11 @@ export default class TyronCLI {
         const SET_NETWORK = this.network();
         const NETWORK = SET_NETWORK.network;
         
-        /** Asks for the address of the user's DIDC */
-        const didcAddr = readline.question(LogColors.green(`What is the address of the user's Tyron DID-Smart-Contract (DIDC)? - `) + LogColors.lightBlue(`Your answer: `));
-        if(!zcrypto.isValidChecksumAddress(didcAddr)) {
-            throw new ErrorCode("WrongAddress", "The given address is not checksumed")
-        }
-
-        await DidState.fetch(NETWORK, didcAddr)
+        /** Asks for the user's domain name to fetch their DIDC */
+        const domainName = readline.question(LogColors.green(`What is the user's domain name (to fetch their DID-Smart-Contract)? `) + `- [e.g.: julio.did] - ` + LogColors.lightBlue(`Your answer: `));
+        const DIDC_ADDR = await Resolver.resolveDns(NETWORK, SET_NETWORK.initTyron, domainName);
+        
+        await DidState.fetch(NETWORK, DIDC_ADDR)
         .then(async did_state => {
             const RECOVERY_PRIVATE_KEY = readline.question(LogColors.brightGreen(`DID-State retrieved!`) + LogColors.green(` - Provide the recovery private key - `) + LogColors.lightBlue(`Your answer: `));
             await Util.verifyKey(RECOVERY_PRIVATE_KEY, did_state.did_recovery_key);
@@ -249,8 +262,10 @@ export default class TyronCLI {
                 gas_limit,
             );
             
-            await TyronZIL.submit(INITIALIZED, didcAddr, didRecover.tag, PARAMS, ".did");
-            
+            await TyronZIL.submit(INITIALIZED, DIDC_ADDR, didRecover.tag, PARAMS, ".did");
+            return didRecover;
+        })
+        .then( async didRecover => {
             // To save the private keys:
             await Util.savePrivateKeys(didRecover.operation.decentralized_identifier, didRecover.operation.privateKeys);
 
@@ -266,13 +281,11 @@ export default class TyronCLI {
         const SET_NETWORK = this.network();
         const NETWORK = SET_NETWORK.network;
         
-        /** The address of the user's DIDC */
-        const didcAddr = readline.question(LogColors.green(`What is the address of the user's Tyron DID-Smart-Contract (DIDC)? - `) + LogColors.lightBlue(`Your answer: `));
-        if(!zcrypto.isValidChecksumAddress(didcAddr)) {
-            throw new ErrorCode("WrongAddress", "The given address is not checksumed")
-        }
-
-        await DidState.fetch(NETWORK, didcAddr)
+        /** Asks for the user's domain name to fetch their DIDC */
+        const domainName = readline.question(LogColors.green(`What is the user's domain name (to fetch their DID-Smart-Contract)? `) + `- [e.g.: julio.did] - ` + LogColors.lightBlue(`Your answer: `));
+        const DIDC_ADDR = await Resolver.resolveDns(NETWORK, SET_NETWORK.initTyron, domainName);
+        
+        await DidState.fetch(NETWORK, DIDC_ADDR)
         .then(async did_state => {
             const UPDATE_PRIVATE_KEY = readline.question(LogColors.brightGreen(`DID-State retrieved!`) + LogColors.green(` - Provide the update private key - `) + LogColors.lightBlue(`Your answer: `));
             await Util.verifyKey(UPDATE_PRIVATE_KEY, did_state.did_update_key);
@@ -371,8 +384,10 @@ export default class TyronCLI {
                 gas_limit,
             );
             
-            await TyronZIL.submit(INITIALIZED, didcAddr, didUpdate.tag, PARAMS, ".did");
-
+            await TyronZIL.submit(INITIALIZED, DIDC_ADDR, didUpdate.tag, PARAMS, ".did");
+            return didUpdate;
+        })
+        .then( async didUpdate => {
             // To save the private keys:
             await Util.savePrivateKeys(didUpdate.operation.decentralized_identifier, didUpdate.operation.privateKeys)
         })
@@ -387,12 +402,9 @@ export default class TyronCLI {
         const SET_NETWORK = this.network();
         const NETWORK = SET_NETWORK.network;
         /** Asks for the address of the user's DIDC */
-        const didcAddr = readline.question(LogColors.green(`What is the address of the user's Tyron DID-Smart-Contract (DIDC)? - `) + LogColors.lightBlue(`Your answer: `));
-        if(!zcrypto.isValidChecksumAddress(didcAddr)) {
-            throw new ErrorCode("WrongAddress", "The given address is not checksumed")
-        }
-        
-        await DidState.fetch(NETWORK, didcAddr)
+        const DIDC_ADDR = readline.question(LogColors.green(`What is the address of the user's Tyron DID-Smart-Contract (DIDC)? - `) + LogColors.lightBlue(`Your answer: `));
+               
+        await DidState.fetch(NETWORK, DIDC_ADDR)
         .then(async did_state => {
             const RECOVERY_PRIVATE_KEY = readline.question(LogColors.brightGreen(`DID-State retrieved!`) + LogColors.green(` - Provide the recovery private key - `) + LogColors.lightBlue(`Your answer: `));
             await Util.verifyKey(RECOVERY_PRIVATE_KEY, did_state.did_recovery_key);
@@ -440,8 +452,12 @@ export default class TyronCLI {
                 gas_limit,
             );
             
-            await TyronZIL.submit(INITIALIZED, didcAddr, didDeactivate.tag, PARAMS, ".did");
+            await TyronZIL.submit(INITIALIZED, DIDC_ADDR, didDeactivate.tag, PARAMS, ".did");
         })
         .catch(err => console.error(LogColors.red(err)))
+    }
+
+    public static async handleDns(): Promise<void> {
+
     }
 }

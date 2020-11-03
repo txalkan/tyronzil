@@ -18,7 +18,7 @@ import { sha256 } from 'hash.js';
 import { OperationType, Sidetree } from '../protocols/sidetree';
 import { Cryptography, TyronPrivateKeys } from '../util/did-keys';
 import { PatchModel } from '../protocols/models/document-model';
-import DidState from '../did-state';
+import DidState from './did-resolve/did-state';
 import { TransitionValue } from '../../blockchain/tyronzil';
 
 /** Generates a `Tyron DID-Update` operation */
@@ -46,8 +46,14 @@ export default class DidUpdate{
     public static async execute(input: UpdateOperationInput): Promise<DidUpdate> {
         const operation = await Sidetree.processPatches(input.patches)
         .then(async update => {
-            const DOC_HASH = "0x" + sha256().update(update.updateDocument).digest('hex');
-            
+            let DOCUMENT = [];
+            for (let element in update.updateDocument) {
+               const BYTES = Buffer.from(JSON.stringify(element), 'hex');
+               DOCUMENT.push(BYTES);
+            }
+            console.log(DOCUMENT);
+            const DOC_HASH = "0x" + sha256().update(DOCUMENT).digest('hex');
+            console.log(DOC_HASH);
             const PREVIOUS_UPDATE_KEY = zcrypto.getPubKeyFromPrivateKey(input.updatePrivateKey);
             
             const SIGNATURE = zcrypto.sign(Buffer.from(DOC_HASH, 'hex'), input.updatePrivateKey, PREVIOUS_UPDATE_KEY);
