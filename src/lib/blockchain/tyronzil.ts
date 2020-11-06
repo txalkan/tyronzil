@@ -28,9 +28,9 @@ import { PublicKeyModel } from '../decentralized-identity/protocols/models/verif
 
 /** The `init.tyron smart contracts */
 export enum InitTyron {
-    Testnet = "0xbf4f47befb9128186119becf8353f7c55008c82b",
+    Testnet = "0x63e2d8484187de4f66a571c098f3b51a793f055b",
     Mainnet = "0x1c8272a79b5b4920bcae80f310d638c8dd4bd8aa",
-    Isolated = "0x4fd01aa66d4f648be2aae2763ee2887d0bc2dca5"
+    Isolated = "0x9ded7118b3386108f1bc4e0e0699d7ab23997265"
 }
 
 /** The tyronZIL transaction class */
@@ -112,7 +112,7 @@ export default class TyronZIL extends ZilliqaInit {
                     value: '0',
                 },
                 {
-                    vname: 'contractOwner',
+                    vname: 'initContractOwner',
                     type: 'ByStr20',
                     value: `${input.contractOwner}`,
                 },

@@ -228,7 +228,7 @@ contract DIDC(
   initTyron: ByStr20
   )
       with
-        let init = 0x63e2d8484187de4f66a571c098f3b51a793f055b in
+        let init = 0x9ded7118b3386108f1bc4e0e0699d7ab23997265 in
         builtin eq init initTyron
       =>
 
@@ -329,7 +329,7 @@ contract DIDC(
   (* The Tyron DID-Scheme - this procedure generates the user's Decentralized Identifier & the Tyron Hash *)
   procedure DidScheme()
     this_did =
-      let did_prefix = "did:tyron:zil:test:" in
+      let did_prefix = "did:tyron:zil:isol:" in
       let did_suffix = builtin to_string _this_address in
       builtin concat did_prefix did_suffix;
     decentralized_identifier := this_did;
