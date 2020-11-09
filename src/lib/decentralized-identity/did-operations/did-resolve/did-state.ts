@@ -13,21 +13,19 @@
     GNU General Public License for more details.
 */
 
-import TyronState from '../blockchain/tyron-state';
-import { NetworkNamespace } from './tyronZIL-schemes/did-scheme';
-import DidUrlScheme from './tyronZIL-schemes/did-url-scheme';
-import { OperationType, Sidetree } from './sidetree-protocol/sidetree';
-import { DocumentModel } from './sidetree-protocol/models/document-model';
+import TyronState from '../../../blockchain/tyron-state';
+import { NetworkNamespace } from '../../tyronZIL-schemes/did-scheme';
+import DidUrlScheme from '../../tyronZIL-schemes/did-url-scheme';
+import { OperationType } from '../../protocols/sidetree';
 
 /** The Tyron DID-State */
 export default class DidState {
-    public readonly contract_owner: string;
+    public readonly contractOwner: string;
     public readonly decentralized_identifier: string;
     public readonly did_status: OperationType;
     public readonly tyron_hash: string;
-    
-    /** The DID-Document as a Sidetree Document Model */
-    public readonly did_document: DocumentModel;
+    public readonly verification_methods: Map<string, string>;
+    public readonly services: Map<string, [string, string]>;
     
     public readonly did_update_key: string;
     public readonly did_recovery_key: string;
@@ -35,11 +33,12 @@ export default class DidState {
     private constructor(
         state: DidStateModel
     ) {
-        this.contract_owner = state.contract_owner;
+        this.contractOwner = state.contractOwner;
         this.decentralized_identifier = state.decentralized_identifier;
         this.did_status = state.did_status;
         this.tyron_hash = state.tyron_hash;
-        this.did_document = state.did_document;
+        this.verification_methods = state.verification_methods;
+        this.services = state.services;
         this.did_update_key = state.did_update_key;
         this.did_recovery_key = state.did_recovery_key
     }
@@ -47,18 +46,19 @@ export default class DidState {
     /***            ****            ***/
 
     /** Fetches the current DID-State for the given tyron_addr */
-    public static async fetch(network: NetworkNamespace, tyronAddr: string): Promise<DidState> {
-        const did_state = await TyronState.fetch(network, tyronAddr)
+    public static async fetch(network: NetworkNamespace, didcAddr: string): Promise<DidState> {
+        const did_state = await TyronState.fetch(network, didcAddr)
         .then(async tyron_state => {
             // Validates the Tyron DID-Scheme
             await DidUrlScheme.validate(tyron_state.decentralized_identifier);
             
             const THIS_STATE: DidStateModel = {
-                contract_owner: tyron_state.contract_owner,
+                contractOwner: tyron_state.contractOwner,
                 decentralized_identifier: tyron_state.decentralized_identifier,
                 did_status: tyron_state.did_status,
                 tyron_hash: tyron_state.tyron_hash,
-                did_document: await Sidetree.documentModel(tyron_state.did_document),
+                verification_methods: tyron_state.verification_methods,
+                services: tyron_state.services,
                 did_update_key: tyron_state.did_update_key,
                 did_recovery_key: tyron_state.did_recovery_key
             };
@@ -73,11 +73,12 @@ export default class DidState {
 
 /** The state model of a Tyron Decentralized Identifier */
 export interface DidStateModel {
-    contract_owner: string;
+    contractOwner: string;
     decentralized_identifier: string;
     did_status: OperationType;
     tyron_hash: string;
-    did_document: DocumentModel;
+    verification_methods: Map<string, string>;
+    services: Map<string, [string, string]>;
     did_update_key: string;
     did_recovery_key: string;
 }

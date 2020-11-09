@@ -13,15 +13,16 @@
     GNU General Public License for more details.
 */
 
-import ZilliqaInit from '../blockchain/zilliqa-init';
-import { DidServiceEndpointModel } from './sidetree-protocol/models/document-model';
-import { PublicKeyPurpose, VerificationMethodModel } from './sidetree-protocol/models/verification-method-models';
-import { NetworkNamespace } from './tyronZIL-schemes/did-scheme';
-import DidUrlScheme from './tyronZIL-schemes/did-url-scheme';
+import * as zcrypto from '@zilliqa-js/crypto';
+import ZilliqaInit from '../../../blockchain/zilliqa-init';
+import { DidServiceEndpointModel } from '../../protocols/models/document-model';
+import { PublicKeyPurpose, TyronVerificationMethods, VerificationMethodModel } from '../../protocols/models/verification-method-models';
+import { NetworkNamespace } from '../../tyronZIL-schemes/did-scheme';
+import DidUrlScheme from '../../tyronZIL-schemes/did-url-scheme';
 import DidState from './did-state';
-import ErrorCode from './util/ErrorCode';
+import ErrorCode from '../../util/ErrorCode';
 import * as fs from 'fs';
-import LogColors from '../../bin/log-colors';
+import LogColors from '../../../../bin/log-colors';
 
 export enum Accept {
     contentType = "application/did+json",        //requests a DID-Document as output
@@ -31,17 +32,26 @@ export enum Accept {
 /** Generates a `Tyron DID-Document` */
 export default class DidDoc {
     public readonly id: string;
-    public readonly publicKey: VerificationMethodModel[];
-    public readonly authentication?: (string | VerificationMethodModel)[];
+    public readonly publicKey?: VerificationMethodModel;
+    public readonly authentication?: VerificationMethodModel;
+    public readonly assertionMethod?: VerificationMethodModel;
+    public readonly keyAgreement?: VerificationMethodModel;
+    public readonly capabilityInvocation?: VerificationMethodModel;
+    public readonly capabilityDelegation?: VerificationMethodModel;
+    public readonly xsgdKey?: VerificationMethodModel;
     public readonly service?: DidServiceEndpointModel[];
 
     private constructor (
-        operationOutput: DidDocScheme
+        scheme: DidDocScheme
     ) {
-        this.id = operationOutput.id;
-        this.publicKey = operationOutput.publicKey;
-        this.authentication = operationOutput.authentication;
-        this.service = operationOutput.service;
+        this.id = scheme.id;
+        this.publicKey = scheme.verificationMethods!.publicKey;
+        this.authentication = scheme.verificationMethods!.authentication;
+        this.assertionMethod = scheme.verificationMethods!.assertionMethod;
+        this.keyAgreement = scheme.verificationMethods!.keyAgreement;
+        this.capabilityInvocation = scheme.verificationMethods!.capabilityDelegation;
+        this.xsgdKey = scheme.verificationMethods!.xsgdKey;
+        this.service = scheme.service;
     }
 
     /***            ****            ***/
@@ -50,27 +60,28 @@ export default class DidDoc {
     public static async resolution(network: NetworkNamespace, input: ResolutionInput): Promise<DidDoc|ResolutionResult> {
         const ACCEPT = input.metadata.accept;
         const ZIL_INIT = new ZilliqaInit(network);
-        const BLOCKCHAIN_INFO = await ZIL_INIT.API.blockchain.getBlockChainInfo();        
-        const DID_RESOLVED = await DidState.fetch(network, input.tyronAddr)
+
+        const BLOCKCHAIN_INFO = await ZIL_INIT.API.blockchain.getBlockChainInfo();
+        let RESOLUTION_RESULT;
+
+        const DID_RESOLVED = await DidState.fetch(network, input.didcAddr)
         .then(async did_state => {
             const DID_DOC = await DidDoc.read(did_state);
                 switch (ACCEPT) {
                     case Accept.contentType:
                         return DID_DOC;
                     case Accept.Result:
-                        {
-                            const RESOLUTION_RESULT: ResolutionResult = {
-                                id: DID_DOC.id,
-                                resolutionMetadata: BLOCKCHAIN_INFO,
-                                document: DID_DOC,
-                                metadata: {
-                                    contentType: "application/did+json",
-                                    updateKey: did_state.did_update_key,
-                                    recoveryKey: did_state.did_recovery_key,
-                                }
+                        RESOLUTION_RESULT = {
+                            id: DID_DOC.id,
+                            resolutionMetadata: BLOCKCHAIN_INFO,
+                            document: DID_DOC,
+                            metadata: {
+                                contentType: "application/did+json",
+                                updateKey: did_state.did_update_key,
+                                recoveryKey: did_state.did_recovery_key,
                             }
-                            return RESOLUTION_RESULT;
-                        }
+                        };
+                        return RESOLUTION_RESULT;
                 }
         })
         .catch(err => { throw err })
@@ -86,41 +97,56 @@ export default class DidDoc {
             const ID = did_scheme.did;
             
             /** Reads the public keys */
-            const PUBLIC_KEYS = state.did_document.public_keys;
-            const PUBLIC_KEY = [];
-            const AUTHENTICATION = [];
+            const VERIFICATION_METHODS = state.verification_methods;
+            let PUBLIC_KEY;
+            let AUTHENTICATION;
+            let ASSERTION_METHOD;
+            let KEY_AGREEMENT;
+            let CAPABILITY_INVOCATION;
+            let CAPABILITY_DELEGATION;
+            let XSGD_KEY: VerificationMethodModel;
 
-            if(Array.isArray(PUBLIC_KEYS)) {
-                for(const key of PUBLIC_KEYS) {
-                    /** The key ID */
-                    const DID_URL: string = ID + '#' + key.id;
-                    const VERIFICATION_METHOD: VerificationMethodModel = {
-                        id: DID_URL,
-                        type: key.type,
-                        publicKeyBase58: key.publicKeyBase58
-                    };
-
-                    /** The verification relationship for the key */
-                    const PURPOSE: Set<string> = new Set(key.purpose);
-
-                    if (PURPOSE.has(PublicKeyPurpose.General)) {
-                        PUBLIC_KEY.push(VERIFICATION_METHOD);
-                        // If the key is also for authentication => referenced key:
-                        if (PURPOSE.has(PublicKeyPurpose.Auth)) {
-                            AUTHENTICATION.push(DID_URL); 
-                        }
-                    
-                        // If the key is only for authentication => embedded key
-                    } else if (PURPOSE.has(PublicKeyPurpose.Auth)) {
-                        AUTHENTICATION.push(VERIFICATION_METHOD); 
-                    }
+            // Every key MUST have a Public Key Purpose as its ID
+            for (let purpose of VERIFICATION_METHODS.keys()) {
+                console.log(purpose);
+                const DID_URL: string = ID + '#' + purpose;
+                const KEY = VERIFICATION_METHODS.get(purpose);
+                const VERIFICATION_METHOD: VerificationMethodModel = {
+                    id: DID_URL,
+                    type: 'SchnorrSecp256k1VerificationKey2019',
+                    publicKeyBase58: zcrypto.encodeBase58(KEY!)
+                };
+                switch (purpose) {
+                    case PublicKeyPurpose.General:
+                        PUBLIC_KEY = VERIFICATION_METHOD;                            
+                        break;
+                    case PublicKeyPurpose.Auth:
+                        AUTHENTICATION = VERIFICATION_METHOD;
+                        break;
+                    case PublicKeyPurpose.Assertion:
+                        ASSERTION_METHOD = VERIFICATION_METHOD;
+                        break;
+                    case PublicKeyPurpose.Agreement:
+                        KEY_AGREEMENT = VERIFICATION_METHOD;
+                        break;
+                    case PublicKeyPurpose.Invocation:
+                        CAPABILITY_INVOCATION = VERIFICATION_METHOD;
+                        break;
+                    case PublicKeyPurpose.Delegation:
+                        CAPABILITY_DELEGATION = VERIFICATION_METHOD;
+                        break;
+                    case PublicKeyPurpose.XSGD:
+                        XSGD_KEY = VERIFICATION_METHOD;
+                        break;                  
+                    default:
+                        throw new ErrorCode("InvalidPurpose", `The resolver detected an invalid Public Key Purpose`);
                 }
-            }
-
+            };
+            
             /***            ****            ***/
 
             /** Service property */
-            const services = state.did_document.service_endpoints;
+            const services = state.services;
             const SERVICES = [];
             if(services !== undefined) {            
                 if (Array.isArray(services)) {
@@ -136,17 +162,36 @@ export default class DidDoc {
             }
 
             /** The `Tyron DID-Document` */
-            const OPERATION_OUTPUT: DidDocScheme = {
+            const SCHEME: DidDocScheme = {
                 id: ID,
-                publicKey: PUBLIC_KEY
+                verificationMethods: {
+                    xsgdKey: XSGD_KEY!
+                }
             };
-            if(AUTHENTICATION.length !== 0) {
-                OPERATION_OUTPUT.authentication = AUTHENTICATION;
+
+            if(PUBLIC_KEY !== undefined) {
+                SCHEME.verificationMethods.publicKey = PUBLIC_KEY;
             }
+            if(AUTHENTICATION !== undefined) {
+                SCHEME.verificationMethods.authentication = AUTHENTICATION;
+            }
+            if(ASSERTION_METHOD !== undefined) {
+                SCHEME.verificationMethods.assertionMethod = ASSERTION_METHOD;
+            }
+            if(KEY_AGREEMENT !== undefined) {
+                SCHEME.verificationMethods.keyAgreement = KEY_AGREEMENT;
+            }
+            if(CAPABILITY_INVOCATION !== undefined) {
+                SCHEME.verificationMethods.capabilityInvocation = CAPABILITY_INVOCATION;
+            }
+            if(CAPABILITY_DELEGATION!== undefined) {
+                SCHEME.verificationMethods.capabilityDelegation = CAPABILITY_DELEGATION;
+            }
+
             if(SERVICES.length !== 0) {
-                OPERATION_OUTPUT.service = SERVICES;
+                SCHEME.service = SERVICES;
             }
-            return new DidDoc(OPERATION_OUTPUT);
+            return new DidDoc(SCHEME);
         })
         .catch(err => { throw err })
         return DID_DOC;
@@ -177,15 +222,14 @@ export default class DidDoc {
 /** The scheme of a `Tyron DID-Document` */
 interface DidDocScheme {
     id: string;
-    publicKey: VerificationMethodModel[];
-    authentication?: (string | VerificationMethodModel)[];
+    verificationMethods: TyronVerificationMethods;
     service?: DidServiceEndpointModel[];
     created?: number; //MUST be a valid XML datetime value, as defined in section 3.3.7 of [W3C XML Schema Definition Language (XSD) 1.1 Part 2: Datatypes [XMLSCHEMA1.1-2]]. This datetime value MUST be normalized to UTC 00:00, as indicated by the trailing "Z"
     updated?: number; //timestamp of the most recent change
 }
 
 export interface ResolutionInput {
-    tyronAddr: string;
+    didcAddr: string;
     metadata: ResolutionInputMetadata;
 }
 

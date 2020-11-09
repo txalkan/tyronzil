@@ -13,12 +13,35 @@
     GNU General Public License for more details.
 */
 
-import { PublicKeyModel } from './verification-method-models';
 import { PublicKeyInput } from '../../../../bin/util';
+import { TransitionValue } from '../../../blockchain/tyronzil';
 
 export interface DocumentModel {
-    public_keys: PublicKeyModel[];
+    public_keys: any;
     service_endpoints?: DidServiceEndpointModel[]; 
+}
+
+export enum DocumentElement {
+    VerificationMethod = "key",
+    Service = "service"
+}
+
+export interface ServiceModel {
+    id: string;
+    transferProtocol: DataTransferProtocol;
+    type: string;
+    uri: string
+}
+
+export enum Action {
+    Adding = "Add",
+    Removing = "Remove"
+}
+
+export enum DataTransferProtocol {
+    Https = "Https",
+    Git = "Git",
+    Ssh = "Ssh"
 }
 
 /** Sidetreee Service Endpoint for the 'service' property of the DID-Document */
@@ -30,12 +53,9 @@ export interface DidServiceEndpointModel {
 
 export interface PatchModel {
     action: PatchAction;
-    document?: DocumentModel;
-    public_keys?: PublicKeyModel[] | string[]; // array of id strings to remove keys
-    /** If the action is 'remove-service-endpoints`, then 'ids' MUST be an array of the services to remove */
-    ids?: string [];
+    ids?: string[];        //the IDs of the DID-Document elements to remove
     keyInput?: PublicKeyInput[];
-    service_endpoints?: DidServiceEndpointModel[];
+    services?: TransitionValue[];
 }
 
 export enum PatchAction {

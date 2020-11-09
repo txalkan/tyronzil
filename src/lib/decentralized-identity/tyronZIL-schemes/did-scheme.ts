@@ -44,6 +44,7 @@ export default class DidScheme {
 export enum NetworkNamespace {
     Mainnet = 'main:',
     Testnet = 'test:',
+    Isolated = 'isol:'
 }
 
 export interface SchemeInputData {

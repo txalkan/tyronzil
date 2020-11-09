@@ -28,25 +28,37 @@ yargs
     yargs
       .usage('Usage: $0 did <subcommand> [options]')
       .demandCommand(1, 'Specify a subcommand: create|resolve|update|recover|deactivate')
-      .command('create', ' -> creates a unique digital identity did:tyron:zil)', async () => {
+      .command('create', ' -> creates a unique digital identity did:tyron:zil)', async() => {
         await tyronCLI.handleCreate();
       })
-      .command('update', ' -> updates the given tyronZIL DID and its DID-state', async () => {
+      .command('update', ' -> updates the given tyronZIL DID and its DID-state', async() => {
         await tyronCLI.handleUpdate();
       })
-      .command('recover', ' -> recovers the given tyronZIL DID and creates a new DID-state)', async () => {
+      .command('recover', ' -> recovers the given tyronZIL DID and creates a new DID-state)', async() => {
         await tyronCLI.handleRecover();
       })
-      .command('deactivate', ' -> deactivates the given tyronZIL DID and its DID-state', async () => {
+      .command('deactivate', ' -> deactivates the given tyronZIL DID and its DID-state', async() => {
         await tyronCLI.handleDeactivate();
       })
       .wrap(null)
       .strict(); //the sub-command must be one of the explicitly defined sub-commands
   })
-  .command('resolve', ' -> resolves the given tyronZIL DID into its DID-document (read operation)', async () => {
+  .command('resolve', ' -> resolves the given tyronZIL DID into its DID-document (read operation)', async() => {
     await tyronCLI.handleResolve();
   })
-  .command('encode', ' -> encodes the given contract into a Base64URL string', async () => {
+  /*.command('dns', ` -> sets the DIDC's domain name`, async() => {
+    await tyronCLI.handleDns();
+  })*/
+  .command('ssitoken', ` -> initializes the SSI Token in the user's DIDC`, async() => {
+    await tyronCLI.handleSsiToken();
+  })
+  .command('donation', ` -> initializes the donation campaign code in the user's DIDC`, async() => {
+    await tyronCLI.handleDonation();
+  })
+  .command('donate', ` -> donates $XSGD to another tyron.did`, async() => {
+    await tyronCLI.handleDonate();
+  })
+  .command('encode', ' -> encodes the given contract into a Base64URL string', async() => {
     await SmartUtil.encode();
   })
   .strict()       // the command must be one of the explicitly defined commands

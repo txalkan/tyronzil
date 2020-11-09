@@ -14,7 +14,7 @@
 */
 
 import * as API from '@zilliqa-js/zilliqa';
-import { InitTyronSM } from '../tyron-transaction';
+import { InitTyron } from '../tyronzil';
 import LogColors from '../../../bin/log-colors';
 import * as readline from 'readline-sync';
 import * as fs from 'fs';
@@ -23,7 +23,7 @@ import * as zlib from 'zlib';
 
 /** Tools to manage smart contracts */
 export default class SmartUtil {
-    /** Encodes the given contract into a Base64URL string to save it into the `TyronInit-smart-contract` */
+    /** Encodes the given contract into a Base64URL string to save it into the `init.tyron` smart contract */
     public static async encode(): Promise<void> {
         const contractName = readline.question(LogColors.green(`What is the name of the contract that you'd like to encode? - `) + LogColors.lightBlue(`Your answer: `));
         try {
@@ -37,14 +37,14 @@ export default class SmartUtil {
     }
 
     /** Fetches the `Tyron DID-Smart-Contract` by version & decodes it */
-    public static async decode(api: API.Zilliqa, tyronInit: InitTyronSM, contractVersion: string): Promise<string> {
-        const TYRON_ADDRESS = tyronInit as string;
-        const THIS_CONTRACT = await api.blockchain.getSmartContractState(TYRON_ADDRESS)
+    public static async decode(api: API.Zilliqa, initTyron: InitTyron, contractVersion: string): Promise<string> {
+        const INIT_TYRON = initTyron as string;
+        const THIS_CONTRACT = await api.blockchain.getSmartContractState(INIT_TYRON)
         .then(async STATE => {
             const INIT = {
-                tyron_smart_contracts: STATE.result.tyron_smart_contracts,
+                didcCode: STATE.result.didc_code,
             };
-            const CONTRACTS = Object.entries(INIT.tyron_smart_contracts);            
+            const CONTRACTS = Object.entries(INIT.didcCode);            
             let ENCODED_CONTRACT: string;
             CONTRACTS.forEach((value: [string, unknown]) => {
                 if (value[0] === contractVersion) {
@@ -60,7 +60,7 @@ export default class SmartUtil {
         return THIS_CONTRACT;
     }
 
-    /** Gets the value out of a DID-SC field Option */
+    /** Gets the value out of a DIDC field Option */
     public static async getValue(object: any): Promise<string> {
         const ENTRIES = Object.entries(object);
         let VALUE: string;
@@ -72,7 +72,7 @@ export default class SmartUtil {
         return VALUE![0];
     }
 
-    /** Gets the DID-Status out of a DID-SC field Option */
+    /** Gets the DID-Status out of a DIDC field Option */
     public static async getStatus(object: any): Promise<string> {
         const ENTRIES = Object.entries(object);
         let VALUE: string;
@@ -82,5 +82,49 @@ export default class SmartUtil {
             }
         });
         return VALUE!;
+    }
+
+    /** Gets the value out of a map key */
+    public static async getValuefromMap(object: any, key: string): Promise<any> {
+        const ENTRIES = Object.entries(object);
+        let VALUE;
+        ENTRIES.forEach((value: [string, unknown]) => {
+            if (value[0] === key) {
+                VALUE = value[1]
+            }
+        });
+        return VALUE;
+    }
+
+    /** Turns the smart contract's map into a Map */
+    public static async intoMap(object: any): Promise<Map<string, any>> {
+        const ENTRIES = Object.entries(object);
+        let MAP = new Map();
+        ENTRIES.forEach((value: [string, unknown]) => {
+            MAP.set(value[0], value[1])
+        });
+        return MAP;
+    }
+
+    /** Turns the `services` DIDC's map into a Map */
+    public static async fromServices(object: any): Promise<Map<string, [string, string]>> {
+        const PREV_MAP = await this.intoMap(object);
+        let MAP = new Map();
+        
+        for (let id of PREV_MAP.keys()) {
+            const OBJECT = PREV_MAP.get(id);
+            const ENTRIES = Object.entries(OBJECT);
+            
+            ENTRIES.forEach((value: [string, unknown]) => {
+                if (value[0] === "arguments") {
+                    const VALUE = value[1] as [string, string];
+                    const TYPE = VALUE[0];
+                    const URI = VALUE[1];
+                    MAP.set(id, [TYPE, URI]);
+                }
+            });
+
+        };
+        return MAP;
     }
 }
