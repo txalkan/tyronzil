@@ -14,7 +14,6 @@
 */
 
 import * as zcrypto from '@zilliqa-js/crypto';
-import { sha256 } from 'hash.js';
 import { OperationType } from '../protocols/sidetree';
 import { Cryptography, OperationKeyPairInput, TyronPrivateKeys } from '../util/did-keys';
 import { CliInputModel } from '../../../bin/util';
@@ -26,6 +25,7 @@ export default class DidRecover {
     public readonly type = OperationType.Recover;
     public readonly decentralized_identifier: string;
     public readonly newDocument: TransitionValue[];
+    public readonly docHash: string;
     public readonly signature: string;
     public readonly newUpdateKey: string;
     public readonly newRecoveryKey: string;
@@ -38,6 +38,7 @@ export default class DidRecover {
     ) {
         this.decentralized_identifier = operation.did;
         this.newDocument = operation.newDocument;
+        this.docHash = "0x"+ operation.docHash;
         this.signature = "0x"+ operation.signature;
         this.newUpdateKey = "0x"+ operation.newUpdateKey;
         this.newRecoveryKey = "0x"+ operation.newRecoveryKey;
@@ -61,13 +62,12 @@ export default class DidRecover {
         }
         
         const DOCUMENT = VERIFICATION_METHODS.concat(input.cliInput.services);
-        const DOC_BUFFER = Buffer.from(DOCUMENT);
-        console.log(DOC_BUFFER);
-        const DOC_HASH = sha256().update(DOCUMENT).digest('hex');
-            
-        const DID_CONTRACT_OWNER = zcrypto.getPubKeyFromPrivateKey(input.recoveryPrivateKey!);
-            
-        const SIGNATURE = zcrypto.sign(Buffer.from(DOC_HASH, 'hex'), input.recoveryPrivateKey!, DID_CONTRACT_OWNER);
+        const DOC_OBJECT = Object.assign({}, DOCUMENT);
+        const DOC_BUFFER = Buffer.from(JSON.stringify(DOC_OBJECT));
+        const DOC_HASH = require("crypto").createHash("sha256").update(DOC_BUFFER).digest('hex');
+        
+        const PREVIOUS_RECOVERY_KEY = zcrypto.getPubKeyFromPrivateKey(input.recoveryPrivateKey);
+        const SIGNATURE = zcrypto.sign(Buffer.from(DOC_HASH, 'hex'), input.recoveryPrivateKey!, PREVIOUS_RECOVERY_KEY);
         
         /** Key-pair for the next DID-Upate operation */
         const [UPDATE_KEY, UPDATE_PRIVATE_KEY] = await Cryptography.keyPair("update");
@@ -83,6 +83,7 @@ export default class DidRecover {
         const OPERATION_OUTPUT: RecoverOperationModel = {
             did: input.did,
             newDocument: DOCUMENT,
+            docHash: DOC_HASH,
             signature: SIGNATURE,
             newUpdateKey: UPDATE_KEY,
             newRecoveryKey: RECOVERY_KEY,
@@ -105,6 +106,7 @@ export interface RecoverOperationInput {
 interface RecoverOperationModel {
     did: string;
     newDocument: TransitionValue[];
+    docHash: string;
     signature: string;
     newUpdateKey: string;
     newRecoveryKey: string;

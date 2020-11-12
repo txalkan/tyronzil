@@ -312,6 +312,7 @@ export default class TyronZIL extends ZilliqaInit {
     public static async recover(
         agent: string,
         newDocument: any[],
+        docHash: string,
         signature: string,
         newUpdateKey: string,
         newRecoveryKey: string
@@ -332,6 +333,13 @@ export default class TyronZIL extends ZilliqaInit {
             value: newDocument,
         };
         PARAMS.push(DOCUMENT);
+
+        const DOC_HASH: TransitionParams = {
+            vname: 'docHash',
+            type: 'ByStr20',
+            value: docHash,
+        };
+        PARAMS.push(DOC_HASH);
 
         const SIGNATURE: TransitionParams = {
             vname: 'signature',
@@ -360,6 +368,7 @@ export default class TyronZIL extends ZilliqaInit {
     public static async update(
         agent: string,
         newDocument: any[],
+        docHash: string,
         signature: string,
         newUpdateKey: string
     ): Promise<TransitionParams[]> {
@@ -379,6 +388,13 @@ export default class TyronZIL extends ZilliqaInit {
             value: newDocument,
         };
         PARAMS.push(DOCUMENT);
+
+        const DOC_HASH: TransitionParams = {
+            vname: 'docHash',
+            type: 'ByStr20',
+            value: docHash,
+        };
+        PARAMS.push(DOC_HASH);
 
         const SIGNATURE: TransitionParams = {
             vname: 'signature',
@@ -453,14 +469,14 @@ export default class TyronZIL extends ZilliqaInit {
     ): Promise<TransitionValue> {
         let VALUE: TransitionValue;
         let ADD: TransitionValue = {
-            constructor: Action.Adding,
             argtypes: [],
-            arguments: []
+            arguments: [],
+            constructor: Action.Adding
         };
         let REMOVE: TransitionValue = {
-            constructor: Action.Removing,
             argtypes: [],
-            arguments: []
+            arguments: [],
+            constructor: Action.Removing
         };
         switch (element) {
             case DocumentElement.VerificationMethod:
@@ -497,12 +513,10 @@ export default class TyronZIL extends ZilliqaInit {
                     constructor: "Service"
                 };
                 let DID_SERVICE = {
-                    constructor: "DidService",
                     argtypes: [],
                     arguments: [
                         `${service!.type}`,
                         {
-                            constructor: "ServiceEndpoint",
                             argtypes: [],
                             arguments: [
                                 {
@@ -511,9 +525,11 @@ export default class TyronZIL extends ZilliqaInit {
                                     arguments: []
                                 },
                                 `${service!.uri}`
-                            ]
+                            ],
+                            constructor: "ServiceEndpoint"
                         }
-                    ]
+                    ],
+                    constructor: "DidService"
                 };
                 switch (action) {
                     case Action.Adding:

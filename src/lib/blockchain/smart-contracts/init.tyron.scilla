@@ -71,7 +71,7 @@ library Init
       end
 
 (*------------------------------------------------------------------------*)
-(* init.tyron: The DID Initialization & Domain Name System Smart Contract *)
+(* init.tyron: The SSI Initialization & Domain Name System Smart Contract *)
 (*------------------------------------------------------------------------*)
 
 contract Init(

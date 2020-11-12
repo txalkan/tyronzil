@@ -66,7 +66,7 @@ export default class TyronCLI {
         const SET_NETWORK = this.network();
         const NETWORK = SET_NETWORK.network;
         
-        console.log(LogColors.brightGreen(`The user is the contract owner of their Tyron DID-Smart-Contract (DIDC)`));
+        console.log(LogColors.brightGreen(`The user is the contract owner of their Tyron DID smart contract (DIDC)`));
         const contractOwner_privateKey = readline.question(LogColors.green(`What is the user's private key (contract owner key)?`) + ` - [Hex-encoded private key] - ` + LogColors.lightBlue(`Your answer: `));
 
         const gas_limit = readline.question(LogColors.green(`What is the gas limit?`) + ` - [Recommended value: 50,000] - ` + LogColors.lightBlue(`Your answer: `));
@@ -106,7 +106,7 @@ export default class TyronCLI {
             };
         })
         .then(async didCreate => {
-            console.log(LogColors.brightGreen(`Let's deploy the user's Tyron DID-Smart-Contract!`))
+            console.log(LogColors.brightGreen(`Let's deploy the user's Tyron DID smart contract!`))
             
             const version = readline.question(LogColors.green(`What version of the DIDC would you like to deploy?`)+` - Versions currently supported: [2.0] - ` + LogColors.lightBlue(`Your answer: `));
             
@@ -151,13 +151,44 @@ export default class TyronCLI {
 
     /***            ****            ****/
 
+    /** Updates the DIDC's domain names */
+    public static async handleDns(): Promise<void> {
+        const SET_NETWORK = this.network();
+        const DIDC_ADDR = readline.question(LogColors.green(`What is the address of the user's Tyron DID smart contract (DIDC)`) + ` - [Hex-encoded address] - ` + LogColors.lightBlue(`Your answer: `));
+        const contractOwner_privateKey = readline.question(LogColors.green(`What is the user's private key (contract owner key)?`) + ` - [Hex-encoded private key] - ` + LogColors.lightBlue(`Your answer: `));
+
+        const gas_limit = readline.question(LogColors.green(`What is the gas limit?`) + ` - [Recommended value: 5,000] - ` + LogColors.lightBlue(`Your answer: `));
+            
+        console.log(LogColors.brightGreen(`Initializing...`));
+        await TyronZIL.initialize(
+            SET_NETWORK.network,
+            SET_NETWORK.initTyron,
+            contractOwner_privateKey,
+            gas_limit
+        )
+        .then( async init => {
+        const domainName = readline.question(LogColors.green(`What domain name avatar.did would you like to register for your DIDC?`)+` - [e.g.: iva.did] - ` + LogColors.lightBlue(`Your answer: `));
+        const DOT_INDEX = domainName.lastIndexOf(".");
+        const SSI_DOMAIN = domainName.substring(DOT_INDEX);
+        if(SSI_DOMAIN !== ".did") {
+            throw new ErrorCode("CodeNotDidDomain", "The DIDC MUST get registered on a .did domain")
+        }
+        const AVATAR = domainName.substring(0, DOT_INDEX);
+                
+        const DNS_PARAMS = await TyronZIL.dns(".did", AVATAR);
+        await TyronZIL.submit(init, DIDC_ADDR, TransitionTag.Dns, DNS_PARAMS, ".did");
+        })
+    }
+
+    /***            ****            ****/
+    
     /** Resolves the Tyron DID and saves it */
     public static async handleResolve(): Promise<void> {
         try {
             const SET_NETWORK = this.network();
             
             /** Asks for the address of the user's DIDC */
-            const DIDC_ADDR = readline.question(LogColors.green(`What is the address of the user's Tyron DID-Smart-Contract (DIDC)`) + ` - [Hex-encoded address] - ` + LogColors.lightBlue(`Your answer: `));
+            const DIDC_ADDR = readline.question(LogColors.green(`What is the address of the user's Tyron DID smart contract (DIDC)`) + ` - [Hex-encoded address] - ` + LogColors.lightBlue(`Your answer: `));
             
             /** Whether to resolve the DID as a document or resolution result */
             const RESOLUTION_CHOICE = readline.question(LogColors.green(`Would you like to resolve your DID as a document(1) or as a resolution result(2)? `) + `- [1/2] - Defaults to document - ` + LogColors.lightBlue(`Your answer: `));
@@ -205,7 +236,7 @@ export default class TyronCLI {
         const NETWORK = SET_NETWORK.network;
         
         /** Asks for the user's domain name to fetch their DIDC */
-        const domainName = readline.question(LogColors.green(`What is the user's domain name (to fetch their DID-Smart-Contract)? `) + `- [e.g.: julio.did] - ` + LogColors.lightBlue(`Your answer: `));
+        const domainName = readline.question(LogColors.green(`What is the user's domain name (to fetch their DID smart contract)? `) + `- [e.g.: uriel.did] - ` + LogColors.lightBlue(`Your answer: `));
         const DIDC_ADDR = await Resolver.resolveDns(NETWORK, SET_NETWORK.initTyron, domainName);
         
         await DidState.fetch(NETWORK, DIDC_ADDR)
@@ -248,6 +279,7 @@ export default class TyronCLI {
             const PARAMS = await TyronZIL.recover(
                 'pungtas',
                 didRecover.operation.newDocument,
+                didRecover.operation.docHash,
                 didRecover.operation.signature,
                 didRecover.operation.newUpdateKey,
                 didRecover.operation.newRecoveryKey
@@ -278,12 +310,12 @@ export default class TyronCLI {
 
     /** Handles the `Tyron DID-Update` operation */
     public static async handleUpdate(): Promise<void> {
-        console.log(LogColors.brightGreen(`To update your Tyron DID, let's fetch its current DIDC from the Zilliqa blockchain platform!`));
+        console.log(LogColors.brightGreen(`To update your Tyron DID, let's fetch its current DIDC state from the Zilliqa blockchain platform!`));
         const SET_NETWORK = this.network();
         const NETWORK = SET_NETWORK.network;
         
         /** Asks for the user's domain name to fetch their DIDC */
-        const domainName = readline.question(LogColors.green(`What is the user's domain name (to fetch their DID-Smart-Contract)? `) + `- [e.g.: julio.did] - ` + LogColors.lightBlue(`Your answer: `));
+        const domainName = readline.question(LogColors.green(`What is the user's domain name (to fetch their DID smart contract)? `) + `- [e.g.: julio.did] - ` + LogColors.lightBlue(`Your answer: `));
         const DIDC_ADDR = await Resolver.resolveDns(NETWORK, SET_NETWORK.initTyron, domainName);
         
         await DidState.fetch(NETWORK, DIDC_ADDR)
@@ -371,6 +403,7 @@ export default class TyronCLI {
             const PARAMS = await TyronZIL.update(
                 "pungtas",
                 didUpdate.operation.newDocument,
+                didUpdate.operation.docHash,
                 didUpdate.operation.signature,
                 didUpdate.operation.newUpdateKey
             );
@@ -399,12 +432,14 @@ export default class TyronCLI {
 
     /** Handles the `Tyron DID-Deactivate` operation */
     public static async handleDeactivate(): Promise<void> {
-        console.log(LogColors.brightGreen(`To deactivate the Tyron DID, let's fetch its current DIDC-State from the Zilliqa blockchain platform!`));
+        console.log(LogColors.brightGreen(`To deactivate the Tyron DID, let's fetch its current DIDC state from the Zilliqa blockchain platform!`));
         const SET_NETWORK = this.network();
         const NETWORK = SET_NETWORK.network;
-        /** Asks for the address of the user's DIDC */
-        const DIDC_ADDR = readline.question(LogColors.green(`What is the address of the user's Tyron DID-Smart-Contract (DIDC)? - `) + LogColors.lightBlue(`Your answer: `));
-               
+        
+        /** Asks for the user's domain name to fetch their DIDC */
+        const domainName = readline.question(LogColors.green(`What is the user's domain name (to fetch their DID smart contract)? `) + `- [e.g.: julio.did] - ` + LogColors.lightBlue(`Your answer: `));
+        const DIDC_ADDR = await Resolver.resolveDns(NETWORK, SET_NETWORK.initTyron, domainName);
+        
         await DidState.fetch(NETWORK, DIDC_ADDR)
         .then(async did_state => {
             const RECOVERY_PRIVATE_KEY = readline.question(LogColors.brightGreen(`DID-State retrieved!`) + LogColors.green(` - Provide the recovery private key - `) + LogColors.lightBlue(`Your answer: `));
@@ -464,7 +499,7 @@ export default class TyronCLI {
         const NETWORK = SET_NETWORK.network;
         
         /** Asks for the user's domain name to fetch their DIDC */
-        const domainName = readline.question(LogColors.green(`What is the user's domain name (to fetch their DID-Smart-Contract)? `) + `- [e.g.: julio.did] - ` + LogColors.lightBlue(`Your answer: `));
+        const domainName = readline.question(LogColors.green(`What is the user's domain name (to fetch their DID smart contract)? `) + `- [e.g.: julio.did] - ` + LogColors.lightBlue(`Your answer: `));
         const DIDC_ADDR = await Resolver.resolveDns(NETWORK, SET_NETWORK.initTyron, domainName);
         const token = readline.question(LogColors.green(`What is the SSI Token that you would like to register into your DIDC? `) + `- [e.g.: xsgd] - ` + LogColors.lightBlue(`Your answer: `));
         const gas_limit = readline.question(LogColors.green(`What is the gas limit?`) + ` - [Recommended value: 5,000] - ` + LogColors.lightBlue(`Your answer: `));
@@ -488,7 +523,7 @@ export default class TyronCLI {
         const NETWORK = SET_NETWORK.network;
         
         /** Asks for the user's domain name to fetch their DIDC */
-        const domainName = readline.question(LogColors.green(`What is the user's domain name (to fetch their DID-Smart-Contract)? `) + `- [e.g.: julio.did] - ` + LogColors.lightBlue(`Your answer: `));
+        const domainName = readline.question(LogColors.green(`What is the user's domain name (to fetch their DID smart contract)? `) + `- [e.g.: julio.did] - ` + LogColors.lightBlue(`Your answer: `));
         const DIDC_ADDR = await Resolver.resolveDns(NETWORK, SET_NETWORK.initTyron, domainName);
         const campaign = readline.question(LogColors.green(`What is the donation campaign code that you would like to register into your DIDC? `) + `- [e.g.: covid-aid] - ` + LogColors.lightBlue(`Your answer: `));
         const gas_limit = readline.question(LogColors.green(`What is the gas limit?`) + ` - [Recommended value: 5,000] - ` + LogColors.lightBlue(`Your answer: `));

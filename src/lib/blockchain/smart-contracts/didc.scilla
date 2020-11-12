@@ -35,11 +35,13 @@ library DIDC
       let msgs_tmp = one_msg msg2 in
       Cons{Message} msg1 msgs_tmp
 
-  (* The SSI Trinity ADT *)
+(* The SSI Trinity ADT *)
+(*---------------------*)
   type SsiTrinity =
     | User              (* the contract owner *)
+    | Agent of String   (* the agent is the entity running the DID-Client - string avatar of .agent *)
     | Tyron             (* the init.tyron contract *)
-    | Agent of String   (* the agent is the entity running the DID-Client - arg: avatar *)
+   
 
 (* The Status ADTs *)
 (*-----------------*)
@@ -131,12 +133,7 @@ library DIDC
         | Some value => value
         | _ => zero
       end
-  
-  let hash_document: List Document -> ByStr =
-    fun(doc: List Document) =>
-      let hash = builtin sha256hash doc in
-      builtin to_bystr hash
- 
+
   let update_methods: forall 'A. List Document -> Map String ByStr33 -> Map String ByStr33 =
   tfun 'A =>
   fun(l: List Document) =>
@@ -738,6 +735,7 @@ contract DIDC(
   transition DidRecover(
     agent: String,
     newDocument: List Document,
+    docHash: ByStr32,
     signature: ByStr64,
     newUpdateKey: ByStr33,
     newRecoveryKey: ByStr33
@@ -745,9 +743,9 @@ contract DIDC(
       IsRightStatus operational;
       Payment dotDid agent;
       IsRightCaller user;
-      doc_hash = hash_document newDocument;
       did_key <- did_recovery_key;
-      IsRightSignature doc_hash signature did_key;
+      signed_data = builtin to_bystr docHash;
+      IsRightSignature signed_data signature did_key;
       UpdateDocument init newDocument;
       IsValidKey did_key newRecoveryKey;
       did_ukey <- did_update_key;
@@ -780,25 +778,16 @@ contract DIDC(
   transition DidUpdate(
     agent: String,
     newDocument: List Document,
+    docHash: ByStr20,
     signature: ByStr64,
     newUpdateKey: ByStr33
     )
       IsRightStatus operational;
       Payment dotDid agent;
       IsRightCaller user;
-      doc_hash = hash_document newDocument;
-      ev = {
-        _eventname: "Doc";
-        doc: newDocument
-      };
-      event ev;
-      ev = {
-        _eventname: "doc hash";
-        hash: doc_hash
-      };
-      event ev;
       did_key <- did_update_key;
-      (*IsRightSignature doc signature did_key;*)
+      signed_data = builtin to_bystr docHash;
+      IsRightSignature signed_data signature did_key;
       UpdateDocument operational newDocument;
       IsValidKey did_key newUpdateKey;
       did_rkey <- did_recovery_key;
@@ -836,6 +825,10 @@ contract DIDC(
     deactivated_key = None{ByStr33};
     did_update_key := deactivated_key;
     did_recovery_key := deactivated_key;
+    deactivated_methods = Emp String ByStr33;
+    verification_methods := deactivated_methods;
+    deactivated_services = Emp String Pair String String;
+    services := deactivated_services;
     new_status = Deactivated;
     did_status := new_status;
     did <- decentralized_identifier;

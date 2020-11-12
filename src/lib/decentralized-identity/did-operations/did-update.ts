@@ -14,7 +14,6 @@
 */
 
 import * as zcrypto from '@zilliqa-js/crypto';
-import { sha256 } from 'hash.js';
 import { OperationType, Sidetree } from '../protocols/sidetree';
 import { Cryptography, TyronPrivateKeys } from '../util/did-keys';
 import { PatchModel } from '../protocols/models/document-model';
@@ -26,6 +25,7 @@ export default class DidUpdate{
     public readonly type = OperationType.Update;
     public readonly decentralized_identifier: string;
     public readonly newDocument: TransitionValue[];
+    public readonly docHash: string;
     public readonly signature: string;
     public readonly newUpdateKey: string;
     public readonly privateKeys: TyronPrivateKeys;
@@ -35,6 +35,7 @@ export default class DidUpdate{
     ) {
         this.decentralized_identifier = operation.did;
         this.newDocument = operation.newDocument;
+        this.docHash = "0x"+ operation.docHash;
         this.signature = "0x"+ operation.signature;
         this.newUpdateKey = "0x"+ operation.newUpdateKey;
         this.privateKeys = operation.privateKeys;
@@ -46,16 +47,13 @@ export default class DidUpdate{
     public static async execute(input: UpdateOperationInput): Promise<DidUpdate> {
         const operation = await Sidetree.processPatches(input.patches)
         .then(async update => {
-            let DOCUMENT = [];
-            for (let element in update.updateDocument) {
-               const BYTES = Buffer.from(JSON.stringify(element), 'hex');
-               DOCUMENT.push(BYTES);
-            }
-            console.log(DOCUMENT);
-            const DOC_HASH = "0x" + sha256().update(DOCUMENT, "hex").digest('hex');
+            const DOC_OBJECT = Object.assign({}, update.updateDocument);
+            const DOC_BUFFER = Buffer.from(JSON.stringify(DOC_OBJECT));
+            console.log(DOC_BUFFER.toString());
+            const DOC_HASH = require("crypto").createHash("sha256").update(DOC_BUFFER).digest('hex');
             console.log(DOC_HASH);
+
             const PREVIOUS_UPDATE_KEY = zcrypto.getPubKeyFromPrivateKey(input.updatePrivateKey);
-            
             const SIGNATURE = zcrypto.sign(Buffer.from(DOC_HASH, 'hex'), input.updatePrivateKey, PREVIOUS_UPDATE_KEY);
             
             // Generates key-pair for the next DID-Update operation
@@ -69,6 +67,7 @@ export default class DidUpdate{
             const OPERATION_OUTPUT: UpdateOperationModel = {
                 did: input.state.decentralized_identifier,
                 newDocument: update.updateDocument,
+                docHash: DOC_HASH,
                 signature: SIGNATURE,
                 newUpdateKey: NEW_UPDATE_KEY,
                 privateKeys: PRIVATE_KEYS
@@ -93,6 +92,7 @@ export interface UpdateOperationInput {
 interface UpdateOperationModel {
     did: string;
     newDocument: TransitionValue[];
+    docHash: string;
     signature: string;
     newUpdateKey: string;
     privateKeys: TyronPrivateKeys;

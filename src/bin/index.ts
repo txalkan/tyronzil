@@ -46,9 +46,9 @@ yargs
   .command('resolve', ' -> resolves the given tyronZIL DID into its DID-document (read operation)', async() => {
     await tyronCLI.handleResolve();
   })
-  /*.command('dns', ` -> sets the DIDC's domain name`, async() => {
+  .command('dns', ` -> sets a DIDC's domain name`, async() => {
     await tyronCLI.handleDns();
-  })*/
+  })
   .command('ssitoken', ` -> initializes the SSI Token in the user's DIDC`, async() => {
     await tyronCLI.handleSsiToken();
   })
