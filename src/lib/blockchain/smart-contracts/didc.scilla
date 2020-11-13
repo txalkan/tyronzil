@@ -415,6 +415,7 @@ contract DIDC(
     end
   end
   
+  (* Checks that the donation campaign code is within the limitation period of 1-week *)
   procedure Donation(
     campaign: String
   )
@@ -497,7 +498,7 @@ contract DIDC(
     end
   end
   
-  (* Verifies the Schnorr signature that comes with the signedData corresponds with the public DID-Keys stored in the contract *)
+  (* Verifies the Schnorr signature that comes with the signed data corresponds with the public DID-Keys stored in the contract *)
   procedure IsRightSignature(
     signedData: ByStr,
     sig: ByStr64,
@@ -518,6 +519,7 @@ contract DIDC(
     end
   end
   
+  (* Updates the verification methods and services map fields *)
   procedure UpdateDocument(
     status: CheckStatus,
     newDocument: List Document
@@ -576,6 +578,8 @@ contract DIDC(
 (*-------------*)
 (* Transitions *)
 (*-------------*)
+
+  (* Updates the Zilliqa address of the user aka contract owner*)
   transition UpdateOwner(
     newOwner: ByStr20
   )
@@ -583,7 +587,7 @@ contract DIDC(
     contract_owner := newOwner
   end
 
-  (* Updates the init.tyron contract to its latest implementation - only the user aka contract owner can execute this transition *)
+  (* Updates the init.tyron contract to its latest implementation - only the user can execute this transition *)
   transition UpdateInit(
     newInit: ByStr20
   )
@@ -596,7 +600,7 @@ contract DIDC(
     event e
   end
 
-  (* Sets the agent's info into the user's DID account
+  (* Sets the agent's info into the user's DIDC
    * Sends a message to the init.tyron contract that in return calls the InitCallBack transition *)
   transition Init(
     agent: String   
@@ -621,7 +625,7 @@ contract DIDC(
     agentAddr: ByStr20,
     agentCommission: Uint128
   )
-    IsRightCaller tyron;
+    IsRightCaller tyron;½
     operation_cost[dotDid] := operationCost;
     foundation_address := foundationAddr;
     did_agents[agent] := agentAddr;
@@ -650,6 +654,7 @@ contract DIDC(
     avatar: String
   )
     IsRightStatus operational;
+    IsRightCaller user;
     this_cost <- operation_cost[dotDid];
     match this_cost with
       | Some op_cost =>
@@ -844,6 +849,7 @@ contract DIDC(
 (* xWallet *)
 (*---------*)
 
+  (* Verifies the validity, checks & updates the balance of the SSI Tokens *)
   procedure XWallet(
     direction: XDirection,
     amount: Uint128
@@ -867,7 +873,7 @@ contract DIDC(
     end
   end
 
-  (* Updates an SSI Token to its latest implementation *)
+  (* To set/update a SSI Token *)
   transition SsiToken(
     token: String
   )
@@ -891,7 +897,7 @@ contract DIDC(
     end
   end
   
-  (* The init.tyron contract calls this transition to update an SSI Token to its latest implementation *)
+  (* The init.tyron contract calls this transition to update a SSI Token to its latest implementation *)
   transition SsiTokenCallBack(
     token: String,
     proxyAddr: ByStr20,
@@ -969,7 +975,7 @@ contract DIDC(
     event e
   end
 
-  (* Transfers ZRC-2 verified tokens *)
+  (* Transfers ZRC-2 SSI Tokens *)
   transition XTransfer(
     domain: String,
     token: String,
@@ -1031,6 +1037,7 @@ contract DIDC(
     Timestamp
   end
   
+  (* To initialize a donation campaign code *)
   transition Donate(
     campaign: String
   )

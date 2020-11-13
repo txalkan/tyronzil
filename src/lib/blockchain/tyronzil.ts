@@ -103,7 +103,7 @@ export default class TyronZIL extends ZilliqaInit {
     public static async deploy(input: TyronZIL, version: string): Promise<DeployedContract> {
         const deployed_contract = await SmartUtil.decode(input.API, input.initTyron, version)
         .then(contract_code => {
-            console.log(LogColors.brightGreen(`DIDC-code successfully downloaded & decoded from the "init.tyron" smart contract!`));
+            console.log(LogColors.brightGreen(`DIDC-code successfully downloaded & decoded from the init.tyron smart contract!`));
             
             const CONTRACT_INIT = [
                 {
@@ -147,7 +147,7 @@ export default class TyronZIL extends ZilliqaInit {
             if(!IS_DEPLOYED) {
                 throw new ErrorCode("Wrong-Deployment","The user's DIDC did not get deployed")
             }
-            console.log(LogColors.yellow(`The user's Tyron DID-Smart-Contract is deployed: `) + LogColors.brightYellow(`${IS_DEPLOYED}`));
+            console.log(LogColors.yellow(`The user's Tyron DID smart contract (DIDC) is deployed: `) + LogColors.brightYellow(`${IS_DEPLOYED}`));
             console.log(LogColors.yellow(`Its Zilliqa address is: `) + LogColors.brightYellow(`${didc.address}`));
             console.log(LogColors.yellow(`Deployment Transaction ID: `) + LogColors.brightYellow(`${deployTx.id}`));
 
@@ -182,7 +182,7 @@ export default class TyronZIL extends ZilliqaInit {
                 1000,
                 false
             );
-            console.log(LogColors.yellow(`The user's Tyron DID-Smart-Contract is initialized: `) + LogColors.brightYellow(`${CALL.isConfirmed()}`));
+            console.log(LogColors.yellow(`The user's DIDC is initialized: `) + LogColors.brightYellow(`${CALL.isConfirmed()}`));
             const CUMULATIVE_GAS = (CALL.getReceipt())!.cumulative_gas;
             console.log(LogColors.yellow(`The total gas consumed by the Init transition was: `) + LogColors.brightYellow(`${CUMULATIVE_GAS}`));
             console.log(LogColors.yellow(`The transaction ID is: `) + LogColors.brightYellow(`${CALL.id}`));
@@ -264,7 +264,7 @@ export default class TyronZIL extends ZilliqaInit {
             
             const TX_RECEIPT = transaction.getReceipt();
             const CUMULATIVE_GAS = TX_RECEIPT!.cumulative_gas;
-            console.log(LogColors.yellow(`The total gas consumed in this ${tag} transaction was: `) + LogColors.brightYellow(`${CUMULATIVE_GAS}`));
+            console.log(LogColors.yellow(`Gas consumed: `) + LogColors.brightYellow(`${CUMULATIVE_GAS}`));
         })
         .catch(err => { throw err })
     }

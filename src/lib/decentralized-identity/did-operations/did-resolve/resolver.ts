@@ -19,15 +19,25 @@ import SmartUtil from "../../../blockchain/smart-contracts/smart-util";
 import { InitTyron } from "../../../blockchain/tyronzil";
 import ZilliqaInit from '../../../blockchain/zilliqa-init';
 import { NetworkNamespace } from '../../tyronZIL-schemes/did-scheme';
+import CodeError from '../../util/ErrorCode';
 
 export default class Resolver {
+    public static async validateAvatar(avatar: string): Promise<void> {
+        const regex = /^[\w\d_]+$/;
+        if(!regex.test(avatar) || avatar.length > 15 ) {
+            throw new CodeError("DomainNameInvalid", "The domain name must be 15 characters or less and contain only letters, numbers and underscores, and no spaces") 
+        }
+    }
     public static async resolveDns(network: NetworkNamespace, initTyron: InitTyron, domainName: string): Promise<string> {
         const ZIL_INIT = new ZilliqaInit(network);
         const DOT_INDEX = domainName.lastIndexOf(".");
         const SSI_DOMAIN = domainName.substring(DOT_INDEX);
         const AVATAR = domainName.substring(0, DOT_INDEX);
         
-        const DIDC_ADDRESS = await ZIL_INIT.API.blockchain.getSmartContractState(initTyron)
+        const DIDC_ADDRESS = await this.validateAvatar(AVATAR)
+        .then( async() => {
+            return await ZIL_INIT.API.blockchain.getSmartContractState(initTyron)
+        })
         .then(async STATE => {
             return STATE.result.dns;
         })

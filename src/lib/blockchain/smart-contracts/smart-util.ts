@@ -23,7 +23,7 @@ import * as zlib from 'zlib';
 
 /** Tools to manage smart contracts */
 export default class SmartUtil {
-    /** Encodes the given contract into a Base64URL string to save it into the `init.tyron` smart contract */
+    /** Encodes the given contract into a Base64URL string to save it into the init.tyron smart contract */
     public static async encode(): Promise<void> {
         const contractName = readline.question(LogColors.green(`What is the name of the contract that you'd like to encode? - `) + LogColors.lightBlue(`Your answer: `));
         try {

@@ -16,11 +16,6 @@
 import { PublicKeyInput } from '../../../../bin/util';
 import { TransitionValue } from '../../../blockchain/tyronzil';
 
-export interface DocumentModel {
-    public_keys: any;
-    service_endpoints?: DidServiceEndpointModel[]; 
-}
-
 export enum DocumentElement {
     VerificationMethod = "key",
     Service = "service"

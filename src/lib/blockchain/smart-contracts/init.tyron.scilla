@@ -97,8 +97,6 @@ contract Init(
    @value: cost as % of the amount *)
   field operation_cost: Map String Uint128 = Emp String Uint128
   
-  (* the operation cost is sent to the xDID/ZIL liquidity pool on ZILSwap *)
-  
   (* The agent's commission as a % of share 
    - the user has 51% of the share
    - Tyron Pungtas Foundation 51% of the remaining 49 %
@@ -114,8 +112,7 @@ contract Init(
             @value: address *)
   field dns: Map String (Map String ByStr20) = Emp String (Map String ByStr20)
 
-  (* The SSI Tokens *)
-  (* Proxies
+  (* The proxy addresses of the SSI Tokens
    @key: token 
    @value: proxy address *)
    field ssi_tokens: Map String ByStr20 = Emp String ByStr20
@@ -184,6 +181,8 @@ contract Init(
 (*-------------*)
 (* Transitions *)
 (*-------------*)
+
+  (* Updates the address of the Tyron Pungtas Foundation *)
   transition UpdateOwner(
     newOwner: ByStr20
   )
@@ -208,7 +207,7 @@ contract Init(
     event e
   end
   
-  (* Sets the operation_cost *)
+  (* Sets the operation_cost by SSI domain (domain name or donation campaign code) *)
   transition OperationCost(
     domain: String,
     cost: Uint128
@@ -234,7 +233,7 @@ contract Init(
     end
   end
   
-  (* Called by the DIDC to set the .did operation cost, foundation address & agent commission *)
+  (* Called by the DIDC to set the .did operation cost, foundation address & agent's account *)
   transition Init(
     agent: String
   )
@@ -289,6 +288,7 @@ contract Init(
     end
   end
 
+  (* Sets the token name, proxy address and implementation address of a SSI Token *)
   transition SetSsiToken(
     token: String,
     proxyAddr: ByStr20,
@@ -307,6 +307,7 @@ contract Init(
     event e
   end
 
+  (* Called by a DIDC to initialize a SSI Token in its state *)
   transition SsiToken(
     token: String
   )
@@ -336,6 +337,7 @@ contract Init(
     end
   end
 
+  (* Called by a DIDC to initialize a donation campaign code in its state *)
   transition Donate(
     campaign: String
   )
@@ -363,6 +365,7 @@ contract Init(
     end
   end
 
+  (* Removes a donation campaign code from the *operation_cost* map field *)
   transition DeleteCampaign(
     campaign: String
   )

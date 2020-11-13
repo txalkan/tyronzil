@@ -14,8 +14,7 @@
 */
 
 import { PublicKeyInput } from '../../../bin/util';
-import LogColors from '../../../bin/log-colors';
-import { PatchModel, DocumentModel, PatchAction, Action, DataTransferProtocol, DocumentElement, ServiceModel } from './models/document-model';
+import { PatchModel, PatchAction, Action, DataTransferProtocol, DocumentElement, ServiceModel } from './models/document-model';
 import { PrivateKeyModel, PublicKeyModel } from './models/verification-method-models';
 import { Cryptography, OperationKeyPairInput } from '../util/did-keys';
 import ErrorCode from '../util/ErrorCode';
@@ -30,26 +29,7 @@ export enum OperationType {
 }
 
 export class Sidetree {
-    public static async documentModel(encoded: string): Promise<DocumentModel> {
-        try {
-            const STRING = Buffer.from(encoded, 'hex').toString();
-            const DOC = JSON.parse(STRING);
-            console.log(LogColors.brightGreen("The DID-Document (Sidetree-Document-Model format):"))
-            console.log(JSON.stringify(DOC, null, 2));
-            
-            const DOCUMENT: DocumentModel = {
-                public_keys: DOC.public_keys
-            }
-            if(DOC.service_endpoints !== undefined && DOC.service_endpoints.length !== 0) {
-                    DOCUMENT.service_endpoints = DOC.service_endpoints;
-            }
-            return DOCUMENT;
-        } catch (err) {
-            throw err
-        }
-    }
-
-    public static async processPatches(patches: PatchModel[])
+        public static async processPatches(patches: PatchModel[])
     : Promise<{ updateDocument: any[], privateKeys: PrivateKeyModel[] }> {
         let UPDATE_DOCUMENT: any[] = [];
         let PRIVATE_KEYS: PrivateKeyModel[] = [];

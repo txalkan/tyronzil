@@ -28,6 +28,7 @@ import ErrorCode from '../lib/decentralized-identity/util/ErrorCode';
 import LogColors from './log-colors';
 import * as readline from 'readline-sync';
 import Resolver from '../lib/decentralized-identity/did-operations/did-resolve/resolver';
+import CodeError from '../lib/decentralized-identity/util/ErrorCode';
 
 /** Handles the command-line interface Tyron DID operations */
 export default class TyronCLI {
@@ -134,7 +135,8 @@ export default class TyronCLI {
                 throw new ErrorCode("CodeNotDidDomain", "The DIDC MUST first get registered on a .did domain")
             }
             const AVATAR = domainName.substring(0, DOT_INDEX);
-                    
+            await Resolver.validateAvatar(AVATAR);
+
             const DNS_PARAMS = await TyronZIL.dns(".did", AVATAR);
             await TyronZIL.submit(didCreate.init, DIDC_ADDR, TransitionTag.Dns, DNS_PARAMS, ".did");
             return {
@@ -153,31 +155,50 @@ export default class TyronCLI {
 
     /** Updates the DIDC's domain names */
     public static async handleDns(): Promise<void> {
-        const SET_NETWORK = this.network();
-        const DIDC_ADDR = readline.question(LogColors.green(`What is the address of the user's Tyron DID smart contract (DIDC)`) + ` - [Hex-encoded address] - ` + LogColors.lightBlue(`Your answer: `));
-        const contractOwner_privateKey = readline.question(LogColors.green(`What is the user's private key (contract owner key)?`) + ` - [Hex-encoded private key] - ` + LogColors.lightBlue(`Your answer: `));
+        try {
+            const SET_NETWORK = this.network();
+            const input = readline.question(LogColors.green(`To fetch the user's DIDC, give the address of the their DID smart contract (1) OR their domain.did (2)`) + ` - [1/2] - ` + LogColors.lightBlue(`Your answer: `));
+            let DIDC_ADDR: string;
+            switch (input) {
+                case "1":
+                    DIDC_ADDR = readline.question(LogColors.green(`Provide the DIDC's hex-encoded address`) + LogColors.lightBlue(`Your answer: `));
+                    break;
+                case "2":
+                    const domainName = readline.question(LogColors.green(`What is the user's domain name (to fetch their DID smart contract)? `) + `- [e.g.: uriel.did] - ` + LogColors.lightBlue(`Your answer: `));
+                    DIDC_ADDR = await Resolver.resolveDns(SET_NETWORK.network, SET_NETWORK.initTyron, domainName);
+                    break;     
+                default:
+                    throw new CodeError("You have to choose between the previous options");
+            };
 
-        const gas_limit = readline.question(LogColors.green(`What is the gas limit?`) + ` - [Recommended value: 5,000] - ` + LogColors.lightBlue(`Your answer: `));
-            
-        console.log(LogColors.brightGreen(`Initializing...`));
-        await TyronZIL.initialize(
-            SET_NETWORK.network,
-            SET_NETWORK.initTyron,
-            contractOwner_privateKey,
-            gas_limit
-        )
-        .then( async init => {
-        const domainName = readline.question(LogColors.green(`What domain name avatar.did would you like to register for your DIDC?`)+` - [e.g.: iva.did] - ` + LogColors.lightBlue(`Your answer: `));
-        const DOT_INDEX = domainName.lastIndexOf(".");
-        const SSI_DOMAIN = domainName.substring(DOT_INDEX);
-        if(SSI_DOMAIN !== ".did") {
-            throw new ErrorCode("CodeNotDidDomain", "The DIDC MUST get registered on a .did domain")
-        }
-        const AVATAR = domainName.substring(0, DOT_INDEX);
+            const contractOwner_privateKey = readline.question(LogColors.green(`What is the user's private key (contract owner key)?`) + ` - [Hex-encoded private key] - ` + LogColors.lightBlue(`Your answer: `));
+
+            const gas_limit = readline.question(LogColors.green(`What is the gas limit?`) + ` - [Recommended value: 5,000] - ` + LogColors.lightBlue(`Your answer: `));
                 
-        const DNS_PARAMS = await TyronZIL.dns(".did", AVATAR);
-        await TyronZIL.submit(init, DIDC_ADDR, TransitionTag.Dns, DNS_PARAMS, ".did");
-        })
+            console.log(LogColors.brightGreen(`Initializing...`));
+            await TyronZIL.initialize(
+                SET_NETWORK.network,
+                SET_NETWORK.initTyron,
+                contractOwner_privateKey,
+                gas_limit
+            )
+            .then(async init => {
+            const domainName = readline.question(LogColors.green(`What domain name avatar.did would you like to register for your DIDC?`)+` - [e.g.: iva.did] - ` + LogColors.lightBlue(`Your answer: `));
+            const DOT_INDEX = domainName.lastIndexOf(".");
+            const SSI_DOMAIN = domainName.substring(DOT_INDEX);
+            if(SSI_DOMAIN !== ".did") {
+                throw new ErrorCode("CodeNotDidDomain", "The DIDC MUST get registered on a .did domain")
+            }
+            const AVATAR = domainName.substring(0, DOT_INDEX);
+            await Resolver.validateAvatar(AVATAR);
+                    
+            const DNS_PARAMS = await TyronZIL.dns(".did", AVATAR);
+            await TyronZIL.submit(init, DIDC_ADDR, TransitionTag.Dns, DNS_PARAMS, ".did");
+            })
+            .catch(err => { throw err })    
+        } catch (err) {
+            console.error(LogColors.red(err))
+        }
     }
 
     /***            ****            ****/
@@ -222,9 +243,7 @@ export default class TyronCLI {
                 await DidDoc.write(DID, did_resolved);
             })
             .catch(err => { throw err })
-        } catch (err) {
-            console.error(LogColors.red(err))
-        } 
+        } catch (err) { console.error(LogColors.red(err)) } 
     }
 
     /***            ****            ****/
