@@ -208,8 +208,9 @@ export default class TyronCLI {
         try {
             const SET_NETWORK = this.network();
             
-            /** Asks for the address of the user's DIDC */
-            const DIDC_ADDR = readline.question(LogColors.green(`What is the address of the user's Tyron DID smart contract (DIDC)`) + ` - [Hex-encoded address] - ` + LogColors.lightBlue(`Your answer: `));
+            /** Asks for the user's domain name to fetch their DIDC */
+            const domainName = readline.question(LogColors.green(`What is the user's domain name (to fetch their DID smart contract)? `) + `- [e.g.: uriel.did] - ` + LogColors.lightBlue(`Your answer: `));
+            const DIDC_ADDR = await Resolver.resolveDns(SET_NETWORK.network, SET_NETWORK.initTyron, domainName);
             
             /** Whether to resolve the DID as a document or resolution result */
             const RESOLUTION_CHOICE = readline.question(LogColors.green(`Would you like to resolve your DID as a document(1) or as a resolution result(2)? `) + `- [1/2] - Defaults to document - ` + LogColors.lightBlue(`Your answer: `));

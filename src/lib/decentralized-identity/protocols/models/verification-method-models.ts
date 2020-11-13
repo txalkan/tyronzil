@@ -45,5 +45,5 @@ export interface TyronVerificationMethods {
     keyAgreement?: VerificationMethodModel;
     capabilityInvocation?: VerificationMethodModel;
     capabilityDelegation?: VerificationMethodModel;
-    xsgdKey: VerificationMethodModel;
+    xsgdKey?: VerificationMethodModel;
 }

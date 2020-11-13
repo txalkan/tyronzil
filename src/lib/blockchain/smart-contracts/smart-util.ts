@@ -106,7 +106,7 @@ export default class SmartUtil {
         return MAP;
     }
 
-    /** Turns the `services` DIDC's map into a Map */
+    /** Turns the DIDC `services` map field into a Map */
     public static async fromServices(object: any): Promise<Map<string, [string, string]>> {
         const PREV_MAP = await this.intoMap(object);
         let MAP = new Map();

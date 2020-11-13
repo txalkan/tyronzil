@@ -102,7 +102,6 @@ export class Sidetree {
                     throw new ErrorCode("CodeIncorrectPatchAction", "The chosen action is not valid");
             }
         }
-        console.log(UPDATE_DOCUMENT);
         return {
             updateDocument: UPDATE_DOCUMENT,
             privateKeys: PRIVATE_KEYS,

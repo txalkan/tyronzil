@@ -625,7 +625,7 @@ contract DIDC(
     agentAddr: ByStr20,
     agentCommission: Uint128
   )
-    IsRightCaller tyron;½
+    IsRightCaller tyron;
     operation_cost[dotDid] := operationCost;
     foundation_address := foundationAddr;
     did_agents[agent] := agentAddr;

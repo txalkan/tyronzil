@@ -49,9 +49,7 @@ export default class DidUpdate{
         .then(async update => {
             const DOC_OBJECT = Object.assign({}, update.updateDocument);
             const DOC_BUFFER = Buffer.from(JSON.stringify(DOC_OBJECT));
-            console.log(DOC_BUFFER.toString());
             const DOC_HASH = require("crypto").createHash("sha256").update(DOC_BUFFER).digest('hex');
-            console.log(DOC_HASH);
 
             const PREVIOUS_UPDATE_KEY = zcrypto.getPubKeyFromPrivateKey(input.updatePrivateKey);
             const SIGNATURE = zcrypto.sign(Buffer.from(DOC_HASH, 'hex'), input.updatePrivateKey, PREVIOUS_UPDATE_KEY);
@@ -61,7 +59,6 @@ export default class DidUpdate{
             update.privateKeys.push(NEW_UPDATE_PRIVATE_KEY);
 
             const PRIVATE_KEYS = await Cryptography.processKeys(update.privateKeys);
-
 
             /** Output data from a Tyron `DID-Update` operation */
             const OPERATION_OUTPUT: UpdateOperationModel = {

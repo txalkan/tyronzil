@@ -97,18 +97,17 @@ export default class DidDoc {
             const ID = did_scheme.did;
             
             /** Reads the public keys */
-            const VERIFICATION_METHODS = state.verification_methods;
+            const VERIFICATION_METHODS = state.verification_methods!;
             let PUBLIC_KEY;
             let AUTHENTICATION;
             let ASSERTION_METHOD;
             let KEY_AGREEMENT;
             let CAPABILITY_INVOCATION;
             let CAPABILITY_DELEGATION;
-            let XSGD_KEY: VerificationMethodModel;
+            let XSGD_KEY;
 
             // Every key MUST have a Public Key Purpose as its ID
             for (let purpose of VERIFICATION_METHODS.keys()) {
-                console.log(purpose);
                 const DID_URL: string = ID + '#' + purpose;
                 const KEY = VERIFICATION_METHODS.get(purpose);
                 const VERIFICATION_METHOD: VerificationMethodModel = {
@@ -148,27 +147,27 @@ export default class DidDoc {
             /** Service property */
             const services = state.services;
             const SERVICES = [];
-            if(services !== undefined) {            
-                if (Array.isArray(services)) {
-                    for (const service of services) {
-                        const SERVICE: DidServiceEndpointModel = {
-                            id: ID + '#' + service.id,
-                            type: service.type,
-                            endpoint: service.endpoint
-                        };
-                        SERVICES.push(SERVICE);
-                    }
-                }
+            for (let id of services.keys()) {
+                const TYPE_URI = services.get(id);
+                const TYPE = TYPE_URI![0];
+                const URI = TYPE_URI![1];
+                const SERVICE: DidServiceEndpointModel = {
+                    id: ID + '#' + id,
+                    type: TYPE,
+                    endpoint: URI
+                };
+                SERVICES.push(SERVICE);
             }
 
             /** The `Tyron DID-Document` */
             const SCHEME: DidDocScheme = {
                 id: ID,
-                verificationMethods: {
-                    xsgdKey: XSGD_KEY!
-                }
+                verificationMethods: {},
+                service: []
             };
-
+            if(XSGD_KEY !== undefined) {
+                SCHEME.verificationMethods.xsgdKey = XSGD_KEY;
+            }
             if(PUBLIC_KEY !== undefined) {
                 SCHEME.verificationMethods.publicKey = PUBLIC_KEY;
             }
@@ -223,7 +222,7 @@ export default class DidDoc {
 interface DidDocScheme {
     id: string;
     verificationMethods: TyronVerificationMethods;
-    service?: DidServiceEndpointModel[];
+    service: DidServiceEndpointModel[];
     created?: number; //MUST be a valid XML datetime value, as defined in section 3.3.7 of [W3C XML Schema Definition Language (XSD) 1.1 Part 2: Datatypes [XMLSCHEMA1.1-2]]. This datetime value MUST be normalized to UTC 00:00, as indicated by the trailing "Z"
     updated?: number; //timestamp of the most recent change
 }

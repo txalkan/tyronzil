@@ -152,7 +152,7 @@ export default class TyronZIL extends ZilliqaInit {
             console.log(LogColors.yellow(`Deployment Transaction ID: `) + LogColors.brightYellow(`${deployTx.id}`));
 
             const DEPLOYMENT_GAS = (deployTx.getReceipt())!.cumulative_gas;
-            console.log(LogColors.yellow(`The total gas consumed by deploying the DIDC was: `) + LogColors.brightYellow(`${DEPLOYMENT_GAS}`));
+            console.log(LogColors.yellow(`Gas consumed by deploying the DIDC was: `) + LogColors.brightYellow(`${DEPLOYMENT_GAS}`));
             
             const DEPLOYED_CONTRACT = {
                 transaction: deployTx,
@@ -184,7 +184,7 @@ export default class TyronZIL extends ZilliqaInit {
             );
             console.log(LogColors.yellow(`The user's DIDC is initialized: `) + LogColors.brightYellow(`${CALL.isConfirmed()}`));
             const CUMULATIVE_GAS = (CALL.getReceipt())!.cumulative_gas;
-            console.log(LogColors.yellow(`The total gas consumed by the Init transition was: `) + LogColors.brightYellow(`${CUMULATIVE_GAS}`));
+            console.log(LogColors.yellow(`Gas consumed by the Init transition was: `) + LogColors.brightYellow(`${CUMULATIVE_GAS}`));
             console.log(LogColors.yellow(`The transaction ID is: `) + LogColors.brightYellow(`${CALL.id}`));
             if(!CALL.isConfirmed()) {
                 throw new ErrorCode("CodeNotInitialized", "The DIDC did not get initialized")
