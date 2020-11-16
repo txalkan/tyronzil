@@ -58,5 +58,5 @@ enum ZilliqaEndpoint {
 enum ZilliqaChainID {
     Mainnet = 1,
     Testnet = 333,
-    IsolatedServer = 1
+    IsolatedServer = 222
 }
