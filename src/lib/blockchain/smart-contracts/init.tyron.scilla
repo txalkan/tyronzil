@@ -288,7 +288,7 @@ contract Init(
     end
   end
 
-  (* Sets the token name, proxy address and implementation address of a SSI Token *)
+  (* Sets the token name, proxy address and implementation address of an SSI Token *)
   transition SetSsiToken(
     token: String,
     proxyAddr: ByStr20,
@@ -307,7 +307,7 @@ contract Init(
     event e
   end
 
-  (* Called by a DIDC to initialize a SSI Token in its state *)
+  (* Called by a DIDC to initialize an SSI Token in its state *)
   transition SsiToken(
     token: String
   )

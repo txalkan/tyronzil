@@ -873,7 +873,7 @@ contract DIDC(
     end
   end
 
-  (* To set/update a SSI Token *)
+  (* To set/update an SSI Token *)
   transition SsiToken(
     token: String
   )
@@ -897,7 +897,7 @@ contract DIDC(
     end
   end
   
-  (* The init.tyron contract calls this transition to update a SSI Token to its latest implementation *)
+  (* The init.tyron contract calls this transition to update an SSI Token to its latest implementation *)
   transition SsiTokenCallBack(
     token: String,
     proxyAddr: ByStr20,
