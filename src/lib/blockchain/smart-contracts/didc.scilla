@@ -248,7 +248,7 @@ contract DIDC(
   (* The user's agents
    @key: avatar.agent
    @value: agent's address *)
-  field did_agents: Map String ByStr20 = Emp String ByStr20
+  field ssi_agents: Map String ByStr20 = Emp String ByStr20
   field latest_agent: ByStr20 = initContractOwner
   
   (* The status of the DID *)
@@ -369,7 +369,7 @@ contract DIDC(
                 ThrowError err
           end
       | Agent avatar =>
-          this_agent <- did_agents[avatar];
+          this_agent <- ssi_agents[avatar];
           match this_agent with
             | Some agent_addr =>
                 latest_agent := agent_addr;
@@ -628,7 +628,7 @@ contract DIDC(
     IsRightCaller tyron;
     operation_cost[dotDid] := operationCost;
     foundation_address := foundationAddr;
-    did_agents[agent] := agentAddr;
+    ssi_agents[agent] := agentAddr;
     agent_commission[agent] := agentCommission;
     this_status <- did_status;
     match this_status with
