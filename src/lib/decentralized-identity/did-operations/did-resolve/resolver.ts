@@ -25,7 +25,7 @@ export default class Resolver {
     public static async validateAvatar(avatar: string): Promise<void> {
         const regex = /^[\w\d_]+$/;
         if(!regex.test(avatar) || avatar.length > 15 ) {
-            throw new CodeError("DomainNameInvalid", "The domain name must be 15 characters or less and contain only letters, numbers and underscores, and no spaces") 
+            throw new CodeError("DidUsernameInvalid", "The username must be 15 characters or less and contain only letters, numbers and underscores, and no spaces") 
         }
     }
     public static async resolveDns(network: NetworkNamespace, initTyron: InitTyron, domainName: string): Promise<string> {
