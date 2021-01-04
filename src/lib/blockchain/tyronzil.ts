@@ -666,7 +666,7 @@ export enum TransitionTag {
     Recover = "DidRecover",
     Deactivate = "DidDeactivate",
     Dns = "SetSsiDomain",
-    XTranfer = "XTransfer",
+    XTransfer = "XTransfer",
     SsiToken = "SsiToken",
     Donate = "Donate"
 }

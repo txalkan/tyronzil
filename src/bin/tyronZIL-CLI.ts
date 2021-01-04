@@ -126,6 +126,9 @@ export default class TyronCLI {
             );
 
             await TyronZIL.submit(didCreate.init, DIDC_ADDR, didCreate.tag, PARAMS, ".did");
+            
+            // To save the private keys:
+            await Util.savePrivateKeys(DID.did, didCreate.operation.privateKeys);
 
             // Sets the DIDC's domain name
             const domainName = readline.question(LogColors.green(`What domain name avatar.did would you like to register for your DIDC?`)+` - [e.g.: julio.did] - ` + LogColors.lightBlue(`Your answer: `));
@@ -143,10 +146,6 @@ export default class TyronCLI {
                 did: DID.did,
                 operation: didCreate.operation
             };
-        })
-        .then( async create => {
-            // To save the private keys:
-            await Util.savePrivateKeys(create.did, create.operation.privateKeys);
         })
         .catch(err => console.error(LogColors.red(err)))            
     }
@@ -590,7 +589,7 @@ export default class TyronCLI {
             const SIGNATURE = "0x"+ zcrypto.sign(Buffer.from(to_addr, 'hex'), xsgd_privateKey, xsgd_publicKey);
             
             const PARAMS = await TyronZIL.xTransfer(campaign, "xsgd", "pungtas", zcrypto.fromBech32Address(TO_DIDC_ADDR), String(Number(amount)*1e6), SIGNATURE );
-            await TyronZIL.submit(init, DIDC_ADDR, TransitionTag.XTranfer, PARAMS, ".did");
+            await TyronZIL.submit(init, DIDC_ADDR, TransitionTag.XTransfer, PARAMS, ".did");
         })
         .catch(err => console.error(LogColors.red(err)))
     }
