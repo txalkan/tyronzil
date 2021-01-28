@@ -34,20 +34,20 @@ export default class Util {
         const KEY_INPUT = [];
         
         console.log(LogColors.brightGreen(`You can have a key for each of the following purposes:
-        $xSGD stablecoin(0),
-        General(1),
-        Authentication(2),
-        Assertion(3),
-        Agreement(4),
-        Invocation(5), &
-        Delegation(6)`));
+        $xSGD stablecoin(1),
+        General(2),
+        Authentication(3),
+        Assertion(4),
+        Agreement(5),
+        Invocation(6), &
+        Delegation(7)`));
 
         const amount = readline.question(LogColors.green(`How many of them would you like to add?`) + ` - up to [7] - ` + LogColors.lightBlue(`Your answer: `));
-        if(Number(amount)> 6) {
+        if(Number(amount)> 7) {
             throw new ErrorCode("IncorrectAmount", "You may only have up to 7 keys, one for each purpose")
         }
         for(let i=0, t= Number(amount); i<t; ++i) {
-            const id = readline.question(LogColors.green(`Next, choose your key purpose`) + ` - [0/1/2/3/4/5/6] - ` + LogColors.lightBlue(`Your answer: `));
+            const id = readline.question(LogColors.green(`Next, choose your key purpose`) + ` - [1/2/3/4/5/6/7] - ` + LogColors.lightBlue(`Your answer: `));
             if (id === "") {
                 throw new ErrorCode("InvalidID", `To register a key you must provide a valid purpose`);
             }
