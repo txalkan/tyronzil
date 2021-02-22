@@ -1,10 +1,8 @@
-<div align="center">
-<img src="./files/tyronzil-logo.png" alt="tyronZIL" title="tyronZIL-v0.4-logo" width="400"/>
-</div>
+![tyron](./files/tyron.png)
 
 ```own your data, empower your world```
 
-This is an open-source client for Node.js that integrates the [Tyron Self-Sovereign Identity Protocol](https://www.ssiprotocol.com).
+This is an open-source client for Node.js that implements the [Tyron Self-Sovereign Identity Protocol](https://www.ssiprotocol.com).
 
 ## W3C DID Method
 
