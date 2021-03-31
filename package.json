@@ -1,6 +1,6 @@
 {
   "name": "tyronzil",
-  "version": "2.2.0",
+  "version": "2.3.0",
   "description": "Tyron Self-Sovereign Identity client for Node.js",
   "main": "dist/bin/index.js",
   "bin": {
