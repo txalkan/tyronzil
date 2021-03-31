@@ -24,7 +24,7 @@ On macOS ```xcode-select --install``` as well
 
 ### DID-Create
 
-Create your brand new tyronZIL DID and save it on the Zilliqa blockchain platform, forever.
+Create your brand new tyronzil DID and save it on the Zilliqa blockchain platform, forever.
 
 ```tyronzil did create``` and follow the instructions :zap:
 
@@ -49,7 +49,7 @@ In case you want to reset your DID-state while keeping the same identifier, you 
 
 ### DID-Update
 
-To update your tyronZIL DID you need your update private key:
+To update your tyronzil DID you need your update private key:
 
 ```tyronzil did update``` and follow the instructions
 

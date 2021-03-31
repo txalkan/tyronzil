@@ -2,7 +2,7 @@
   "name": "tyronzil",
   "version": "2.2.0",
   "description": "Tyron Self-Sovereign Identity client for Node.js",
-  "main": "dist/src/core.js",
+  "main": "dist/bin/index.js",
   "bin": {
     "tyronzil": "./dist/src/bin/index.js"
   },
@@ -16,19 +16,19 @@
     "url": "git+https://github.com/tralcanx/tyronzil.git"
   },
   "keywords": [
-    "did",
-    "did-client",
+    "tyron",
+    "tyron-ssi",
+    "self-sovereign-identity",
+    "ssi",
     "decentralized-identity",
     "decentralized-identifiers",
+    "did",
     "decentralized-application",
     "dapp",
-    "self-sovereign identity",
-    "tyron",
-    "tyron.did",
-    "tyronZIL",
+    "tyronzil",
     "zilliqa"
   ],
-  "author": "https://github.com/tralcanx",
+  "author": "Tyron Pungtas",
   "license": "GPL-3.0-only",
   "bugs": {
     "url": "https://github.com/tralcanx/tyronzil/issues"
@@ -45,7 +45,6 @@
     "yargs": "^15.4.0"
   },
   "devDependencies": {
-    "@types/bitcore-lib": "^0.15.2",
     "@types/node": "^14.14.31",
     "@types/readline-sync": "^1.4.3",
     "@types/yargs": "^15.0.13",

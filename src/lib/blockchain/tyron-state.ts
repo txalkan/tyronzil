@@ -1,6 +1,6 @@
 /*
     tyronzil: Tyron Self-Sovereign Identity client for Node.js
-    Copyright (C) 2021 Tyron Pungtas Open Association
+    Copyright (C) 2021 Tyron Pungtas
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
