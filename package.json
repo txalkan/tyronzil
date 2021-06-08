@@ -9,7 +9,8 @@
   "scripts": {
     "build": "tsc && copyfiles \"package.json\" dist",
     "lint": "eslint . --ext .ts",
-    "typedoc": "typedoc --out typedocs"
+    "typedoc": "typedoc --out typedocs",
+    "tyronzil": "npm run build && npm i -g ."
   },
   "repository": {
     "type": "git",
@@ -44,7 +45,7 @@
     "node-fetch": "^2.6.1",
     "readline-sync": "^1.4.10",
     "tslib": "^2.1.0",
-    "tyron": "^3.0.0",
+    "tyron": "^3.1.3",
     "yargs": "^15.4.0"
   },
   "devDependencies": {
@@ -55,7 +56,15 @@
     "@typescript-eslint/parser": "^3.8.0",
     "copyfiles": "^2.4.1",
     "eslint": "^7.20.0",
+    "husky": "^6.0.0",
+    "lint-staged": "^11.0.0",
     "typedoc": "^0.17.8",
     "typescript": "^3.9.9"
+  },
+  "lint-staged": {
+    "*.ts": [
+      "eslint src",
+      "npx tsc --noEmit"
+    ]
   }
 }

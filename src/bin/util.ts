@@ -37,12 +37,12 @@ export default class Util {
         Invocation(5), &
         Delegation(6)`));
 
-        const amount = readline.question(LogColors.green(`How many of them would you like to add?`) + ` - up to [7] - ` + LogColors.lightBlue(`Your answer: `));
-        if(Number(amount)> 7) {
-            throw new tyron.ErrorCode.default("IncorrectAmount", "You may only have up to 7 keys, one for each purpose")
+        const amount = readline.question(LogColors.green(`How many of them would you like to add?`) + ` - up to [6] - ` + LogColors.lightBlue(`Your answer: `));
+        if(Number(amount)> 6) {
+            throw new tyron.ErrorCode.default("IncorrectAmount", "You may only have up to 6 keys, one for each purpose")
         }
         for(let i=0, t= Number(amount); i<t; ++i) {
-            const id = readline.question(LogColors.green(`Next, choose your key purpose`) + ` - [1/2/3/4/5/6/7] - ` + LogColors.lightBlue(`Your answer: `));
+            const id = readline.question(LogColors.green(`Next, choose your key purpose`) + ` - [1/2/3/4/5/6] - ` + LogColors.lightBlue(`Your answer: `));
             if (id === "") {
                 throw new tyron.ErrorCode.default("InvalidID", `To register a key you must provide a valid purpose`);
             }
@@ -84,9 +84,9 @@ export default class Util {
     }
 
     /** Generates the DID services */
-    public static async services(): Promise<tyron.TyronZil.TransitionValue[]> {
+    public static async services(): Promise<tyron.DocumentModel.ServiceModel[]> {
         console.log(LogColors.brightGreen(`Service endpoints for your Decentralized Identifier:`));
-        const SERVICES: tyron.TyronZil.TransitionValue[] = [];
+        const SERVICES: tyron.DocumentModel.ServiceModel[] = [];
         const SERVICE_ID_SET: Set<string> = new Set();
         
         const amount = readline.question(LogColors.green(`How many services would you like to add? - `) + LogColors.lightBlue(`Your answer: `));
@@ -96,17 +96,14 @@ export default class Util {
         for(let i=0, t= Number(amount); i<t; ++i) {
             const id = readline.question(LogColors.green(`What is the service ID? - `) + LogColors.lightBlue(`Your answer: `));
             const type = readline.question(LogColors.green(`What is the service type? - `) + ` - Defaults to 'website' - ` + LogColors.lightBlue(`Your answer: `));
-            const data_transfer = readline.question(LogColors.green(`What is the data transfer protocol? https(1), git(2) or ssh(3)`) + ` - [1/2/3] - ` + LogColors.lightBlue(`Your answer: `));
-            let DATA_TRANSFER;
-            switch (Number(data_transfer)) {
+            const data_transfer_ = readline.question(LogColors.green(`What is the data transfer protocol? https(1) or git(2)`) + ` - [1/2] - ` + LogColors.lightBlue(`Your answer: `));
+            let data_transfer;
+            switch (Number(data_transfer_)) {
                 case 1:
-                    DATA_TRANSFER = tyron.DocumentModel.DataTransferProtocol.Https;
+                    data_transfer = tyron.DocumentModel.TransferProtocol.Https;
                     break;
                 case 2:
-                    DATA_TRANSFER = tyron.DocumentModel.DataTransferProtocol.Git;
-                    break;
-                case 3:
-                    DATA_TRANSFER = tyron.DocumentModel.DataTransferProtocol.Ssh;
+                    data_transfer = tyron.DocumentModel.TransferProtocol.Git;
                     break;
                 default:
                     throw new tyron.ErrorCode.default("InvalidInput", `That input in not allowed`);
@@ -125,19 +122,13 @@ export default class Util {
             // IDs MUST be unique
             if(!SERVICE_ID_SET.has(id)) {
                 SERVICE_ID_SET.add(id);
-                const SERVICE: tyron.DocumentModel.ServiceModel = {
+                const service: tyron.DocumentModel.ServiceModel = {
                     id: id,
                     type: TYPE,
-                    transferProtocol: DATA_TRANSFER,
+                    transferProtocol: data_transfer,
                     uri: endpoint
                 };
-                const DOC_ELEMENT = await tyron.TyronZil.default.documentElement(
-                    tyron.DocumentModel.DocumentElement.Service,
-                    tyron.DocumentModel.Action.Adding,
-                    undefined,
-                    SERVICE
-                );
-                SERVICES.push(DOC_ELEMENT);
+                SERVICES.push(service);
             } else {            
                 throw new tyron.ErrorCode.default("CodeDocumentServiceIdDuplicated", "The service IDs MUST NOT be duplicated" );
             }
@@ -146,7 +137,7 @@ export default class Util {
     }
 
     /** Saves the private keys */
-    public static async savePrivateKeys(did: string, keys: tyron.DidKeys.TyronPrivateKeys): Promise<void> {
+    public static async savePrivateKeys(did: string, keys: tyron.DidKeys.DIDVerificationMethods): Promise<void> {
         const KEY_FILE_NAME = `DID_PRIVATE_KEYS_${did}.json`;
         fs.writeFileSync(KEY_FILE_NAME, JSON.stringify(keys, null, 2));
         console.info(LogColors.yellow(`Private keys saved as: ${LogColors.brightYellow(KEY_FILE_NAME)}`));

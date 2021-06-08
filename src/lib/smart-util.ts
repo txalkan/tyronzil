@@ -27,7 +27,7 @@ export default class SmartUtil {
     public static async encode(): Promise<void> {
         const contractName = readline.question(LogColors.green(`What is the name of the contract that you'd like to encode? - `) + LogColors.lightBlue(`Your answer: `));
         try {
-            const CONTRACT_STRING = (fs.readFileSync(`src/lib/blockchain/smart-contracts/${contractName}.scilla`)).toString();
+            const CONTRACT_STRING = (fs.readFileSync(`src/lib/smart-contracts/${contractName}.scilla`)).toString();
             const COMPRESSED_CONTRACT = await (util.promisify(zlib.gzip))(CONTRACT_STRING) as Buffer;
             console.log(COMPRESSED_CONTRACT.toString('base64'));
             console.log(`The size of the compressed smart-contract is: ${COMPRESSED_CONTRACT.byteLength}`)
@@ -36,7 +36,7 @@ export default class SmartUtil {
         }
     }
 
-    /** Fetches the `DID smart contract` by version & decodes it */
+    /** Fetches the tyron smart contract by version & decodes it */
     public static async decode(init: tyron.ZilliqaInit.default, initTyron: string, tyronContract: string, contractVersion: string): Promise<string> {
         const this_contract = await init.API.blockchain.getSmartContractState(initTyron)
         .then(async state => {
@@ -48,7 +48,8 @@ export default class SmartUtil {
             let encoded_contract: string;
             contracts.forEach((value: [string, unknown]) => {
                 if (value[0] === tyronContract) {
-                    tyron_contract = value[1] as [string, unknown][];
+                    tyron_contract = value[1] as [string, unknown];
+                    tyron_contract = Object.entries(tyron_contract)
                     tyron_contract.forEach((value: [string, unknown]) => {
                         if (value[0] === contractVersion) {
                             encoded_contract = value[1] as string;
@@ -62,73 +63,5 @@ export default class SmartUtil {
         })
         .catch(err => { throw err });
         return this_contract;
-    }
-
-    /** Gets the value out of a DID field Option */
-    public static async getValue(object: any): Promise<string> {
-        const ENTRIES = Object.entries(object);
-        let VALUE: string;
-        ENTRIES.forEach((value: [string, unknown]) => {
-            if (value[0] === "arguments") {
-                VALUE = value[1] as string;
-            }
-        });
-        return VALUE![0];
-    }
-
-    /** Gets the DID-Status out of a DID field Option */
-    public static async getStatus(object: any): Promise<string> {
-        const ENTRIES = Object.entries(object);
-        let VALUE: string;
-        ENTRIES.forEach((value: [string, unknown]) => {
-            if (value[0] === "constructor") {
-                VALUE = value[1] as string;
-            }
-        });
-        return VALUE!;
-    }
-
-    /** Gets the value out of a map key */
-    public static async getValuefromMap(object: any, key: string): Promise<any> {
-        const ENTRIES = Object.entries(object);
-        let VALUE;
-        ENTRIES.forEach((value: [string, unknown]) => {
-            if (value[0] === key) {
-                VALUE = value[1]
-            }
-        });
-        return VALUE;
-    }
-
-    /** Turns the smart contract's map into a Map */
-    public static async intoMap(object: any): Promise<Map<string, any>> {
-        const ENTRIES = Object.entries(object);
-        let MAP = new Map();
-        ENTRIES.forEach((value: [string, unknown]) => {
-            MAP.set(value[0], value[1])
-        });
-        return MAP;
-    }
-
-    /** Turns the `DID services` map field into a Map */
-    public static async fromServices(object: any): Promise<Map<string, [string, string]>> {
-        const PREV_MAP = await this.intoMap(object);
-        let MAP = new Map();
-        
-        for (let id of PREV_MAP.keys()) {
-            const OBJECT = PREV_MAP.get(id);
-            const ENTRIES = Object.entries(OBJECT);
-            
-            ENTRIES.forEach((value: [string, unknown]) => {
-                if (value[0] === "arguments") {
-                    const VALUE = value[1] as [string, string];
-                    const TYPE = VALUE[0];
-                    const URI = VALUE[1];
-                    MAP.set(id, [TYPE, URI]);
-                }
-            });
-
-        };
-        return MAP;
     }
 }

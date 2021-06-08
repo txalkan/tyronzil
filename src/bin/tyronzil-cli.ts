@@ -25,7 +25,7 @@ import SmartUtil from '../lib/smart-util';
  * @TODO: configure globally
  */
 export enum InitTyron {
-    Testnet = "",
+    Testnet = "0x9a0692f2e7f702795fa013436c5f5c8168773026",
     Mainnet = "",
     Isolated = ""
 }
@@ -91,14 +91,14 @@ export default class TyronCLI {
             Number(gas_limit),
             set_network.initTyron
         )
-        .then(async init => {
+        .then(async (init: any) => {
             // Add verification-method inputs & services:
             const key_input = await Util.InputKeys();
             const services = await Util.services();
-            const username = readline.question(LogColors.green(`What domain name would you like to register for your DID?`) + LogColors.lightBlue(`Your username is: `));
+            const username = readline.question(LogColors.green(`What domain name would you like to register for your DID?`) + LogColors.lightBlue(` Your username is: `));
             
             const cli_input: tyron.DidCrud.InputModel = {
-                username: username,
+                userDomain: username,
                 publicKeyInput: key_input,
                 services: services
             };
@@ -114,11 +114,11 @@ export default class TyronCLI {
 
             console.log(LogColors.brightGreen(`Let's deploy the DID smart contract!`))
             
-            const tyron_ = readline.question(LogColors.green(`What tyron smart contract would you like to deploy?`)+` [init, coop, xwallet]` + LogColors.lightBlue(`Your answer: `));
+            const tyron_ = readline.question(LogColors.green(`What tyron smart contract would you like to deploy?`)+` [init, coop, xwallet] ` + LogColors.lightBlue(`Your answer: `));
             
-            const version = readline.question(LogColors.green(`What version of the smart contract would you like to deploy?`)+` [number]` + LogColors.lightBlue(`Your answer: `));
+            const version = readline.question(LogColors.green(`What version of the smart contract would you like to deploy?`)+` [number] ` + LogColors.lightBlue(`Your answer: `));
             
-            const contract_code = await SmartUtil.decode(init, set_network.initTyron, tyron_, version)
+            const contract_code = await SmartUtil.decode(init, set_network.initTyron, tyron_, version);
             
             // Deploy DID and call
             const deployed_contract = await tyron.TyronZil.default.deploy(init, contract_code);
@@ -132,7 +132,7 @@ export default class TyronCLI {
             // To save the private keys:
             await Util.savePrivateKeys(did.did, operation.privateKeys!);
         })
-        .catch(err => console.error(LogColors.red(err)))            
+        .catch((err: unknown) => console.error(LogColors.red(err)))            
     }
 
     /** Resolve a DID and save it */
@@ -142,7 +142,7 @@ export default class TyronCLI {
             
             /** Asks for the user's domain name to fetch their DID */
             const username = readline.question(LogColors.green(`What is the user's domain name (to fetch their DID smart contract)? `) + `- [e.g.: uriel.did] - ` + LogColors.lightBlue(`Your answer: `));
-            const did_addr = await tyron.Resolver.default.resolveDns(set_network.network, set_network.initTyron, username, "did")
+            const addr = await tyron.Resolver.default.resolveDns(set_network.network, set_network.initTyron, username, "did")
             
             /** Whether to resolve the DID as a document or resolution result */
             const RESOLUTION_CHOICE = readline.question(LogColors.green(`Would you like to resolve your DID as a document(1) or as a resolution result(2)? `) + `- [1/2] - Defaults to document - ` + LogColors.lightBlue(`Your answer: `));
@@ -161,7 +161,7 @@ export default class TyronCLI {
             }
 
             const resolution_input: tyron.DidDocument.ResolutionInput = {
-                didcAddr: did_addr,
+                addr: addr,
                 metadata : {
                     accept: ACCEPT
                 }
@@ -170,18 +170,18 @@ export default class TyronCLI {
 
             /** Resolves the Tyron DID */        
             await tyron.DidDocument.default.resolution(set_network.network, resolution_input)
-            .then(async did_resolved => {
+            .then(async (did_resolved: { id: any; }) => {
                 // Saves the DID Document
                 const DID = did_resolved.id;
                 await this.write(DID, did_resolved);
             })
-            .catch(err => { throw err })
+            .catch((err: any) => { throw err })
         } catch (err) { console.error(LogColors.red(err)) } 
     }
 
     /** Handle the `DID Recover` operation */
     public static async handleDidRecover(): Promise<void> {
-        console.log(LogColors.brightGreen(`To recover your Tyron DID, let's fetch its current DID-State from the Zilliqa blockchain platform!`));
+        console.log(LogColors.brightGreen(`To recover your Tyron DID, let's fetch its current DID State from the Zilliqa blockchain platform!`));
         const set_network = this.network();
         const network = set_network.network;
         
@@ -190,22 +190,22 @@ export default class TyronCLI {
         const did_addr = await tyron.Resolver.default.resolveDns(network, set_network.initTyron, username, "did");
         
         await tyron.DidState.default.fetch(network, did_addr)
-        .then(async did_state => {
-            const recovery_private_key = readline.question(LogColors.brightGreen(`DID-State retrieved!`) + LogColors.green(` - Provide the recovery private key - `) + LogColors.lightBlue(`Your answer: `));
+        .then(async (did_state: { did_recovery_key: string; did: string; }) => {
+            const recovery_private_key = readline.question(LogColors.brightGreen(`DID State retrieved!`) + LogColors.green(` - Provide the recovery private key - `) + LogColors.lightBlue(`Your answer: `));
             await Util.verifyKey(recovery_private_key, did_state.did_recovery_key);
             
             // Adds verification-method inputs & services:
             const key_input = await Util.InputKeys();
             const services = await Util.services();
 
-            const cli_input: tyron.DidCrud.InputModel = {
-                username: username,
+            const input: tyron.DidCrud.InputModel = {
+                userDomain: username,
                 publicKeyInput: key_input,
                 services: services,
                 recoveryPrivateKey: recovery_private_key
             };
 
-            const operation = await tyron.DidCrud.default.recover(cli_input);
+            const operation = await tyron.DidCrud.default.Recover(input);
             const tag = tyron.TyronZil.TransitionTag.Recover;
             if(operation !== undefined) {
                 console.log(LogColors.brightGreen(`Your ${tag} request  got processed!`));
@@ -229,7 +229,7 @@ export default class TyronCLI {
             await Util.savePrivateKeys(did_state.did, operation.privateKeys!);
 
         })
-        .catch(err => console.error(LogColors.red(err)))
+        .catch((err: unknown) => console.error(LogColors.red(err)))
     }
 
     /** Handle the `DID Update` operation */
@@ -244,7 +244,7 @@ export default class TyronCLI {
         
         await tyron.DidState.default.fetch(network, did_addr)
         .then(async (did_state: tyron.DidState.default) => {
-            const update_private_key = readline.question(LogColors.brightGreen(`DID-State retrieved!`) + LogColors.green(` - Provide the update private key - `) + LogColors.lightBlue(`Your answer: `));
+            const update_private_key = readline.question(LogColors.brightGreen(`DID State retrieved!`) + LogColors.green(` - Provide the update private key - `) + LogColors.lightBlue(`Your answer: `));
             await Util.verifyKey(update_private_key, did_state.did_update_key);
             
             const patches_amount = readline.question(LogColors.green(`How many patches would you like to make? - `) + LogColors.lightBlue(`Your answer: `));
@@ -346,21 +346,15 @@ export default class TyronCLI {
         
         await tyron.DidState.default.fetch(network, did_addr)
         .then(async (did_state: tyron.DidState.default) => {
-            const recovery_private_key = readline.question(LogColors.brightGreen(`DID-State retrieved!`) + LogColors.green(` - Provide the recovery private key - `) + LogColors.lightBlue(`Your answer: `));
+            const recovery_private_key = readline.question(LogColors.brightGreen(`DID State retrieved!`) + LogColors.green(` - Provide the recovery private key - `) + LogColors.lightBlue(`Your answer: `));
             await Util.verifyKey(recovery_private_key, did_state.did_recovery_key);
             
-            return {
-                did_state: did_state,
+            const input = {
+                state: did_state,
                 recoveryPrivateKey: recovery_private_key
-            }
-        })
-        .then(async (request: { did_state: any; recoveryPrivateKey: any; }) => {
-            const DEACTIVATE_INPUT = {
-                state: request.did_state,
-                recoveryPrivateKey: request.recoveryPrivateKey
             };
 
-            const operation = await tyron.DidCrud.default.deactivate(DEACTIVATE_INPUT);
+            const operation = await tyron.DidCrud.default.deactivate(input);
             const tag = tyron.TyronZil.TransitionTag.Deactivate;
             if(operation !== undefined) {
                 console.log(LogColors.brightGreen(`Your ${tag} request  got processed!`));
