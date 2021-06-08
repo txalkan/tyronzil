@@ -1,6 +1,7 @@
 /*
-    tyronzil: Tyron Self-Sovereign Identity client for Node.js
-    Copyright (C) 2021 Tyron Pungtas Open Association
+    SSI Protocol's client for Node.js
+    Self-Sovereign Identity Protocol.
+    Copyright (C) Tyron Pungtas and its affiliates.
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -13,9 +14,8 @@
     GNU General Public License for more details.
 */
 
-import * as API from '@zilliqa-js/zilliqa';
-import { InitTyron } from '../tyronzil';
-import LogColors from '../../../bin/log-colors';
+import * as tyron from 'tyron';
+import LogColors from '../bin/log-colors';
 import * as readline from 'readline-sync';
 import * as fs from 'fs';
 import * as util from 'util';
@@ -36,31 +36,35 @@ export default class SmartUtil {
         }
     }
 
-    /** Fetches the `Tyron DID-Smart-Contract` by version & decodes it */
-    public static async decode(api: API.Zilliqa, initTyron: InitTyron, contractVersion: string): Promise<string> {
-        const INIT_TYRON = initTyron as string;
-        const THIS_CONTRACT = await api.blockchain.getSmartContractState(INIT_TYRON)
-        .then(async STATE => {
-            const INIT = {
-                didcCode: STATE.result.didc_code,
+    /** Fetches the `DID smart contract` by version & decodes it */
+    public static async decode(init: tyron.ZilliqaInit.default, initTyron: string, tyronContract: string, contractVersion: string): Promise<string> {
+        const this_contract = await init.API.blockchain.getSmartContractState(initTyron)
+        .then(async state => {
+            const init = {
+                tyronCode: state.result.tyron_code,
             };
-            const CONTRACTS = Object.entries(INIT.didcCode);            
-            let ENCODED_CONTRACT: string;
-            CONTRACTS.forEach((value: [string, unknown]) => {
-                if (value[0] === contractVersion) {
-                    ENCODED_CONTRACT = value[1] as string;
+            const contracts = Object.entries(init.tyronCode);  
+            let tyron_contract;          
+            let encoded_contract: string;
+            contracts.forEach((value: [string, unknown]) => {
+                if (value[0] === tyronContract) {
+                    tyron_contract = value[1] as [string, unknown][];
+                    tyron_contract.forEach((value: [string, unknown]) => {
+                        if (value[0] === contractVersion) {
+                            encoded_contract = value[1] as string;
+                        }
+                    })
                 }
             });
-            
-            const COMPRESSED_CONTRACT = Buffer.from(ENCODED_CONTRACT!,'base64');
-            const DECOMPRESSED_CONTRACT = await (util.promisify(zlib.unzip))(COMPRESSED_CONTRACT) as Buffer;
-            return DECOMPRESSED_CONTRACT.toString();
+            const compressed_contract = Buffer.from(encoded_contract!,'base64');
+            const decompressed_contract = await (util.promisify(zlib.unzip))(compressed_contract) as Buffer;
+            return decompressed_contract.toString();
         })
         .catch(err => { throw err });
-        return THIS_CONTRACT;
+        return this_contract;
     }
 
-    /** Gets the value out of a DIDC field Option */
+    /** Gets the value out of a DID field Option */
     public static async getValue(object: any): Promise<string> {
         const ENTRIES = Object.entries(object);
         let VALUE: string;
@@ -72,7 +76,7 @@ export default class SmartUtil {
         return VALUE![0];
     }
 
-    /** Gets the DID-Status out of a DIDC field Option */
+    /** Gets the DID-Status out of a DID field Option */
     public static async getStatus(object: any): Promise<string> {
         const ENTRIES = Object.entries(object);
         let VALUE: string;
@@ -106,7 +110,7 @@ export default class SmartUtil {
         return MAP;
     }
 
-    /** Turns the DIDC `services` map field into a Map */
+    /** Turns the `DID services` map field into a Map */
     public static async fromServices(object: any): Promise<Map<string, [string, string]>> {
         const PREV_MAP = await this.intoMap(object);
         let MAP = new Map();

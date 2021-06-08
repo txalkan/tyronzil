@@ -1,7 +1,7 @@
 {
-  "name": "tyronzil",
+  "name": "ssiclient",
   "version": "2.3.0",
-  "description": "Tyron Self-Sovereign Identity client for Node.js",
+  "description": "SSI Protocol's client for Node.js",
   "main": "dist/bin/index.js",
   "bin": {
     "tyronzil": "./dist/src/bin/index.js"
@@ -13,9 +13,10 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/tralcanx/tyronzil.git"
+    "url": "git+https://github.com/Zillacracy-org/ssiclient.git"
   },
   "keywords": [
+    "ssi-protocol",
     "tyron",
     "tyron-ssi",
     "self-sovereign-identity",
@@ -26,14 +27,15 @@
     "decentralized-application",
     "dapp",
     "tyronzil",
-    "zilliqa"
+    "zilliqa",
+    "zillacracy"
   ],
-  "author": "Tyron Pungtas",
+  "author": "Tyron Pungtas and its affiliates",
   "license": "GPL-3.0-only",
   "bugs": {
-    "url": "https://github.com/tralcanx/tyronzil/issues"
+    "url": "https://github.com/Zillacracy-org/ssiclient/issues"
   },
-  "homepage": "https://github.com/tralcanx/tyronzil#readme",
+  "homepage": "https://github.com/Zillacracy-org/ssiclient/blob/master/README.md",
   "dependencies": {
     "@types/websocket": "^1.0.1",
     "@zilliqa-js/zilliqa": "2.2.0",
@@ -42,6 +44,7 @@
     "node-fetch": "^2.6.1",
     "readline-sync": "^1.4.10",
     "tslib": "^2.1.0",
+    "tyron": "^3.0.0",
     "yargs": "^15.4.0"
   },
   "devDependencies": {

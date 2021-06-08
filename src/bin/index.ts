@@ -2,8 +2,9 @@
 // So `npm i` installs the CLI correctly across all operating systems
 
 /*
-    tyronzil: Tyron Self-Sovereign Identity client for Node.js
-    Copyright (C) 2021 Tyron Pungtas
+    SSI Protocol's client for Node.js
+    Self-Sovereign Identity Protocol.
+    Copyright (C) Tyron Pungtas and its affiliates.
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -17,51 +18,39 @@
 */
 
 import * as yargs from 'yargs';
-import tyronCLI from './tyronZIL-CLI';
-import SmartUtil from '../lib/blockchain/smart-contracts/smart-util';
+import tyronCLI from './tyronzil-cli';
+import SmartUtil from '../lib/smart-util';
 
 yargs
-  .scriptName('tyronzil')
-  .usage('Usage: $0 <command> [options]')
-  .demandCommand(1, 'Try: tyronzil <command>, with command = did OR resolve')
-  .command('did', ' -> to execute a tyronZIL DID-operation, try: $tyronzil did <subcommand>, with subcommand = create|resolve|update|recover|deactivate', (yargs) => {
-    yargs
-      .usage('Usage: $0 did <subcommand> [options]')
-      .demandCommand(1, 'Specify a subcommand: create|resolve|update|recover|deactivate')
-      .command('create', ' -> creates a unique digital identity did:tyron:zil)', async() => {
-        await tyronCLI.handleCreate();
-      })
-      .command('update', ' -> updates the given tyronZIL DID and its DID-state', async() => {
-        await tyronCLI.handleUpdate();
-      })
-      .command('recover', ' -> recovers the given tyronZIL DID and creates a new DID-state)', async() => {
-        await tyronCLI.handleRecover();
-      })
-      .command('deactivate', ' -> deactivates the given tyronZIL DID and its DID-state', async() => {
-        await tyronCLI.handleDeactivate();
-      })
-      .wrap(null)
-      .strict(); //the sub-command must be one of the explicitly defined sub-commands
-  })
-  .command('resolve', ' -> resolves the given tyronZIL DID into its DID-document (read operation)', async() => {
-    await tyronCLI.handleResolve();
-  })
-  .command('dns', ` -> sets a DIDC's domain name`, async() => {
-    await tyronCLI.handleDns();
-  })
-  .command('ssitoken', ` -> initializes the SSI Token in the user's DIDC`, async() => {
-    await tyronCLI.handleSsiToken();
-  })
-  .command('donation', ` -> initializes the donation campaign code in the user's DIDC`, async() => {
-    await tyronCLI.handleDonation();
-  })
-  .command('donate', ` -> donates $XSGD to another tyron.did`, async() => {
-    await tyronCLI.handleDonate();
-  })
-  .command('encode', ' -> encodes the given contract into a Base64URL string', async() => {
-    await SmartUtil.encode();
-  })
-  .strict()       // the command must be one of the explicitly defined commands
-  .help(false)    // disabling --help option
-  .version(false) // disabling --version option
-  .argv;
+	.scriptName('tyronzil')
+  	.usage('Usage: $0 <command> [options]')
+  	.demandCommand(1, 'Try: tyronzil <command>, with command = did OR resolve')
+  	.command('did', ' -> to execute a tyronZIL DID-operation, try: $tyronzil did <subcommand>, with subcommand = create|resolve|update|recover|deactivate', (yargs) => {
+    	yargs
+			.usage('Usage: $0 did <subcommand> [options]')
+			.demandCommand(1, 'Specify a subcommand: create|resolve|update|recover|deactivate')
+			.command('create', ' -> creates a unique digital identity did:tyron:zil)', async() => {
+				await tyronCLI.handleDidCreate();
+			})
+			.command('recover', ' -> recovers the given tyronZIL DID and creates a new DID-state)', async() => {
+				await tyronCLI.handleDidRecover();
+			})
+			.command('update', ' -> updates the given tyronZIL DID and its DID-state', async() => {
+				await tyronCLI.handleDidUpdate();
+			})
+			.command('deactivate', ' -> deactivates the given tyronZIL DID and its DID-state', async() => {
+				await tyronCLI.handleDidDeactivate();
+			})
+			.wrap(null)
+			.strict(); //the sub-command must be one of the explicitly defined sub-commands
+  	})
+	.command('resolve', ' -> resolves the given tyronZIL DID into its DID-document (read operation)', async() => {
+		await tyronCLI.handleDidResolve();
+	})
+	.command('encode', ' -> encodes the given contract into a Base64URL string', async() => {
+		await SmartUtil.encode();
+	})
+	.strict()       // the command must be one of the explicitly defined commands
+	.help(false)    // disabling --help option
+	.version(false) // disabling --version option
+	.argv;
