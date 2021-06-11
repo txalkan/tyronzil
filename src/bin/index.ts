@@ -25,6 +25,30 @@ yargs
 	.scriptName('tyronzil')
   	.usage('Usage: $0 <command> [options]')
   	.demandCommand(1, 'Try: tyronzil <command>, with command = did OR resolve')
+	.command('deploy', ' -> deploys a tyron smart contract', async() => {
+		await tyronCLI.handleDeploy();
+	})
+	.command('enablesr', ' -> enable social recovery', async() => {
+		await tyronCLI.handleEnableSocialRecovery();
+	})
+	.command('updatesr', ' -> update social recoverer', async() => {
+		await tyronCLI.handleUpdateSocialRecoverer();
+	})
+	.command('buynft', ' -> buy domain name NFT', async() => {
+		await tyronCLI.handleBuyDomainNameNFT();
+	})
+	.command('updateinit', ' -> update address of init.tyron', async() => {
+		await tyronCLI.handleUpdateInit();
+	})
+	.command('updateadmin', ' -> update address of the admin of the contract', async() => {
+		await tyronCLI.handleUpdateAdmin();
+	})
+	.command('nfttransfer', ' -> transfer NFT coop membership', async() => {
+		await tyronCLI.handleNFTTransfer();
+	})
+	.command('addwork', ' -> add work to NFT coop', async() => {
+		await tyronCLI.handleNFTTransfer();
+	})
   	.command('did', ' -> to execute a tyronZIL DID operation, try: $tyronzil did <subcommand>, with subcommand = create|resolve|update|recover|deactivate', (yargs) => {
     	yargs
 			.usage('Usage: $0 did <subcommand> [options]')

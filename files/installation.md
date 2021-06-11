@@ -12,14 +12,17 @@ On macOS ```xcode-select --install``` as well
 
 3. ```git status```
 
-4. ```npm install```
+4. ```npm i```
 
-5. ```npm run build```
-
-6. To get the CLI ready:
-```npm install -g .```
+5. ```npm run tyronzil```
 
 ## tyronzil command-line interface
+
+### Deploy
+
+Deploy a tyron smart contract with:
+
+```tyronzil deploy``` 
 
 ### DID Create
 
