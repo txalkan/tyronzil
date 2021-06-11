@@ -1,0 +1,40 @@
+{
+  "id": "did:tyron:zil:main:0x50a1518d1f4ffc59be3c67bd9b3c59e71231f0d9",
+  "publicKey": {
+    "id": "did:tyron:zil:main:0x50a1518d1f4ffc59be3c67bd9b3c59e71231f0d9#general",
+    "type": "SchnorrSecp256k1VerificationKey2019",
+    "publicKeyBase58": "izx6KuhaQn8NXZa6giosWNDCHWXVgD8BkX22YnesshwQ"
+  },
+  "authentication": {
+    "id": "did:tyron:zil:main:0x50a1518d1f4ffc59be3c67bd9b3c59e71231f0d9#authentication",
+    "type": "SchnorrSecp256k1VerificationKey2019",
+    "publicKeyBase58": "pjojTtwixRoS9iAv7jhPYi9zW2Qr2P6PVmJv5W5zdZJb"
+  },
+  "assertionMethod": {
+    "id": "did:tyron:zil:main:0x50a1518d1f4ffc59be3c67bd9b3c59e71231f0d9#assertion",
+    "type": "SchnorrSecp256k1VerificationKey2019",
+    "publicKeyBase58": "iTqRmKK3wg76LqxeWax67jd1zPdMf1Ca515mTXP1Xar6"
+  },
+  "keyAgreement": {
+    "id": "did:tyron:zil:main:0x50a1518d1f4ffc59be3c67bd9b3c59e71231f0d9#agreement",
+    "type": "SchnorrSecp256k1VerificationKey2019",
+    "publicKeyBase58": "23YF57Yk6UeKDEoUu1TwUB9KtrDN3gKrPsaVbvWQYiTYC"
+  },
+  "capabilityInvocation": {
+    "id": "did:tyron:zil:main:0x50a1518d1f4ffc59be3c67bd9b3c59e71231f0d9#delegation",
+    "type": "SchnorrSecp256k1VerificationKey2019",
+    "publicKeyBase58": "tpP19dsZTYYf7GU7kAoHJfR6jnXUBwjTqy4WJWchJGWg"
+  },
+  "service": [
+    {
+      "id": "did:tyron:zil:main:0x50a1518d1f4ffc59be3c67bd9b3c59e71231f0d9#0x3f73444f3da2f2211519f9ae59ec468981a303ae5e400bfbac5ec1bed75222a2",
+      "type": "coop",
+      "uri": "https://github.com/tralcanx/tyronzil/commit/cbf310f17bf4f403174626b62fd73b5d262233c2"
+    },
+    {
+      "id": "did:tyron:zil:main:0x50a1518d1f4ffc59be3c67bd9b3c59e71231f0d9#0xe2999d7edf2e17c536fa5e7d743406cf8837489a8cf7af16912decee0e784d26",
+      "type": "coop",
+      "uri": "https://github.com/pungtas/smart-contracts.tyron/commit/5759a7a3807495840a44a9df18336b181cfde1a2"
+    }
+  ]
+}
