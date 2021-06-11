@@ -47,7 +47,7 @@ yargs
 		await tyronCLI.handleNFTTransfer();
 	})
 	.command('addwork', ' -> add work to NFT coop', async() => {
-		await tyronCLI.handleNFTTransfer();
+		await tyronCLI.handleAddWork();
 	})
   	.command('did', ' -> to execute a tyronZIL DID operation, try: $tyronzil did <subcommand>, with subcommand = create|resolve|update|recover|deactivate', (yargs) => {
     	yargs
