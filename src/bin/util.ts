@@ -83,7 +83,7 @@ export default class Util {
         return KEY_INPUT;
     }
 
-    /** Generates the DID services */
+    /** Generates DID services */
     public static async services(): Promise<tyron.DocumentModel.ServiceModel[]> {
         console.log(LogColors.brightGreen(`Service endpoints for your Decentralized Identifier:`));
         const SERVICES: tyron.DocumentModel.ServiceModel[] = [];
@@ -124,6 +124,7 @@ export default class Util {
                 SERVICE_ID_SET.add(id);
                 const service: tyron.DocumentModel.ServiceModel = {
                     id: id,
+                    endpoint: tyron.DocumentModel.ServiceEndpoint.Web2Endpoint,
                     type: TYPE,
                     transferProtocol: data_transfer,
                     uri: endpoint
@@ -143,13 +144,13 @@ export default class Util {
         console.info(LogColors.yellow(`Private keys saved as: ${LogColors.brightYellow(KEY_FILE_NAME)}`));
     }
 
-    /** Verifies that the given key matches the DID-Key of the DIDC (did_update_key OR did_recovery_key) */
+    /** Verifies that the given key matches the DID key of the smart contracts (DID update key OR DID recovery key) */
     public static async verifyKey(privateKey: string, didKey: string): Promise<void> {
         const PUB_KEY = "0x"+ zcrypto.getPubKeyFromPrivateKey(privateKey);
         if(PUB_KEY === didKey) {
-            console.log(LogColors.brightGreen(`Success! The private key corresponds to the public did_key stored in the DIDC`));
+            console.log(LogColors.brightGreen(`Success! The private key corresponds to the public DID key stored in the smart contract.`));
         } else {
-            throw new tyron.ErrorCode.default("WrongKey", "The given key is not matching the corresponding key in the DIDC")
+            throw new tyron.ErrorCode.default("WrongKey", "The given key is not matching the corresponding key in the smart contract.")
         }
     }
 }
