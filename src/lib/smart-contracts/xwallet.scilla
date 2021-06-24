@@ -234,25 +234,31 @@ transition EnableSocialRecovery(
   
 transition UpdateSocialRecoverer(
   recoverer: Recoverer,
-  addr: ByStr20 with contract field verification_methods_: Map String ByStr33 end
+  recovererName: String,
+  recovererDomain: String
   )
   IsOperational; VerifyAdmin; Payment update fixed;
   social_recovery <- social_recovery_;
-  match social_recovery with
-  | Some recoverers =>
-      match recoverer with
-      | First =>
-          sr2addr = let snd_element = @snd ByStr20 with contract field verification_methods_: Map String ByStr33 end ByStr20 with contract field verification_methods_: Map String ByStr33 end in snd_element recoverers;
-          updated_sr = let sr = Pair{ ByStr20 with contract field verification_methods_: Map String ByStr33 end ByStr20 with contract field verification_methods_: Map String ByStr33 end } addr sr2addr
-           in Some{( Pair ByStr20 with contract field verification_methods_: Map String ByStr33 end ByStr20 with contract field verification_methods_: Map String ByStr33 end )} sr;
-          social_recovery_ := updated_sr
-      | Second =>
-          sr1addr = let fst_element = @fst ByStr20 with contract field verification_methods_: Map String ByStr33 end ByStr20 with contract field verification_methods_: Map String ByStr33 end in fst_element recoverers;
-          updated_sr = let sr = Pair{ ByStr20 with contract field verification_methods_: Map String ByStr33 end ByStr20 with contract field verification_methods_: Map String ByStr33 end } sr1addr addr
-           in Some{( Pair ByStr20 with contract field verification_methods_: Map String ByStr33 end ByStr20 with contract field verification_methods_: Map String ByStr33 end )} sr;
-          social_recovery_ := updated_sr end
+  init <- init_;
+  get_addr <-& init.dns[recovererDomain][recovererName];
+  match get_addr with
+  | Some addr =>
+      match social_recovery with
+      | Some recoverers =>
+          match recoverer with
+          | First =>
+              sr2addr = let snd_element = @snd ByStr20 with contract field verification_methods_: Map String ByStr33 end ByStr20 with contract field verification_methods_: Map String ByStr33 end in snd_element recoverers;
+              updated_sr = let sr = Pair{ ByStr20 with contract field verification_methods_: Map String ByStr33 end ByStr20 with contract field verification_methods_: Map String ByStr33 end } addr sr2addr
+               in Some{( Pair ByStr20 with contract field verification_methods_: Map String ByStr33 end ByStr20 with contract field verification_methods_: Map String ByStr33 end )} sr;
+              social_recovery_ := updated_sr
+          | Second =>
+              sr1addr = let fst_element = @fst ByStr20 with contract field verification_methods_: Map String ByStr33 end ByStr20 with contract field verification_methods_: Map String ByStr33 end in fst_element recoverers;
+              updated_sr = let sr = Pair{ ByStr20 with contract field verification_methods_: Map String ByStr33 end ByStr20 with contract field verification_methods_: Map String ByStr33 end } sr1addr addr
+               in Some{( Pair ByStr20 with contract field verification_methods_: Map String ByStr33 end ByStr20 with contract field verification_methods_: Map String ByStr33 end )} sr;
+              social_recovery_ := updated_sr end
+      | None => err = CodeWrongStatus; ThrowError err end
   | None => err = CodeNotValid; ThrowError err end end
-
+  
 transition Lock()
   IsOperational; VerifyAdmin; Payment update fixed; 
   social_recovery <- social_recovery_;
@@ -297,7 +303,7 @@ transition SocialRecovery(
           | True =>
           | False => err = CodeWrongSignature; ThrowError err end
       | False => err = CodeWrongSignature; ThrowError err end
-  | None => err = CodeNotValid; ThrowError err end;
+  | None => err = CodeWrongStatus; ThrowError err end;
   admin_ := addr end
 
 transition BuyDomainNameNFT( username: String )
