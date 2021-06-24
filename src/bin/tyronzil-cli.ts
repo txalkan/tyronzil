@@ -35,7 +35,7 @@ export const admin_zil_secret_key = '8cefad33c6b2eafe6456e80cd69fda3fcd23b5c4a67
 export default class tyronzilCLI {
 
     /** Get network choice from the user */
-    public static network(): { network: tyron.DidScheme.NetworkNamespace, initTyron: InitTyron } {
+    public static async network(): Promise<{ network: tyron.DidScheme.NetworkNamespace, initTyron: InitTyron }> {
         const choice = readline.question(LogColors.green(`On which Zilliqa network would you like to operate, mainnet(m), testnet(t) or isolated server(i)?`) + ` [m/t/i] - Defaults to testnet. ` + LogColors.lightBlue(`Your answer: `));
         let network;
         let init_tyron;
@@ -77,18 +77,23 @@ export default class tyronzilCLI {
         }
     }
 
+    public static async fetchAddr(set_network: { network: tyron.DidScheme.NetworkNamespace, initTyron: InitTyron }): Promise<string> {
+        const userDomain = readline.question(LogColors.green(`What is the domain name?`) + ` [e.g. uriel.did] ` + LogColors.lightBlue(`Your answer: `));
+        const resolve = userDomain.split(".");
+        const addr = await tyron.Resolver.default.resolveDns(set_network.network, set_network.initTyron, resolve[0], resolve[1]);
+        return addr        
+    }
+
     /** Handle the deployment of a tyron smart contract */
     public static async handleDeploy(): Promise<void> {
-        const set_network = this.network();
-        
-        console.log(LogColors.yellow(`Initializing tyronzil...`));
-        await tyron.TyronZil.default.initialize(
-            set_network.network,
-            admin_zil_secret_key,
-            50000,
-            set_network.initTyron
-        )
-        .then(async (init: any) => {
+        await this.network()
+        .then( async set_network => {
+            const init = await tyron.TyronZil.default.initialize(
+                set_network.network,
+                admin_zil_secret_key,
+                50000,
+                set_network.initTyron
+            );
             const tyron_ = readline.question(LogColors.green(`What tyron smart contract would you like to deploy?`)+` [init, coop, xwallet] ` + LogColors.lightBlue(`Your answer: `));
             const version = readline.question(LogColors.green(`What version of the smart contract would you like to deploy?`)+` [number] ` + LogColors.lightBlue(`Your answer: `));
             const contract_code = await SmartUtil.decode(init, set_network.initTyron, tyron_, version);
@@ -104,19 +109,16 @@ export default class tyronzilCLI {
 
     /** Handle the `DID Create` operation */
     public static async handleDidCreate(): Promise<void> {
-        const set_network = this.network();
-        
-        console.log(LogColors.yellow(`Initializing tyronzil...`));
-        await tyron.TyronZil.default.initialize(
-            set_network.network,
-            admin_zil_secret_key,
-            10000,
-            set_network.initTyron
-        )
-        .then(async (init: any) => {
-            const userDomain = readline.question(LogColors.green(`What is the domain name?`) + ` [e.g. uriel.did] ` + LogColors.lightBlue(`Your answer: `));
-            const resolve = userDomain.split(".");
-            const addr = await tyron.Resolver.default.resolveDns(set_network.network, set_network.initTyron, resolve[0], resolve[1])
+        await this.network()
+        .then( async set_network => {
+            const addr = await this.fetchAddr(set_network);
+    
+            const init = await tyron.TyronZil.default.initialize(
+                set_network.network,
+                admin_zil_secret_key,
+                50000,
+                set_network.initTyron
+            );
         
             // Add verification-method inputs & services:
             const key_input = await Util.InputKeys();
@@ -147,58 +149,53 @@ export default class tyronzilCLI {
     /** Resolve a DID and save it */
     public static async handleDidResolve(): Promise<void> {
         try {
-            const set_network = this.network();
-            
-            /** Asks for the user's domain name to fetch their DID */
-            const userDomain = readline.question(LogColors.green(`What is the domain name?`) + ` [e.g. uriel.did] ` + LogColors.lightBlue(`Your answer: `));
-            const resolve = userDomain.split(".");
-            const addr = await tyron.Resolver.default.resolveDns(set_network.network, set_network.initTyron, resolve[0], resolve[1])
-            
-            /** Whether to resolve the DID as a document or resolution result */
-            const RESOLUTION_CHOICE = readline.question(LogColors.green(`Would you like to resolve your DID as a document(1) or as a resolution result(2)? `) + ` [1/2] - Defaults to document.` + LogColors.lightBlue(`Your answer: `));
-            
-            let ACCEPT;
-            switch (RESOLUTION_CHOICE) {
-                case "1":
-                    ACCEPT = tyron.DidDocument.Accept.contentType                
-                    break;
-                case "2":
-                    ACCEPT = tyron.DidDocument.Accept.Result
-                    break;
-                default:
-                    ACCEPT = tyron.DidDocument.Accept.contentType
-                    break;
-            }
-
-            const resolution_input: tyron.DidDocument.ResolutionInput = {
-                addr: addr,
-                metadata : {
-                    accept: ACCEPT
+            await this.network()
+            .then( async set_network => {
+                const addr = await this.fetchAddr(set_network);
+        
+                /** Whether to resolve the DID as a document or resolution result */
+                const RESOLUTION_CHOICE = readline.question(LogColors.green(`Would you like to resolve your DID as a document(1) or as a resolution result(2)? `) + ` [1/2] - Defaults to document.` + LogColors.lightBlue(`Your answer: `));
+                
+                let ACCEPT;
+                switch (RESOLUTION_CHOICE) {
+                    case "1":
+                        ACCEPT = tyron.DidDocument.Accept.contentType                
+                        break;
+                    case "2":
+                        ACCEPT = tyron.DidDocument.Accept.Result
+                        break;
+                    default:
+                        ACCEPT = tyron.DidDocument.Accept.contentType
+                        break;
                 }
-            }
-            console.log(LogColors.brightGreen(`Resolving your request...`));
 
-            /** Resolves the Tyron DID */        
-            await tyron.DidDocument.default.resolution(set_network.network, resolution_input)
-            .then(async (did_resolved: { id: any; }) => {
-                // Saves the DID Document
-                const DID = did_resolved.id;
-                await this.write(DID, did_resolved);
+                const resolution_input: tyron.DidDocument.ResolutionInput = {
+                    addr: addr,
+                    metadata : {
+                        accept: ACCEPT
+                    }
+                }
+                console.log(LogColors.brightGreen(`Resolving your request...`));
+
+                /** Resolves the Tyron DID */        
+                await tyron.DidDocument.default.resolution(set_network.network, resolution_input)
+                .then(async (did_resolved: { id: any; }) => {
+                    // Saves the DID Document
+                    const DID = did_resolved.id;
+                    await this.write(DID, did_resolved);
+                })
+                .catch((err: any) => { throw err })
             })
-            .catch((err: any) => { throw err })
         } catch (err) { console.error(LogColors.red(err)) } 
     }
 
     /** Handle the `DID Recover` operation */
     public static async handleDidRecover(): Promise<void> {
-        const set_network = this.network();
-        
-        const userDomain = readline.question(LogColors.green(`What is the domain name?`) + ` [e.g. uriel.did] ` + LogColors.lightBlue(`Your answer: `));
-        const resolve = userDomain.split(".");
-        const addr = await tyron.Resolver.default.resolveDns(set_network.network, set_network.initTyron, resolve[0], resolve[1])
+        await this.network()
+        .then( async set_network => {
+            const addr = await this.fetchAddr(set_network);
+            const did_state = await tyron.DidState.default.fetch(set_network.network, addr);
             
-        await tyron.DidState.default.fetch(set_network.network, addr)
-        .then(async (did_state: { did_recovery_key: string; did: string; }) => {
             const recovery_private_key = readline.question(LogColors.brightGreen(`DID State retrieved!`) + LogColors.green(` - Provide the recovery private key - `) + LogColors.lightBlue(`Your answer: `));
             await Util.verifyKey(recovery_private_key, did_state.did_recovery_key);
             
@@ -223,7 +220,7 @@ export default class tyronzilCLI {
 
             console.log(LogColors.brightGreen(`Next, let's save the DID Recover operation on the Zilliqa blockchain platform, so it stays immutable!`));
     
-            console.log(LogColors.yellow(`Initializing tyronzil...`));
+            console.log(LogColors.yellow(`Executing tyronzil...`));
             const initialized = await tyron.TyronZil.default.initialize(
                 set_network.network,
                 admin_zil_secret_key,
@@ -242,15 +239,11 @@ export default class tyronzilCLI {
 
     /** Handle the `DID Update` operation */
     public static async handleDidUpdate(): Promise<void> {
-        const set_network = this.network();
-        const network = set_network.network;
-        
-        const userDomain = readline.question(LogColors.green(`What is the domain name?`) + ` [e.g. uriel.did] ` + LogColors.lightBlue(`Your answer: `));
-        const resolve = userDomain.split(".");
-        const addr = await tyron.Resolver.default.resolveDns(set_network.network, set_network.initTyron, resolve[0], resolve[1])
-        
-        await tyron.DidState.default.fetch(network, addr)
-        .then(async (did_state: tyron.DidState.default) => {
+        await this.network()
+        .then( async set_network => {
+            const addr = await this.fetchAddr(set_network);
+            const did_state = await tyron.DidState.default.fetch(set_network.network, addr);
+               
             const update_private_key = readline.question(LogColors.brightGreen(`DID State retrieved!`) + LogColors.green(` - Provide the update private key - `) + LogColors.lightBlue(`Your answer: `));
             await Util.verifyKey(update_private_key, did_state.did_update_key);
             
@@ -342,16 +335,11 @@ export default class tyronzilCLI {
 
     /** Handle the `DID Deactivate` operation */
     public static async handleDidDeactivate(): Promise<void> {
-        console.log(LogColors.brightGreen(`To deactivate the Tyron DID, let's fetch its current DID state from the Zilliqa blockchain platform!`));
-        const set_network = this.network();
-        const network = set_network.network;
-        
-        const userDomain = readline.question(LogColors.green(`What is your domain name?`) + ` [e.g. uriel.did] ` + LogColors.lightBlue(`Your answer: `));
-        const resolve = userDomain.split(".");
-        const addr = await tyron.Resolver.default.resolveDns(set_network.network, set_network.initTyron, resolve[0], resolve[1])
-        
-        await tyron.DidState.default.fetch(network, addr)
-        .then(async (did_state: tyron.DidState.default) => {
+        await this.network()
+        .then( async set_network => {
+            const addr = await this.fetchAddr(set_network);
+            const did_state = await tyron.DidState.default.fetch(set_network.network, addr);
+
             const recovery_private_key = readline.question(LogColors.brightGreen(`DID State retrieved!`) + LogColors.green(` - Provide the recovery private key - `) + LogColors.lightBlue(`Your answer: `));
             await Util.verifyKey(recovery_private_key, did_state.did_recovery_key);
             
@@ -373,9 +361,9 @@ export default class tyronzilCLI {
 
             const owner_zil_secret_key = readline.question(LogColors.green(`What is the user's private key (contract owner key)?`) + ` [Hex-encoded private key] ` + LogColors.lightBlue(`Your answer: `));
             
-            console.log(LogColors.yellow(`Initializing tyronzil...`));
+            console.log(LogColors.yellow(`Executing tyronzil...`));
             const initialized = await tyron.TyronZil.default.initialize(
-                network,
+                set_network.network,
                 set_network.initTyron,
                 10000,
                 owner_zil_secret_key

@@ -1,4 +1,4 @@
-(* v0.9.2
+(* v0.9.3
 DIDxWallet.tyron: decentralized identifier smart wallet.
 Self-Sovereign Identity Protocol.
 Copyright (C) Tyron Pungtas and its affiliates.
@@ -131,13 +131,13 @@ library DIDxWallet
 
 contract DIDxWallet(
   initAdmin: ByStr20,
-  init_tyron: ByStr20 with contract field services_: Map String ByStr20, field dns: Map String ( Map String ByStr20 ), field psc_fee: Map String Uint128 end
+  init_tyron: ByStr20 with contract field services_: Map String ByStr20, field dns: Map String ( Map String ByStr20 with contract field verification_methods_: Map String ByStr33 end ), field psc_fee: Map String Uint128 end
   )
   field admin_: ByStr20 = initAdmin
   field did_: String = ""    (* the decentralized identifier *)
   field did_status_: DIDstatus = Deployed
   
-  field init_: ByStr20 with contract field services_: Map String ByStr20, field dns: Map String ( Map String ByStr20 ), field psc_fee: Map String Uint128 end = init_tyron
+  field init_: ByStr20 with contract field services_: Map String ByStr20, field dns: Map String ( Map String ByStr20 with contract field verification_methods_: Map String ByStr33 end ), field psc_fee: Map String Uint128 end = init_tyron
   field agent: ByStr20 = initAdmin
 
   (* Verification methods @key: key purpose @value: public key of type "SchnorrSecp256k1VerificationKey2019" *)
@@ -187,37 +187,50 @@ procedure Payment(
   id: String,
   amount: Option Uint128
   )
-  current_init <- init_;
-  get_fee <-& current_init.psc_fee[id]; fee = option_uint128_value get_fee;
+  init <- init_;
+  get_fee <-& init.psc_fee[id]; fee = option_uint128_value get_fee;
   is_zero = builtin eq fee zero;
   match is_zero with
   | True => err = CodeNotValid; ThrowError err
   | False => 
       match amount with
-      | None => accept; msg = let m = { _tag: "AddFunds"; _recipient: current_init; _amount: fee; id: id } in one_msg m; send msg
+      | None => accept; msg = let m = { _tag: "AddFunds"; _recipient: init; _amount: fee; id: id } in one_msg m; send msg
       | Some amt => 
           fee_ = let percent = builtin div amt one_hundred in builtin mul fee percent;
-          accept; msg = let m = { _tag: "AddFunds"; _recipient: current_init; _amount: fee_; id: id } in one_msg m; send msg end end end
+          accept; msg = let m = { _tag: "AddFunds"; _recipient: init; _amount: fee_; id: id } in one_msg m; send msg end end end
 
 transition UpdateAdmin( addr: ByStr20 )
   IsOperational; VerifyAdmin; Payment update fixed; admin_ := addr end
 
 transition UpdateInit(
-  addr: ByStr20 with contract field services_: Map String ByStr20, field dns: Map String ( Map String ByStr20 ), field psc_fee: Map String Uint128 end
+  addr: ByStr20 with contract field services_: Map String ByStr20, field dns: Map String ( Map String ByStr20 with contract field verification_methods_: Map String ByStr33 end ), field psc_fee: Map String Uint128 end
   )
   IsOperational; VerifyAdmin; Payment update fixed; init_ := addr end
 
-transition UpdateAgent( addr: ByStr20 with contract field verification_methods_: Map String ByStr33 end )
-  IsOperational; VerifyAdmin; Payment update fixed; agent := addr end
+transition UpdateAgent( addrName: String )
+  IsOperational; VerifyAdmin; Payment update fixed;
+  init <- init_; agent_ = "agent";
+  get_addr <-& init.dns[agent_][addrName]; addr = option_bystr20_value get_addr;
+  agent := addr end
 
 transition EnableSocialRecovery(
-  addr1: ByStr20 with contract field verification_methods_: Map String ByStr33 end,
-  addr2: ByStr20 with contract field verification_methods_: Map String ByStr33 end
+  recovererName: String,
+  recovererDomain: String,
+  sndRecovererName: String,
+  sndRecovererDomain: String
   )
   IsOperational; VerifyAdmin; Payment update fixed;
-  recoverers = let sr = Pair{ ByStr20 with contract field verification_methods_: Map String ByStr33 end ByStr20 with contract field verification_methods_: Map String ByStr33 end } addr1 addr2
-    in Some{( Pair ByStr20 with contract field verification_methods_: Map String ByStr33 end ByStr20 with contract field verification_methods_: Map String ByStr33 end )} sr;
-  social_recovery_ := recoverers end
+  init <- init_;
+  get_addr <-& init.dns[recovererDomain][recovererName];
+  get_sndAddr <-& init.dns[sndRecovererDomain][sndRecovererName];
+  match get_addr with
+  | Some addr => match get_sndAddr with
+      | Some sndAddr =>
+          recoverers = let sr = Pair{ ByStr20 with contract field verification_methods_: Map String ByStr33 end ByStr20 with contract field verification_methods_: Map String ByStr33 end } addr sndAddr
+            in Some{( Pair ByStr20 with contract field verification_methods_: Map String ByStr33 end ByStr20 with contract field verification_methods_: Map String ByStr33 end )} sr;
+          social_recovery_ := recoverers
+      | None => err = CodeNotValid; ThrowError err end
+  | None => err = CodeNotValid; ThrowError err end end
   
 transition UpdateSocialRecoverer(
   recoverer: Recoverer,
@@ -288,9 +301,9 @@ transition SocialRecovery(
   admin_ := addr end
 
 transition BuyDomainNameNFT( username: String )
-  IsOperational; VerifyAdmin; current_init <- init_;
-  get_fee <-& current_init.psc_fee[domain_]; fee = option_uint128_value get_fee;
-  accept; msg = let m = { _tag: "BuyDomainNameNFT"; _recipient: current_init; _amount: fee;
+  IsOperational; VerifyAdmin; init <- init_;
+  get_fee <-& init.psc_fee[domain_]; fee = option_uint128_value get_fee;
+  accept; msg = let m = { _tag: "BuyDomainNameNFT"; _recipient: init; _amount: fee;
     username: username;
     domain: domain_ } in one_msg m; send msg end
       
@@ -298,9 +311,9 @@ transition TransferDomainNameNFT(
   username: String,
   newAddr: ByStr20
   )
-  IsOperational; VerifyAdmin; current_init <- init_;
-  get_fee <-& current_init.psc_fee[domain_]; fee = option_uint128_value get_fee;
-  accept; msg = let m = { _tag: "TransferDomainNameNFT"; _recipient: current_init; _amount: fee;
+  IsOperational; VerifyAdmin; init <- init_;
+  get_fee <-& init.psc_fee[domain_]; fee = option_uint128_value get_fee;
+  accept; msg = let m = { _tag: "TransferDomainNameNFT"; _recipient: init; _amount: fee;
     username: username;
     domain: domain_;
     newAddr: newAddr } in one_msg m; send msg end
@@ -508,7 +521,7 @@ transition DidUpdate(
   match did_status with
   | Created => | Recovered => | Updated =>
   | _ => err = CodeWrongStatus; ThrowError err end;
-  VerifyAdmin; Payment crud fixed;
+  VerifyAdmin; Payment update fixed;
   get_recovery_key <- verification_methods_[recovery]; did_recovery = option_bystr33_value get_recovery_key;
   get_update_key <- verification_methods_[update]; did_update = option_bystr33_value get_update_key;
   VerifyDocument didUpdate document signature;
@@ -540,14 +553,14 @@ transition SendFunds(
   IsOperational; VerifyAdmin; Payment education fixed;
   match beneficiary with
   | UserDomain username domain =>
-      current_init <- init_;
-      get_addr <-& current_init.dns[domain][username]; addr = option_bystr20_value get_addr;
+      init <- init_;
+      get_addr <-& init.dns[domain][username]; addr = option_bystr20_value get_addr;
       accept; msg = let m = { _tag: tag; _recipient: addr; _amount: _amount } in one_msg m; send msg
   | BeneficiaryAddr addr =>
       accept; msg = let m = { _tag: tag; _recipient: addr; _amount: _amount } in one_msg m; send msg end end
 
 procedure FetchServiceAddr( id: String )
-  current_init <- init_; get_service <-& current_init.services_[id]; addr = option_bystr20_value get_service; service_addr[id] := addr end
+  init <- init_; get_service <-& init.services_[id]; addr = option_bystr20_value get_service; service_addr[id] := addr end
 
 transition Transfer(
   addrName: String,
@@ -558,8 +571,8 @@ transition Transfer(
   FetchServiceAddr addrName; get_token_addr <- service_addr[addrName]; token_addr = option_bystr20_value get_token_addr;
   match beneficiary with
   | UserDomain username domain =>
-      current_init <- init_;
-      get_addr <-& current_init.dns[domain][username]; addr = option_bystr20_value get_addr;
+      init <- init_;
+      get_addr <-& init.dns[domain][username]; addr = option_bystr20_value get_addr;
       accept; msg = let m = { _tag: "Transfer"; _recipient: token_addr; _amount: zero;
         to: addr;
         amount: amount } in one_msg m ; send msg
@@ -629,7 +642,7 @@ transition AddLiquidity(
   )
   IsOperational; VerifyCaller data signature;
   match data with
-  | Data id addrName sndAddrName amt sndAmt trdAmt =>
+  | Data id addrName none amt sndAmt none_ =>
       IncreaseAllowance addrName amt;
       get_zilswap <- service_addr[zilswap]; zilswap_addr = option_bystr20_value get_zilswap;
       get_addr <- service_addr[addrName]; addr = option_bystr20_value get_addr;
@@ -648,7 +661,7 @@ transition RemoveLiquidity(
   )
   IsOperational; VerifyCaller data signature;
   match data with
-  | Data id addrName sndAddrName amt sndAmt trdAmt =>
+  | Data id addrName none_ amt sndAmt trdAmt =>
       FetchServiceAddr zilswap; get_zilswap <- service_addr[zilswap]; zilswap_addr = option_bystr20_value get_zilswap;
       FetchServiceAddr addrName; get_addr <- service_addr[addrName]; addr = option_bystr20_value get_addr;
       current_block <- &BLOCKNUMBER; deadline <- deadline_block; this_deadline = builtin badd current_block deadline;
@@ -667,7 +680,7 @@ transition SwapExactZILForTokens(
   )
   IsOperational; VerifyCaller data signature;
   match data with
-  | Data id addrName sndAddrName amt sndAmt trdAmt =>
+  | Data id addrName none amt sndAmt none_ =>
     FetchServiceAddr zilswap; get_zilswap <- service_addr[zilswap]; zilswap_addr = option_bystr20_value get_zilswap;
     FetchServiceAddr addrName; get_addr <- service_addr[addrName]; addr = option_bystr20_value get_addr;
     current_block <- &BLOCKNUMBER; deadline <- deadline_block; this_deadline = builtin badd current_block deadline;
@@ -685,7 +698,7 @@ transition SwapExactTokensForZIL(
   )
   IsOperational; VerifyCaller data signature; Payment education fixed;
   match data with
-  | Data id addrName sndAddrName amt sndAmt trdAmt =>
+  | Data id addrName none amt sndAmt none_ =>
     IncreaseAllowance addrName amt;
     get_zilswap <- service_addr[zilswap]; zilswap_addr = option_bystr20_value get_zilswap;
     get_addr <- service_addr[addrName]; addr = option_bystr20_value get_addr;
@@ -704,11 +717,11 @@ transition SwapExactTokensForTokens(
   )
   IsOperational; VerifyCaller data signature; Payment education fixed;
   match data with
-  | Data id addrName sndAddrName amt sndAmt trdAmt =>
-    IncreaseAllowance addrName amt;
+  | Data id tokenName toTokenName amt sndAmt trdAmt =>
+    IncreaseAllowance tokenName amt;
     get_zilswap <- service_addr[zilswap]; zilswap_addr = option_bystr20_value get_zilswap;
-    get_addr <- service_addr[addrName]; addr = option_bystr20_value get_addr;
-    FetchServiceAddr sndAddrName; get_sndAddr <- service_addr[sndAddrName]; sndAddr = option_bystr20_value get_sndAddr;
+    get_addr <- service_addr[tokenName]; addr = option_bystr20_value get_addr;
+    FetchServiceAddr toTokenName; get_sndAddr <- service_addr[toTokenName]; sndAddr = option_bystr20_value get_sndAddr;
     current_block <- &BLOCKNUMBER; deadline <- deadline_block; this_deadline = builtin badd current_block deadline;
     accept; msg = let m = {
       _tag: "SwapExactTokensForTokens"; _recipient: zilswap_addr; _amount: zero;
@@ -745,7 +758,7 @@ transition WithdrawStakeRewards(
   IsOperational; VerifyCaller data signature;
   FetchServiceAddr stakezil; get_addr <- service_addr[stakezil]; addr = option_bystr20_value get_addr;
   match data with
-  | Data id ssnName sndAddrName amt sndAmt trdAmt =>
+  | Data id ssnName none none_ none__ none___ =>
       FetchServiceAddr ssnName; get_ssnaddr <- service_addr[ssnName]; ssnaddr = option_bystr20_value get_ssnaddr;
       Payment education fixed;
       current_agent <- agent; is_agent = builtin eq current_agent ssnaddr;

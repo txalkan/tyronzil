@@ -22,9 +22,9 @@ import tyronzilCLI, { admin_zil_secret_key } from './tyronzil-cli';
 export default class xWalletCLI {
 
     public static async handleBuyDomainNameNFT(): Promise<void> {
-        const set_network = tyronzilCLI.network();
+        const set_network = await tyronzilCLI.network();
         
-        console.log(LogColors.yellow(`Initializing tyronzil...`));
+        console.log(LogColors.yellow(`Executing tyronzil...`));
         await tyron.TyronZil.default.initialize(
             set_network.network,
             admin_zil_secret_key,
@@ -44,9 +44,9 @@ export default class xWalletCLI {
     }
 
     public static async handleTransferDomainNameNFT(): Promise<void> {
-        const set_network = tyronzilCLI.network();
+        const set_network = await tyronzilCLI.network();
         
-        console.log(LogColors.yellow(`Initializing tyronzil...`));
+        console.log(LogColors.yellow(`Executing tyronzil...`));
         await tyron.TyronZil.default.initialize(
             set_network.network,
             admin_zil_secret_key,
@@ -67,10 +67,10 @@ export default class xWalletCLI {
     }
     
     public static async handleEnableSocialRecovery(): Promise<void> {
-        const set_network = tyronzilCLI.network();
+        const set_network = await tyronzilCLI.network();
         const owner_zil_secret_key = readline.question(LogColors.green(`What is the user's Zilliqa secret key?`) + ` [Hex-encoded private key] ` + LogColors.lightBlue(`Your answer: `));
         
-        console.log(LogColors.yellow(`Initializing tyronzil...`));
+        console.log(LogColors.yellow(`Executing tyronzil...`));
         await tyron.TyronZil.default.initialize(
             set_network.network,
             owner_zil_secret_key,
@@ -91,10 +91,10 @@ export default class xWalletCLI {
     }
 
     public static async handleUpdateSocialRecoverer(): Promise<void> {
-        const set_network = tyronzilCLI.network();
+        const set_network = await tyronzilCLI.network();
         const owner_zil_secret_key = readline.question(LogColors.green(`What is the user's Zilliqa secret key?`) + ` [Hex-encoded private key] ` + LogColors.lightBlue(`Your answer: `));
         
-        console.log(LogColors.yellow(`Initializing tyronzil...`));
+        console.log(LogColors.yellow(`Executing tyronzil...`));
         await tyron.TyronZil.default.initialize(
             set_network.network,
             owner_zil_secret_key,
@@ -124,9 +124,9 @@ export default class xWalletCLI {
     }
 
     public static async handleUpdateInit(): Promise<void> {
-        const set_network = tyronzilCLI.network();
+        const set_network = await tyronzilCLI.network();
         
-        console.log(LogColors.yellow(`Initializing tyronzil...`));
+        console.log(LogColors.yellow(`Executing tyronzil...`));
         await tyron.TyronZil.default.initialize(
             set_network.network,
             admin_zil_secret_key,
@@ -146,9 +146,9 @@ export default class xWalletCLI {
     }
 
     public static async handleUpdateAdmin(): Promise<void> {
-        const set_network = tyronzilCLI.network();
+        const set_network = await await tyronzilCLI.network();
         
-        console.log(LogColors.yellow(`Initializing tyronzil...`));
+        console.log(LogColors.yellow(`Executing tyronzil...`));
         await tyron.TyronZil.default.initialize(
             set_network.network,
             admin_zil_secret_key,

@@ -22,7 +22,7 @@ import tyronzilCLI, { admin_zil_secret_key } from './tyronzil-cli';
 export default class coopCLI {
 
     public static async handleAddWork(): Promise<void> {
-        const set_network = tyronzilCLI.network();
+        const set_network = await tyronzilCLI.network();
         
         console.log(LogColors.yellow(`Initializing tyronzil...`));
         await tyron.TyronZil.default.initialize(
@@ -58,7 +58,7 @@ export default class coopCLI {
     }
 
     public static async handleNFTTransfer(): Promise<void> {
-        const set_network = tyronzilCLI.network();
+        const set_network = await tyronzilCLI.network();
         
         console.log(LogColors.yellow(`Initializing tyronzil...`));
         await tyron.TyronZil.default.initialize(
