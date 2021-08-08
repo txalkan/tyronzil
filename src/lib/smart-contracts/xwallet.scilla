@@ -1,4 +1,4 @@
-(* v0.9.3
+(* v0.9.5
 DIDxWallet.tyron: decentralized identifier smart wallet.
 Self-Sovereign Identity Protocol.
 Copyright (C) Tyron Pungtas and its affiliates.
@@ -121,7 +121,7 @@ library DIDxWallet
   
   let domain_ = "did"
   let education = "education"
-  let crud = "crud"
+  let crd = "crd"
   let stakezil = "stakezil"
   let zilswap = "zilswap"
   let xorder = "xorder"
@@ -131,13 +131,13 @@ library DIDxWallet
 
 contract DIDxWallet(
   initAdmin: ByStr20,
-  init_tyron: ByStr20 with contract field services_: Map String ByStr20, field dns: Map String ( Map String ByStr20 with contract field verification_methods_: Map String ByStr33 end ), field psc_fee: Map String Uint128 end
+  init_tyron: ByStr20 with contract field services_: Map String ByStr20, field dns: Map String ( Map String ByStr20 ), field psc_fee: Map String Uint128 end
   )
   field admin_: ByStr20 = initAdmin
   field did_: String = ""    (* the decentralized identifier *)
   field did_status_: DIDstatus = Deployed
   
-  field init_: ByStr20 with contract field services_: Map String ByStr20, field dns: Map String ( Map String ByStr20 with contract field verification_methods_: Map String ByStr33 end ), field psc_fee: Map String Uint128 end = init_tyron
+  field init_: ByStr20 with contract field services_: Map String ByStr20, field dns: Map String ( Map String ByStr20 ), field psc_fee: Map String Uint128 end = init_tyron
   field agent: ByStr20 = initAdmin
 
   (* Verification methods @key: key purpose @value: public key of type "SchnorrSecp256k1VerificationKey2019" *)
@@ -214,53 +214,37 @@ transition UpdateAgent( addrName: String )
   agent := addr end
 
 transition EnableSocialRecovery(
-  recovererName: String,
-  recovererDomain: String,
-  sndRecovererName: String,
-  sndRecovererDomain: String
+  addr1: ByStr20 with contract field verification_methods_: Map String ByStr33 end,
+  addr2: ByStr20 with contract field verification_methods_: Map String ByStr33 end
   )
   IsOperational; VerifyAdmin; Payment update fixed;
-  init <- init_;
-  get_addr <-& init.dns[recovererDomain][recovererName];
-  get_sndAddr <-& init.dns[sndRecovererDomain][sndRecovererName];
-  match get_addr with
-  | Some addr => match get_sndAddr with
-      | Some sndAddr =>
-          recoverers = let sr = Pair{ ByStr20 with contract field verification_methods_: Map String ByStr33 end ByStr20 with contract field verification_methods_: Map String ByStr33 end } addr sndAddr
-            in Some{( Pair ByStr20 with contract field verification_methods_: Map String ByStr33 end ByStr20 with contract field verification_methods_: Map String ByStr33 end )} sr;
-          social_recovery_ := recoverers
-      | None => err = CodeNotValid; ThrowError err end
-  | None => err = CodeNotValid; ThrowError err end end
-  
+  recoverers = let sr = Pair{ ByStr20 with contract field verification_methods_: Map String ByStr33 end ByStr20 with contract field verification_methods_: Map String ByStr33 end } addr1 addr2
+    in Some{( Pair ByStr20 with contract field verification_methods_: Map String ByStr33 end ByStr20 with contract field verification_methods_: Map String ByStr33 end )} sr;
+  social_recovery_ := recoverers end
+
 transition UpdateSocialRecoverer(
   recoverer: Recoverer,
-  recovererName: String,
-  recovererDomain: String
+  addr: ByStr20 with contract field verification_methods_: Map String ByStr33 end
   )
   IsOperational; VerifyAdmin; Payment update fixed;
   social_recovery <- social_recovery_;
-  init <- init_;
-  get_addr <-& init.dns[recovererDomain][recovererName];
-  match get_addr with
-  | Some addr =>
-      match social_recovery with
-      | Some recoverers =>
-          match recoverer with
-          | First =>
-              sr2addr = let snd_element = @snd ByStr20 with contract field verification_methods_: Map String ByStr33 end ByStr20 with contract field verification_methods_: Map String ByStr33 end in snd_element recoverers;
-              updated_sr = let sr = Pair{ ByStr20 with contract field verification_methods_: Map String ByStr33 end ByStr20 with contract field verification_methods_: Map String ByStr33 end } addr sr2addr
-               in Some{( Pair ByStr20 with contract field verification_methods_: Map String ByStr33 end ByStr20 with contract field verification_methods_: Map String ByStr33 end )} sr;
-              social_recovery_ := updated_sr
-          | Second =>
-              sr1addr = let fst_element = @fst ByStr20 with contract field verification_methods_: Map String ByStr33 end ByStr20 with contract field verification_methods_: Map String ByStr33 end in fst_element recoverers;
-              updated_sr = let sr = Pair{ ByStr20 with contract field verification_methods_: Map String ByStr33 end ByStr20 with contract field verification_methods_: Map String ByStr33 end } sr1addr addr
-               in Some{( Pair ByStr20 with contract field verification_methods_: Map String ByStr33 end ByStr20 with contract field verification_methods_: Map String ByStr33 end )} sr;
-              social_recovery_ := updated_sr end
-      | None => err = CodeWrongStatus; ThrowError err end
+  match social_recovery with
+  | Some recoverers =>
+      match recoverer with
+      | First =>
+          sr2addr = let snd_element = @snd ByStr20 with contract field verification_methods_: Map String ByStr33 end ByStr20 with contract field verification_methods_: Map String ByStr33 end in snd_element recoverers;
+          updated_sr = let sr = Pair{ ByStr20 with contract field verification_methods_: Map String ByStr33 end ByStr20 with contract field verification_methods_: Map String ByStr33 end } addr sr2addr
+           in Some{( Pair ByStr20 with contract field verification_methods_: Map String ByStr33 end ByStr20 with contract field verification_methods_: Map String ByStr33 end )} sr;
+          social_recovery_ := updated_sr
+      | Second =>
+          sr1addr = let fst_element = @fst ByStr20 with contract field verification_methods_: Map String ByStr33 end ByStr20 with contract field verification_methods_: Map String ByStr33 end in fst_element recoverers;
+          updated_sr = let sr = Pair{ ByStr20 with contract field verification_methods_: Map String ByStr33 end ByStr20 with contract field verification_methods_: Map String ByStr33 end } sr1addr addr
+           in Some{( Pair ByStr20 with contract field verification_methods_: Map String ByStr33 end ByStr20 with contract field verification_methods_: Map String ByStr33 end )} sr;
+          social_recovery_ := updated_sr end
   | None => err = CodeNotValid; ThrowError err end end
   
 transition Lock()
-  IsOperational; VerifyAdmin; Payment update fixed; 
+IsOperational; VerifyAdmin; Payment update fixed; 
   social_recovery <- social_recovery_;
   match social_recovery with
   | Some recoverers =>
@@ -389,7 +373,7 @@ transition DidCreate(
   did_status <- did_status_;
   match did_status with
   | Deployed =>
-    VerifyAdmin; Payment crud fixed;
+    VerifyAdmin; Payment crd fixed;
     new_did = let did_prefix = "did:tyron:zil:main:" in let did_suffix = builtin to_string _this_address 
       in builtin concat did_prefix did_suffix; did_ := new_did;
     forall document SaveDocument;
@@ -439,7 +423,9 @@ procedure ValidateDocument(
   document: List Document
   )
   match operation with
-  | Recovery => forall document SaveDocument
+  | Recovery => 
+      verification_methods_ := empty_methods; services_ := empty_services; services__ := empty_services_;
+      forall document SaveDocument
   | Update => forall document UpdateDocument end end
 
 procedure HashDocument( document: Document )
@@ -511,10 +497,9 @@ transition DidRecover(
   match did_status with
   | Created => | Recovered => | Updated =>
   | _ => err = CodeWrongStatus; ThrowError err end;
-  VerifyAdmin; Payment crud fixed;
+  VerifyAdmin; Payment crd fixed;
   get_recovery_key <- verification_methods_[recovery]; did_recovery = option_bystr33_value get_recovery_key;
   get_update_key <- verification_methods_[update]; did_update = option_bystr33_value get_update_key;
-  verification_methods_ := empty_methods; services_ := empty_services; services__ := empty_services_;
   VerifyDocument didRecovery document signature;
   VerifyDIDkeys didRecovery did_recovery did_update;
   new_status = Recovered; did_status_ := new_status; Timestamp end
@@ -542,7 +527,7 @@ transition DidDeactivate(
   match did_status with
   | Created => | Recovered => | Updated =>
   | _ => err = CodeWrongStatus; ThrowError err end;
-  VerifyAdmin; Payment crud fixed;
+  VerifyAdmin; Payment crd fixed;
   VerifyDocument didRecovery document signature;
   verification_methods_ := empty_methods; services_ := empty_services; services__ := empty_services_;
   new_status = Deactivated; did_status_ := new_status; Timestamp end

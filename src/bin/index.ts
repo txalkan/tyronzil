@@ -47,8 +47,14 @@ yargs
 	.command('deploy', ' -> deploys a tyron smart contract', async() => {
 		await tyronCLI.handleDeploy();
 	})
+	.command('addfunds', ' -> add $ZIL to smart contract', async() => {
+		await xWalletCLI.handleAddFunds();
+	})
 	.command('buynft', ' -> buy domain name NFT', async() => {
 		await xWalletCLI.handleBuyDomainNameNFT();
+	})
+	.command('transfernft', ' -> transfer domain name NFT', async() => {
+		await xWalletCLI.handleTransferDomainNameNFT();
 	})
 	.command('enablesr', ' -> enable social recovery', async() => {
 		await xWalletCLI.handleEnableSocialRecovery();

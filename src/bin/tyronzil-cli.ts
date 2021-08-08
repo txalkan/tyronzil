@@ -24,7 +24,7 @@ import SmartUtil from '../lib/smart-util';
  * @TODO: configure globally
  */
 export enum InitTyron {
-    Testnet = "0x91e0a9Bd1af55E75a43b7F7608B9B8CB1b175F76",
+    Testnet = "0x43a7da2adfb4121f15165b5b308d8d409fb29cf3",
     Mainnet = "",
     Isolated = ""
 }
@@ -218,8 +218,6 @@ export default class tyronzilCLI {
                 throw new tyron.ErrorCode.default("RequestUnsuccessful", "Wrong choice. Try again.")
             }
 
-            console.log(LogColors.brightGreen(`Next, let's save the DID Recover operation on the Zilliqa blockchain platform, so it stays immutable!`));
-    
             console.log(LogColors.yellow(`Executing tyronzil...`));
             const initialized = await tyron.TyronZil.default.initialize(
                 set_network.network,
@@ -227,8 +225,6 @@ export default class tyronzilCLI {
                 10000,
                 set_network.initTyron
             );
-
-            console.log(LogColors.yellow(`Submitting transaction...`));
             await tyron.TyronZil.default.submit(tag, initialized, addr, "0", operation.txParams);
             
             await Util.savePrivateKeys(did_state.did, operation.privateKeys!);
@@ -316,9 +312,7 @@ export default class tyronzilCLI {
                 throw new tyron.ErrorCode.default("RequestUnsuccessful", "Wrong choice. Try again.")
             }
             
-            console.log(LogColors.brightGreen(`Let's save the DID Update operation on the Zilliqa blockchain platform, so it stays immutable.`));
-
-            console.log(LogColors.yellow(`Execute tyronzil...`));
+            console.log(LogColors.yellow(`Executing tyronzil...`));
             const initialized = await tyron.TyronZil.default.initialize(
                 set_network.network,
                 admin_zil_secret_key,
@@ -357,19 +351,15 @@ export default class tyronzilCLI {
                 throw new tyron.ErrorCode.default("RequestUnsuccessful", "Wrong choice. Try again.")
             }
             
-            console.log(LogColors.brightGreen(`Next, let's save your DID Deactivate operation on the Zilliqa blockchain platform, so it stays immutable!`));
-
-            const owner_zil_secret_key = readline.question(LogColors.green(`What is the user's private key (contract owner key)?`) + ` [Hex-encoded private key] ` + LogColors.lightBlue(`Your answer: `));
-            
             console.log(LogColors.yellow(`Executing tyronzil...`));
             const initialized = await tyron.TyronZil.default.initialize(
                 set_network.network,
-                set_network.initTyron,
+                admin_zil_secret_key,
                 10000,
-                owner_zil_secret_key
+                set_network.initTyron
             );
-            await tyron.TyronZil.default.submit(tyron.TyronZil.TransitionTag.Deactivate, initialized, addr, "0", operation.txParams);
-            console.log(LogColors.yellow(`Submitting transaction...`));
+            const tx = await tyron.TyronZil.default.submit(tyron.TyronZil.TransitionTag.Deactivate, initialized, addr, "0", operation.txParams);
+            console.log(JSON.stringify(tx, null, 2));
         })
         .catch((err: unknown) => console.error(LogColors.red(err)))
     }
