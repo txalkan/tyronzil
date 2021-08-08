@@ -14,7 +14,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/Ignite-DAO/ssiclient.git"
+    "url": "git+https://github.com/tyroncoop/ssiclient.git"
   },
   "keywords": [
     "ssi-protocol",
@@ -29,14 +29,14 @@
     "dapp",
     "tyronzil",
     "zilliqa",
-    "ignite-dao"
+    "tyroncoop"
   ],
   "author": "Tyron Pungtas and its affiliates",
   "license": "GPL-3.0-only",
   "bugs": {
-    "url": "https://github.com/Ignite-DAO/ssiclient/issues"
+    "url": "https://github.com/tyroncoop/ssiclient/issues"
   },
-  "homepage": "https://github.com/Ignite-DAO/ssiclient/blob/master/README.md",
+  "homepage": "https://github.com/tyroncoop/ssiclient/blob/master/README.md",
   "dependencies": {
     "@types/websocket": "^1.0.1",
     "@zilliqa-js/zilliqa": "2.2.0",
