@@ -2,8 +2,8 @@
 // So `npm i` installs the CLI correctly across all operating systems
 
 /*
-SSI Protocol's client for Node.js
-Self-Sovereign Identity Protocol.
+SSI Client for Node.js
+Tyron Self-Sovereign Identity Protocol
 Copyright (C) Tyron Pungtas and its affiliates.
 
 This program is free software: you can redistribute it and/or modify
@@ -17,7 +17,7 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.*/
 
 import * as yargs from 'yargs';
-import tyronCLI from './tyronzil-cli';
+import tyronzilCLI from './tyronzil-cli';
 import SmartUtil from '../lib/smart-util';
 
 import hash from 'hash.js';
@@ -25,6 +25,7 @@ import * as zcrypto from '@zilliqa-js/crypto';
 import * as zutil from '@zilliqa-js/util';
 import xWalletCLI from './xwallet-cli';
 import coopCLI from './coop-cli';
+import pstCLI from './pst-cli';
 
 yargs
 	.scriptName('tyronzil')
@@ -45,13 +46,35 @@ yargs
 		
 	})
 	.command('deploy', ' -> deploys a tyron smart contract', async() => {
-		await tyronCLI.handleDeploy();
+		await tyronzilCLI.handleDeploy();
+	})
+	.command('did', ' -> to execute a tyronZIL DID operation, try: $tyronzil did <subcommand>, with subcommand = create|resolve|update|recover|deactivate', (yargs) => {
+    	yargs
+			.usage('Usage: $0 did <subcommand> [options]')
+			.demandCommand(1, 'Specify a subcommand: create|resolve|update|recover|deactivate')
+			.command('create', ' -> creates a unique digital identity did:tyron:zil)', async() => {
+				await tyronzilCLI.handleDidCreate();
+			})
+			.command('recover', ' -> recovers the given tyronZIL DID and creates a new DID-state)', async() => {
+				await tyronzilCLI.handleDidRecover();
+			})
+			.command('update', ' -> updates the given tyronZIL DID and its DID-state', async() => {
+				await tyronzilCLI.handleDidUpdate();
+			})
+			.command('deactivate', ' -> deactivates the given tyronZIL DID and its DID-state', async() => {
+				await tyronzilCLI.handleDidDeactivate();
+			})
+			.wrap(null)
+			.strict(); //the sub-command must be one of the explicitly defined sub-commands
+  	})
+	.command('resolve', ' -> resolves the given tyronZIL DID into its DID-document (read operation)', async() => {
+		await tyronzilCLI.handleDidResolve();
 	})
 	.command('addfunds', ' -> add $ZIL to smart contract', async() => {
 		await xWalletCLI.handleAddFunds();
 	})
 	.command('buynft', ' -> buy domain name NFT', async() => {
-		await xWalletCLI.handleBuyDomainNameNFT();
+		await xWalletCLI.handleBuyNFTUsername();
 	})
 	.command('transfernft', ' -> transfer domain name NFT', async() => {
 		await xWalletCLI.handleTransferDomainNameNFT();
@@ -75,30 +98,11 @@ yargs
 	.command('addwork', ' -> add work to NFT coop', async() => {
 		await coopCLI.handleAddWork();
 	})
-  	.command('did', ' -> to execute a tyronZIL DID operation, try: $tyronzil did <subcommand>, with subcommand = create|resolve|update|recover|deactivate', (yargs) => {
-    	yargs
-			.usage('Usage: $0 did <subcommand> [options]')
-			.demandCommand(1, 'Specify a subcommand: create|resolve|update|recover|deactivate')
-			.command('create', ' -> creates a unique digital identity did:tyron:zil)', async() => {
-				await tyronCLI.handleDidCreate();
-			})
-			.command('recover', ' -> recovers the given tyronZIL DID and creates a new DID-state)', async() => {
-				await tyronCLI.handleDidRecover();
-			})
-			.command('update', ' -> updates the given tyronZIL DID and its DID-state', async() => {
-				await tyronCLI.handleDidUpdate();
-			})
-			.command('deactivate', ' -> deactivates the given tyronZIL DID and its DID-state', async() => {
-				await tyronCLI.handleDidDeactivate();
-			})
-			.wrap(null)
-			.strict(); //the sub-command must be one of the explicitly defined sub-commands
-  	})
-	.command('resolve', ' -> resolves the given tyronZIL DID into its DID-document (read operation)', async() => {
-		await tyronCLI.handleDidResolve();
-	})
 	.command('encode', ' -> encodes the given contract into a Base64URL string', async() => {
 		await SmartUtil.encode();
+	})
+	.command('deploypst', ' -> deploys a pst.tyron smart contract', async() => {
+		await pstCLI.handleDeploy();
 	})
 	.strict()       // the command must be one of the explicitly defined commands
 	.help(false)    // disabling --help option

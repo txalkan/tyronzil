@@ -1,0 +1,456 @@
+(* v0.4.0
+pst.tyron: profit-sharing token Zilliqa reference contract - proxy smart contract
+Self-Sovereign Identity Protocol.
+Copyright (C) Tyron Pungtas and its affiliates.
+www.ssiprotocol.com
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.*)
+
+scilla_version 0
+
+import BoolUtils IntUtils PairUtils ListUtils
+
+library PST
+
+  type Account =
+    | Account of Uint128 Uint128 Bool
+  
+  type VotedYes =
+    | VotedYes of Uint128
+    
+  type VotedNo =
+    | VotedNo of Uint128
+
+  let one_msg = fun( msg: Message ) =>
+    let nil_msg = Nil{ Message } in Cons{ Message } msg nil_msg
+
+  type Error =
+    | CodeWrongCaller
+    | CodeNotValid
+
+  let make_error = fun( error: Error ) =>
+    let result = match error with
+    | CodeWrongCaller            => Int32 -1
+    | CodeNotValid               => Int32 -2
+    end in { _exception: "Error"; code: result }
+  
+  let zero = Uint128 0
+  let yes = True
+  let no = False
+  
+  let option_value = tfun 'A => fun( default: 'A ) => fun( input: Option 'A ) =>
+    match input with
+    | Some v => v
+    | None => default end
+  
+  let option_uint128_value = let f = @option_value Uint128 in f zero
+  
+  let option_account = let f = @option_value Account in let noAccount = Account zero zero no in f noAccount
+
+  let account_balance = fun( getAccount: Option Account ) =>
+    let account = option_account getAccount in
+    match account with
+    | Account balance share vote => balance end
+    
+  let account_share = fun( getAccount: Option Account ) =>
+    let account = option_account getAccount in
+    match account with
+    | Account balance share vote => share end
+  
+  let account_vote = fun( getAccount: Option Account ) =>
+    let account = option_account getAccount in
+    match account with
+    | Account balance share vote => vote end
+  
+  let compare_member = fun( addr: ByStr20 ) => fun( member: ByStr20 ) => builtin eq addr member
+  
+contract PST(
+  init_admin: ByStr20,
+  init_fund: ByStr20,
+  name: String,
+  symbol: String,
+  decimals: Uint32,
+  init_supply: Uint128,
+  init_factor: Uint128,
+  init_balances: Map ByStr20 Uint128
+  )
+  with
+    let string_is_not_empty = fun( s : String ) =>
+      let zero = Uint32 0 in
+      let s_length = builtin strlen s in
+      let s_empty = builtin eq s_length zero in
+      negb s_empty in
+    let name_ok = string_is_not_empty name in
+    let symbol_ok = string_is_not_empty symbol in
+    let name_symbol_ok = andb name_ok symbol_ok in
+    let decimals_ok =
+      let six = Uint32 6 in
+      let eighteen = Uint32 18 in
+      let decimals_at_least_6 = uint32_le six decimals in
+      let decimals_no_more_than_18 = uint32_le decimals eighteen in
+      andb decimals_at_least_6 decimals_no_more_than_18 in
+      andb name_symbol_ok decimals_ok
+  =>
+  field admin: ByStr20 = init_admin
+  field fund: ByStr20 = init_fund
+  field implementation: ByStr20 = init_admin
+  field total_supply: Uint128 = init_supply
+  field factor: Uint128 = init_factor
+  field accounts: Map ByStr20 Account = Emp ByStr20 Account
+  field allowances: Map ByStr20 ( Map ByStr20 Uint128 ) = Emp ByStr20 ( Map ByStr20 Uint128 )
+  field agents: List ByStr20 = let nil = Nil{ ByStr20 } in Cons{ ByStr20 } init_admin nil
+  field income: Uint128 = zero
+  field subtotal: Uint128 = zero
+  field voted_yes: VotedYes = VotedYes zero
+  field voted_no: VotedNo = VotedNo zero
+  
+procedure ThrowError( err: Error )
+  e = make_error err; throw e end
+
+procedure VerifyCaller( addr: ByStr20 )
+  verified = builtin eq addr _sender;
+  match verified with
+  | True =>
+  | False => err= CodeWrongCaller; ThrowError err end end
+
+transition UpdateAdmin( new_admin: ByStr20 )
+  current_admin <- admin; VerifyCaller current_admin;
+  admin := new_admin;
+  e = { _eventname: "AdminAddressUpdated";
+    admin_updated: new_admin
+  }; event e end
+
+transition UpdatefundAddr( new_addr: ByStr20 )
+  current_admin <- admin; VerifyCaller current_admin;
+  fund := new_addr;
+  e = { _eventname: "FundAddressUpdated";
+    address_updated: new_addr
+  }; event e end
+
+transition UpgradeImplementation( new_implementation: ByStr20 )
+  current_admin <- admin; VerifyCaller current_admin;
+  implementation := new_implementation;
+  e = { _eventname: "ImplementationUpgraded";
+    implementation_upgraded: new_implementation
+  }; event e end
+
+transition UpdateAgentFactor( new_factor: Uint128 )
+  current_admin <- admin; VerifyCaller current_admin;
+  factor := new_factor;
+  e = { _eventname: "AgentFactorUpdated";
+    factor_updated: new_factor
+  }; event e end
+
+transition Pause()
+  current_impl <- implementation;
+  msg = let m = { _tag: "Pause"; _recipient: current_impl; _amount: zero
+  } in one_msg m; send msg end
+
+transition Unpause()
+  current_impl <- implementation;
+  msg = let m = { _tag: "Unpause"; _recipient: current_impl; _amount: zero
+  } in one_msg m; send msg end
+
+transition Block( addr: ByStr20 )
+  current_impl <- implementation;
+  msg = let m = { _tag: "Block"; _recipient: current_impl; _amount: zero;
+    addr: addr
+  } in one_msg m; send msg end
+
+transition Unblock( addr: ByStr20 )
+  current_impl <- implementation;
+  msg = let m = { _tag: "Unblock"; _recipient: current_impl; _amount: zero;
+    addr: addr
+  } in one_msg m; send msg end
+
+transition LawEnforcementWipingBurn( addr: ByStr20 )
+  current_impl <- implementation;
+  msg = let m = {
+    _tag: "LawEnforcementWipingBurn"; _recipient: current_impl; _amount: zero;
+    addr: addr
+  } in one_msg m; send msg end
+
+transition LawEnforcementWipingBurnCallBack(
+  addr: ByStr20,
+  new_supply: Uint128
+  )
+  current_impl <- implementation; VerifyCaller current_impl;
+  delete accounts[addr];
+  total_supply := new_supply end
+
+transition IncreaseMinterAllowance(
+  minter: ByStr20,
+  amount: Uint128
+  )
+  current_impl <- implementation;
+  msg = let m = { _tag: "IncreaseMinterAllowance"; _recipient: current_impl; _amount: zero;
+    minter: minter;
+    amount: amount
+  } in one_msg m; send msg end
+
+transition DecreaseMinterAllowance(
+  minter: ByStr20,
+  amount: Uint128
+  )
+  current_impl <- implementation;
+  msg = let m = { _tag: "DecreaseMinterAllowance"; _recipient: current_impl; _amount: zero;
+    minter: minter;
+    amount: amount
+  } in one_msg m; send msg end
+
+transition Mint(
+  beneficiary: ByStr20,
+  amount: Uint128
+  )
+  current_impl <- implementation;
+  msg = let m = { _tag: "Mint"; _recipient: current_impl; _amount: zero;
+    originator: _sender;
+    beneficiary: beneficiary;
+    amount: amount
+  } in one_msg m; send msg end
+
+procedure UpdateAccount(
+  addr: ByStr20,
+  bal: Uint128,
+  profit_sharing: Bool
+  )
+  t <- total_supply; f <- factor;
+  not_enough = let n = builtin div t f in builtin lt bal n;
+  list_mem = @list_mem ByStr20;
+  agents_list <- agents;
+  is_member = list_mem compare_member addr agents_list;
+  get_account <- accounts[addr];
+  match not_enough with
+  | True =>
+      account_updated = Account bal zero yes; accounts[addr] := account_updated;
+      match is_member with
+      | True =>
+          list_filter = @list_filter ByStr20; remove_member = fun( member: ByStr20 ) => let is_addr = builtin eq addr member in negb is_addr;
+          agents_updated = list_filter remove_member agents_list;
+          agents := agents_updated
+      | False => end
+  | False =>
+      vote = account_vote get_account;
+      share = let ebal = builtin mul bal f in builtin div ebal t;
+      account_updated = match profit_sharing with
+      | True => Account bal share yes   (* Profit-sharing operation => reset vote to Yes *)
+      | False => Account bal share vote end;
+      accounts[addr] := account_updated;
+      match is_member with
+      | True =>
+      | False =>
+          agents_updated = Cons{ ByStr20 } addr agents_list;
+          agents := agents_updated end end end
+
+procedure InitAccount( holder: Pair ByStr20 Uint128 )
+  addr = let fst_element = @fst ByStr20 Uint128 in fst_element holder;
+  bal = let snd_element = @snd ByStr20 Uint128 in snd_element holder;
+  UpdateAccount addr bal yes
+end
+
+transition InitAccounts()
+  balance_list = builtin to_list init_balances;
+  forall balance_list InitAccount
+end
+
+transition MintCallBack(
+  beneficiary: ByStr20,
+  new_balance: Uint128,
+  new_supply: Uint128
+  )
+  current_impl <- implementation; VerifyCaller current_impl;
+  UpdateAccount beneficiary new_balance no;
+  total_supply := new_supply end
+
+transition Burn( amount: Uint128 )
+  current_impl <- implementation;
+  msg = let m = {
+    _tag: "Burn"; _recipient: current_impl; _amount: zero;
+    originator: _sender;
+    amount: amount
+  } in one_msg m; send msg end
+
+transition BurnCallBack(
+  originator: ByStr20,
+  new_balance: Uint128,
+  new_supply: Uint128
+  )
+  current_impl <- implementation; VerifyCaller current_impl;
+  UpdateAccount originator new_balance no;
+  total_supply := new_supply end
+
+transition Transfer(
+  to: ByStr20,
+  amount: Uint128
+  )
+  current_impl <- implementation;
+  msg = let m = { _tag: "Transfer"; _recipient: current_impl; _amount: zero;
+    originator: _sender;
+    beneficiary: to;
+    amount: amount
+  } in one_msg m; send msg end
+
+transition TransferCallBack(
+  originator: ByStr20,
+  beneficiary: ByStr20,
+  new_originator_bal: Uint128,
+  new_beneficiary_bal: Uint128
+  )
+  current_impl <- implementation; VerifyCaller current_impl;
+  UpdateAccount originator new_originator_bal no;
+  UpdateAccount beneficiary new_beneficiary_bal no end
+
+transition IncreaseAllowance(
+  spender: ByStr20,
+  amount: Uint128
+  )
+  current_impl <- implementation;
+  msg = let m = { _tag: "IncreaseAllowance"; _recipient: current_impl; _amount: zero;
+    originator: _sender;
+    spender: spender;
+    amount: amount
+  } in one_msg m; send msg end
+
+transition DecreaseAllowance(
+  spender: ByStr20,
+  amount: Uint128
+  )
+  current_impl <- implementation;
+  msg = let m = {
+    _tag: "DecreaseAllowance"; _recipient: current_impl; _amount: zero;
+    originator: _sender;
+    spender: spender;
+    amount: amount
+  } in one_msg m; send msg end
+
+transition AllowanceCallBack(
+  originator: ByStr20,
+  spender: ByStr20,
+  new_allowance: Uint128
+  )
+  current_impl <- implementation; VerifyCaller current_impl;
+  allowances[originator][spender] := new_allowance end
+
+transition TransferFrom(
+  from: ByStr20, 
+  to: ByStr20,
+  amount: Uint128
+  )
+  current_impl <- implementation;
+  msg = let m = { _tag: "TransferFrom"; _recipient: current_impl; _amount: zero;
+    originator: from;
+    spender: _sender;
+    beneficiary: to;
+    amount: amount
+  } in one_msg m; send msg end
+
+transition TransferFromCallBack(
+  originator: ByStr20,
+  beneficiary: ByStr20,
+  new_originator_bal: Uint128,
+  new_beneficiary_bal: Uint128
+  )
+  current_impl <- implementation; VerifyCaller current_impl;
+  UpdateAccount originator new_originator_bal no;
+  UpdateAccount beneficiary new_beneficiary_bal no end
+
+transition SwapZILForPSTAndDistribute(
+  beneficiary: Option( List ByStr20 ),
+  amount: Uint128,
+  deadline: Uint128
+  )
+  current_impl <- implementation; accept;
+  msg = let m = { _tag: "SwapZILForPSTAndDistribute"; _recipient: current_impl; _amount: _amount;
+    amount: amount;
+    originator: _sender;
+    beneficiary: beneficiary;
+    deadline: deadline
+  } in one_msg m; send msg end
+
+procedure UpdateVoteDecision(
+  vote: Bool,
+  share: Uint128
+  )
+  match vote with
+  | True =>
+      yes <- voted_yes;
+      match yes with
+      | VotedYes amount =>
+          new_amount = builtin add amount share;
+          update_yes = VotedYes new_amount; voted_yes := update_yes end
+  | False =>
+      no <- voted_no;
+      match no with
+      | VotedNo amount =>
+          new_amount = builtin add amount share;
+          update_no = VotedNo new_amount; voted_no := update_no end end end
+
+procedure DistributeProfit( beneficiary: ByStr20 )
+  get_account <- accounts[beneficiary]; bal = account_balance get_account; share = account_share get_account; vote = account_vote get_account;
+  current_income <- income;
+  bal_updated = let profit = builtin mul current_income share in builtin add bal profit;
+  UpdateVoteDecision vote share; UpdateAccount beneficiary bal_updated yes end
+
+procedure UpdateSubtotal( beneficiary: ByStr20 )
+  get_account <- accounts[beneficiary]; bal = account_balance get_account;
+  current_subtotal <- subtotal;
+  update_subtotal = builtin add current_subtotal bal; subtotal := update_subtotal end
+
+procedure DistributePST( beneficiary: ByStr20 )
+  get_account <- accounts[beneficiary]; bal = account_balance get_account;
+  f <- factor; current_subtotal <- subtotal; current_income <- income;
+  share = let ebal = builtin mul bal f in builtin div ebal current_subtotal;
+  bal_updated = let pst = builtin mul current_income share in builtin add bal pst;
+  UpdateAccount beneficiary bal_updated no end
+
+(* Distribute originator's total balance to beneficiary *)
+transition SwapZILForPSTAndDistributeCallBack(
+  originator: ByStr20,
+  beneficiary: Option( List ByStr20 )
+  )
+  current_impl <- implementation; VerifyCaller current_impl;
+  get_account <- accounts[originator]; bal = account_balance get_account;
+  f <- factor; nbal = builtin div bal f; income := nbal;
+  current_fund <- fund; is_fund = builtin eq originator current_fund;
+  match is_fund with
+  | True =>
+      zero_yes = VotedYes zero; voted_yes := zero_yes; 
+      zero_no = VotedNo zero; voted_no := zero_no;
+      agents_list <- agents;
+      forall agents_list DistributeProfit;
+      e = { _eventname: "ProfitDistributed";
+        profit: bal
+      }; event e;
+      yes <- voted_yes; no <- voted_no;
+      e = { _eventname: "PSCVoteDecision";
+        yes: yes;
+        no: no
+      }; event e;
+      msg = let m = { _tag: "VoteDecisionCallBack"; _recipient: originator; _amount: zero;
+        yes: yes;
+        no: no
+      } in one_msg m; send msg
+  | False =>
+      match beneficiary with
+      | Some list =>
+          subtotal := zero;
+          forall list UpdateSubtotal;
+          forall list DistributePST
+      | None => err = CodeNotValid; ThrowError err end end end
+(* to-do DAO.tyron with VoteDecisionCallBack *)
+
+transition ChangeVote()
+  get_account <- accounts[_sender];
+  vote = account_vote get_account; bal = account_balance get_account; share = account_share get_account;
+  account_updated = match vote with
+  | True => Account bal share no
+  | False => Account bal share yes end;
+  accounts[_sender] := account_updated end

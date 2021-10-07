@@ -21,7 +21,7 @@ import * as zcrypto from '@zilliqa-js/crypto';
 
 /** Handle the xWallet command-line interface */
 export default class xWalletCLI {
-    public static async handleBuyDomainNameNFT(): Promise<void> {
+    public static async handleBuyNFTUsername(): Promise<void> {
         const set_network = await tyronzilCLI.network();
         let addr = readline.question(LogColors.green(`What's the address of your tyron smart contract?`)+ ` [Base16 address] `+ LogColors.lightBlue(`Your answer: `));
         const username = readline.question(LogColors.green(`What's the username NFT that you'd like to buy? `)+ LogColors.lightBlue(`Your answer: `));
@@ -35,8 +35,9 @@ export default class xWalletCLI {
             set_network.initTyron
         )
         .then(async (init: any) => {
-            const tx_params = await tyron.TyronZil.default.BuyDomainNameNFT(username);
-            const tx = await tyron.TyronZil.default.submit(tyron.TyronZil.TransitionTag.BuyDomainNameNFT, init, addr, "100000000000000", tx_params);
+            const tyron_ = await tyron.TyronZil.default.OptionParam(tyron.TyronZil.Option.none, 'Uint128')
+            const tx_params = await tyron.TyronZil.default.BuyNFTUsername(username, tyron_);
+            const tx = await tyron.TyronZil.default.submit(tyron.TyronZil.TransitionTag.BuyNFTUsername, init, addr, "100000000000000", tx_params);
             console.log(tx);
         })
         .catch((err: unknown) => console.error(LogColors.red(err)))            
@@ -77,8 +78,8 @@ export default class xWalletCLI {
             set_network.initTyron
         )
         .then(async (init: any) => {
-            const tx_params = await tyron.TyronZil.default.TransferDomainNameNFT(username, addr1);
-            const tx = await tyron.TyronZil.default.submit(tyron.TyronZil.TransitionTag.TransferDomainNameNFT, init, addr, "0", tx_params);
+            const tx_params = await tyron.TyronZil.default.TransferNFTUsername(username, addr1);
+            const tx = await tyron.TyronZil.default.submit(tyron.TyronZil.TransitionTag.TransferNFTUsername, init, addr, "0", tx_params);
             console.log(JSON.stringify(tx, null, 2));
         })
         .catch((err: unknown) => console.error(LogColors.red(err)))            

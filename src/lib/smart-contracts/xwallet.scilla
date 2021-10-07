@@ -1,6 +1,6 @@
-(* v0.9.5
-DIDxWallet.tyron: decentralized identifier smart wallet.
-Self-Sovereign Identity Protocol.
+(* v2.0.0
+xwallet.tyron: decentralized identifier smart contract wallet (DIDxWallet)
+Tyron Self-Sovereign Identity Protocol
 Copyright (C) Tyron Pungtas and its affiliates.
 www.ssiprotocol.com
 
@@ -18,9 +18,9 @@ scilla_version 0
 
 import PairUtils BoolUtils
 
-library DIDxWallet
+library DID
 
-  (* The DID library *)
+  let tyronAddr = 0xA3725fA67FaA3a1cAe6869C57b475ff173D98Ba7
 
   type DIDstatus =
     | Deployed
@@ -53,11 +53,7 @@ library DIDxWallet
   type Recoverer =
     | First
     | Second
-  
-  type Beneficiary =
-    | UserDomain of String String
-    | BeneficiaryAddr of ByStr20
-    
+
   let didRecovery = Recovery
   let didUpdate = Update
   let update = "update"
@@ -71,9 +67,6 @@ library DIDxWallet
   
   let one_msg = fun( msg: Message ) =>
     let nil_msg = Nil{ Message } in Cons{ Message } msg nil_msg
-
-  let two_msgs = fun( msg1: Message ) => fun( msg2: Message ) =>
-    let msgs_tmp = one_msg msg2 in Cons{ Message } msg1 msgs_tmp
 
   type Error =
     | CodeWrongStatus
@@ -114,39 +107,23 @@ library DIDxWallet
   let option_bystr33_value = let f = @option_value ByStr33 in f zeroByStr33
   let option_bystr64_value = let f = @option_value ByStr64 in f zeroByStr64
   
-  (* The xWallet library *)
-  
-  type Data =
-  | Data of String String String Uint128 Uint128 Uint128   (* id, address name, second address name, amount, second amount, third amount *)
-  
+  (* xWallet library *)
   let domain_ = "did"
-  let education = "education"
-  let crd = "crd"
-  let stakezil = "stakezil"
-  let zilswap = "zilswap"
-  let xorder = "xorder"
-  let fifteen_min = Uint128 21
-  let one_hundred = Uint128 100
-  let fixed = None{ Uint128 }
 
 contract DIDxWallet(
-  initAdmin: ByStr20,
-  init_tyron: ByStr20 with contract field services_: Map String ByStr20, field dns: Map String ( Map String ByStr20 ), field psc_fee: Map String Uint128 end
+  init_admin: ByStr20,
+  init_tyron: ByStr20 with contract field services_: Map String ByStr20, field dns: Map String (Map String ByStr20), field psc_fee: Map String Uint128 end
   )
-  field admin_: ByStr20 = initAdmin
-  field did_: String = ""    (* the decentralized identifier *)
+  field admin_: ByStr20 = init_admin
+  field did_: String = ""    (* the W3C decentralized identifier *)
   field did_status_: DIDstatus = Deployed
   
-  field init_: ByStr20 with contract field services_: Map String ByStr20, field dns: Map String ( Map String ByStr20 ), field psc_fee: Map String Uint128 end = init_tyron
-  field agent: ByStr20 = initAdmin
-
   (* Verification methods @key: key purpose @value: public key of type "SchnorrSecp256k1VerificationKey2019" *)
   field verification_methods_: Map String ByStr33 = empty_methods
   
   (* Services @key: ID @value: endpoint *)
   field services_: Map String ByStr20 = empty_services
   field services__: Map String Endpoint = empty_services_
-  field service_addr: Map String ByStr20 = Emp String ByStr20
   
   field document_hash: ByStr = zero_bystr
   
@@ -162,10 +139,18 @@ contract DIDxWallet(
   (* A monotonically increasing number representing the amount of DID CRUD transactions that have taken place *)
   field crud_tx_number_: Uint128 = zero
   
-  field deadline_block: Uint128 = fifteen_min
-  
-(* The DID backbone *)
+  field deadline: Uint128 = Uint128 21   (* approx. 15 minutes *)
 
+  field init_: ByStr20 with contract field services_: Map String ByStr20, field dns: Map String (Map String ByStr20), field psc_fee: Map String Uint128 end = init_tyron
+  
+(* DID backbone *)
+
+procedure SupportTyron( tyron: Option Uint128 )
+  match tyron with
+  | Some donation => 
+      accept; msg = let m = { _tag: ""; _recipient: tyronAddr; _amount: donation } in one_msg m; send msg
+  | None => end end
+  
 procedure ThrowError( err: Error )
   e = make_error err; throw e end
 
@@ -176,75 +161,54 @@ procedure IsOperational()
   | Locked => err = CodeDidLocked; ThrowError err
   | _ => end end
 
-procedure VerifyAdmin()
+procedure VerifyAdmin( tyron: Option Uint128 )
   current_admin <- admin_;
   verified = builtin eq current_admin _sender;
   match verified with
-  | True =>
+  | True => SupportTyron tyron
   | False => err= CodeNotAdmin; ThrowError err end end
 
-procedure Payment(
-  id: String,
-  amount: Option Uint128
+transition UpdateAdmin(
+  addr: ByStr20,
+  tyron: Option Uint128
   )
-  init <- init_;
-  get_fee <-& init.psc_fee[id]; fee = option_uint128_value get_fee;
-  is_zero = builtin eq fee zero;
-  match is_zero with
-  | True => err = CodeNotValid; ThrowError err
-  | False => 
-      match amount with
-      | None => accept; msg = let m = { _tag: "AddFunds"; _recipient: init; _amount: fee; id: id } in one_msg m; send msg
-      | Some amt => 
-          fee_ = let percent = builtin div amt one_hundred in builtin mul fee percent;
-          accept; msg = let m = { _tag: "AddFunds"; _recipient: init; _amount: fee_; id: id } in one_msg m; send msg end end end
-
-transition UpdateAdmin( addr: ByStr20 )
-  IsOperational; VerifyAdmin; Payment update fixed; admin_ := addr end
-
-transition UpdateInit(
-  addr: ByStr20 with contract field services_: Map String ByStr20, field dns: Map String ( Map String ByStr20 with contract field verification_methods_: Map String ByStr33 end ), field psc_fee: Map String Uint128 end
-  )
-  IsOperational; VerifyAdmin; Payment update fixed; init_ := addr end
-
-transition UpdateAgent( addrName: String )
-  IsOperational; VerifyAdmin; Payment update fixed;
-  init <- init_; agent_ = "agent";
-  get_addr <-& init.dns[agent_][addrName]; addr = option_bystr20_value get_addr;
-  agent := addr end
+  IsOperational; VerifyAdmin tyron;
+  admin_ := addr end
 
 transition EnableSocialRecovery(
   addr1: ByStr20 with contract field verification_methods_: Map String ByStr33 end,
-  addr2: ByStr20 with contract field verification_methods_: Map String ByStr33 end
+  addr2: ByStr20 with contract field verification_methods_: Map String ByStr33 end,
+  tyron: Option Uint128
   )
-  IsOperational; VerifyAdmin; Payment update fixed;
-  recoverers = let sr = Pair{ ByStr20 with contract field verification_methods_: Map String ByStr33 end ByStr20 with contract field verification_methods_: Map String ByStr33 end } addr1 addr2
-    in Some{( Pair ByStr20 with contract field verification_methods_: Map String ByStr33 end ByStr20 with contract field verification_methods_: Map String ByStr33 end )} sr;
+  IsOperational; VerifyAdmin tyron;
+  recoverers = let sr = Pair{ ByStr20 with contract field verification_methods_: Map String ByStr33 end ByStr20 with contract field verification_methods_: Map String ByStr33 end } addr1 addr2 in
+    Some{( Pair ByStr20 with contract field verification_methods_: Map String ByStr33 end ByStr20 with contract field verification_methods_: Map String ByStr33 end )} sr;
   social_recovery_ := recoverers end
 
 transition UpdateSocialRecoverer(
   recoverer: Recoverer,
-  addr: ByStr20 with contract field verification_methods_: Map String ByStr33 end
+  addr: ByStr20 with contract field verification_methods_: Map String ByStr33 end,
+  tyron: Option Uint128
   )
-  IsOperational; VerifyAdmin; Payment update fixed;
+  IsOperational; VerifyAdmin tyron;
   social_recovery <- social_recovery_;
   match social_recovery with
   | Some recoverers =>
       match recoverer with
       | First =>
           sr2addr = let snd_element = @snd ByStr20 with contract field verification_methods_: Map String ByStr33 end ByStr20 with contract field verification_methods_: Map String ByStr33 end in snd_element recoverers;
-          updated_sr = let sr = Pair{ ByStr20 with contract field verification_methods_: Map String ByStr33 end ByStr20 with contract field verification_methods_: Map String ByStr33 end } addr sr2addr
-           in Some{( Pair ByStr20 with contract field verification_methods_: Map String ByStr33 end ByStr20 with contract field verification_methods_: Map String ByStr33 end )} sr;
+          updated_sr = let sr = Pair{ ByStr20 with contract field verification_methods_: Map String ByStr33 end ByStr20 with contract field verification_methods_: Map String ByStr33 end } addr sr2addr in
+            Some{( Pair ByStr20 with contract field verification_methods_: Map String ByStr33 end ByStr20 with contract field verification_methods_: Map String ByStr33 end )} sr;
           social_recovery_ := updated_sr
       | Second =>
           sr1addr = let fst_element = @fst ByStr20 with contract field verification_methods_: Map String ByStr33 end ByStr20 with contract field verification_methods_: Map String ByStr33 end in fst_element recoverers;
-          updated_sr = let sr = Pair{ ByStr20 with contract field verification_methods_: Map String ByStr33 end ByStr20 with contract field verification_methods_: Map String ByStr33 end } sr1addr addr
-           in Some{( Pair ByStr20 with contract field verification_methods_: Map String ByStr33 end ByStr20 with contract field verification_methods_: Map String ByStr33 end )} sr;
+          updated_sr = let sr = Pair{ ByStr20 with contract field verification_methods_: Map String ByStr33 end ByStr20 with contract field verification_methods_: Map String ByStr33 end } sr1addr addr in
+            Some{( Pair ByStr20 with contract field verification_methods_: Map String ByStr33 end ByStr20 with contract field verification_methods_: Map String ByStr33 end )} sr;
           social_recovery_ := updated_sr end
   | None => err = CodeNotValid; ThrowError err end end
   
-transition Lock()
-IsOperational; VerifyAdmin; Payment update fixed; 
+transition Lock( tyron: Option Uint128 )
+  IsOperational; VerifyAdmin tyron;
   social_recovery <- social_recovery_;
   match social_recovery with
   | Some recoverers =>
@@ -254,13 +218,13 @@ IsOperational; VerifyAdmin; Payment update fixed;
 transition SocialRecovery( 
   addr: ByStr20 with contract field verification_methods_: Map String ByStr33 end,
   signature1: ByStr64,
-  signature2: ByStr64
+  signature2: ByStr64,
+  tyron: Option Uint128
   )
   did_status <- did_status_;
   match did_status with
   | Deactivated => err = CodeWrongStatus; ThrowError err
   | _ => end;
-  Payment didsr fixed;
   signed_data = builtin to_bystr addr;
   social_recovery <- social_recovery_;
   match social_recovery with
@@ -287,26 +251,8 @@ transition SocialRecovery(
           | True =>
           | False => err = CodeWrongSignature; ThrowError err end
       | False => err = CodeWrongSignature; ThrowError err end
-  | None => err = CodeWrongStatus; ThrowError err end;
-  admin_ := addr end
-
-transition BuyDomainNameNFT( username: String )
-  IsOperational; VerifyAdmin; init <- init_;
-  get_fee <-& init.psc_fee[domain_]; fee = option_uint128_value get_fee;
-  accept; msg = let m = { _tag: "BuyDomainNameNFT"; _recipient: init; _amount: fee;
-    username: username;
-    domain: domain_ } in one_msg m; send msg end
-      
-transition TransferDomainNameNFT(
-  username: String,
-  newAddr: ByStr20
-  )
-  IsOperational; VerifyAdmin; init <- init_;
-  get_fee <-& init.psc_fee[domain_]; fee = option_uint128_value get_fee;
-  accept; msg = let m = { _tag: "TransferDomainNameNFT"; _recipient: init; _amount: fee;
-    username: username;
-    domain: domain_;
-    newAddr: newAddr } in one_msg m; send msg end
+  | None => err = CodeNotValid; ThrowError err end;
+  SupportTyron tyron; admin_ := addr end
 
 (* Verify Schnorr signature - signed data must correspond with a DID Key *)
 procedure VerifySignature(
@@ -368,20 +314,21 @@ procedure SaveDocument( document: Document )
 
 transition DidCreate(
   document: List Document,
-  signature: Option ByStr64
+  signature: Option ByStr64,
+  tyron: Option Uint128
   )
   did_status <- did_status_;
   match did_status with
   | Deployed =>
-    VerifyAdmin; Payment crd fixed;
-    new_did = let did_prefix = "did:tyron:zil:main:" in let did_suffix = builtin to_string _this_address 
-      in builtin concat did_prefix did_suffix; did_ := new_did;
-    forall document SaveDocument;
-    get_recovery_key <- verification_methods_[recovery]; ThrowIfNoKey get_recovery_key; did_recovery = option_bystr33_value get_recovery_key;
-    get_update_key <- verification_methods_[update]; ThrowIfNoKey get_update_key; did_update = option_bystr33_value get_update_key;
-    ThrowIfSameKey did_recovery did_update;
-    new_status = Created; did_status_ := new_status;
-    current_block <- &BLOCKNUMBER; did_created_ := current_block; Timestamp
+      VerifyAdmin tyron;
+      new_did = let did_prefix = "did:tyron:zil:main:" in let did_suffix = builtin to_string _this_address in
+        builtin concat did_prefix did_suffix; did_ := new_did;
+      forall document SaveDocument;
+      get_recovery_key <- verification_methods_[recovery]; ThrowIfNoKey get_recovery_key; did_recovery = option_bystr33_value get_recovery_key;
+      get_update_key <- verification_methods_[update]; ThrowIfNoKey get_update_key; did_update = option_bystr33_value get_update_key;
+      ThrowIfSameKey did_recovery did_update;
+      new_status = Created; did_status_ := new_status;
+      current_block <- &BLOCKNUMBER; did_created_ := current_block; Timestamp
   | _ => err = CodeWrongStatus; ThrowError err end end
 
 procedure UpdateDocument( document: Document )
@@ -434,17 +381,17 @@ procedure HashDocument( document: Document )
   | VerificationMethod action purpose key =>
       match action with
       | Add =>
-          hash = let h1 = builtin sha256hash actionAdd 
-            in let h2 = builtin sha256hash purpose
-            in let h3 = builtin sha256hash key
-            in let h1_2 = builtin concat h1 h2
-            in builtin concat h1_2 h3;
+          hash = let h1 = builtin sha256hash actionAdd in
+            let h2 = builtin sha256hash purpose in
+            let h3 = builtin sha256hash key in
+            let h1_2 = builtin concat h1 h2 in
+            builtin concat h1_2 h3;
           doc_hash_ = let hash_ = builtin to_bystr hash in builtin concat doc_hash hash_;
           document_hash := doc_hash_
       | Remove =>
-          hash = let h1 = builtin sha256hash actionRemove
-            in let h2 = builtin sha256hash purpose
-            in builtin concat h1 h2;
+          hash = let h1 = builtin sha256hash actionRemove in
+            let h2 = builtin sha256hash purpose in
+            builtin concat h1 h2;
           doc_hash_ = let hash_ = builtin to_bystr hash in builtin concat doc_hash hash_;
           document_hash := doc_hash_ end
   | Service action id endpoint =>
@@ -452,25 +399,25 @@ procedure HashDocument( document: Document )
       | Add =>
           match endpoint with
           | Uri eType transfer uri =>
-              hash = let h1 = builtin sha256hash actionAdd
-              in let h2 = builtin sha256hash id
-              in let h3 = builtin sha256hash uri
-              in let h1_2 = builtin concat h1 h2
-              in builtin concat h1_2 h3;
+              hash = let h1 = builtin sha256hash actionAdd in
+                let h2 = builtin sha256hash id in
+                let h3 = builtin sha256hash uri in
+                let h1_2 = builtin concat h1 h2 in
+                builtin concat h1_2 h3;
               doc_hash_ = let hash_ = builtin to_bystr hash in builtin concat doc_hash hash_;
               document_hash := doc_hash_
           | Address addr =>
-              hash = let h1 = builtin sha256hash actionAdd
-              in let h2 = builtin sha256hash id
-              in let h3 = builtin sha256hash addr
-              in let h1_2 = builtin concat h1 h2
-              in builtin concat h1_2 h3;
+              hash = let h1 = builtin sha256hash actionAdd in
+                let h2 = builtin sha256hash id in
+                let h3 = builtin sha256hash addr in
+                let h1_2 = builtin concat h1 h2 in
+                builtin concat h1_2 h3;
               doc_hash_ = let hash_ = builtin to_bystr hash in builtin concat doc_hash hash_;
               document_hash := doc_hash_ end
       | Remove =>
-          hash = let h1 = builtin sha256hash actionRemove
-          in let h2 = builtin sha256hash id
-          in builtin concat h1 h2;
+          hash = let h1 = builtin sha256hash actionRemove in
+            let h2 = builtin sha256hash id in
+            builtin concat h1 h2;
           doc_hash_ = let hash_ = builtin to_bystr hash in builtin concat doc_hash hash_;
           document_hash := doc_hash_ end end end
 
@@ -491,13 +438,14 @@ procedure VerifyDocument(
 
 transition DidRecover(
   document: List Document,
-  signature: Option ByStr64
+  signature: Option ByStr64,
+  tyron: Option Uint128
   )
   did_status <- did_status_;
   match did_status with
   | Created => | Recovered => | Updated =>
   | _ => err = CodeWrongStatus; ThrowError err end;
-  VerifyAdmin; Payment crd fixed;
+  VerifyAdmin tyron;
   get_recovery_key <- verification_methods_[recovery]; did_recovery = option_bystr33_value get_recovery_key;
   get_update_key <- verification_methods_[update]; did_update = option_bystr33_value get_update_key;
   VerifyDocument didRecovery document signature;
@@ -506,13 +454,14 @@ transition DidRecover(
 
 transition DidUpdate(
   document: List Document,
-  signature: Option ByStr64
+  signature: Option ByStr64,
+  tyron: Option Uint128
   )
   did_status <- did_status_;
   match did_status with
   | Created => | Recovered => | Updated =>
   | _ => err = CodeWrongStatus; ThrowError err end;
-  VerifyAdmin; Payment update fixed;
+  VerifyAdmin tyron;
   get_recovery_key <- verification_methods_[recovery]; did_recovery = option_bystr33_value get_recovery_key;
   get_update_key <- verification_methods_[update]; did_update = option_bystr33_value get_update_key;
   VerifyDocument didUpdate document signature;
@@ -521,56 +470,71 @@ transition DidUpdate(
 
 transition DidDeactivate(
   document: List Document,
-  signature: Option ByStr64
+  signature: Option ByStr64,
+  tyron: Option Uint128
   ) 
   did_status <- did_status_;
   match did_status with
   | Created => | Recovered => | Updated =>
   | _ => err = CodeWrongStatus; ThrowError err end;
-  VerifyAdmin; Payment crd fixed;
+  VerifyAdmin tyron;
   VerifyDocument didRecovery document signature;
   verification_methods_ := empty_methods; services_ := empty_services; services__ := empty_services_;
   new_status = Deactivated; did_status_ := new_status; Timestamp end
 
+(* xWallet backbone *)
+
+transition UpdateInit(
+  addr: ByStr20 with contract field services_: Map String ByStr20, field dns: Map String (Map String ByStr20), field psc_fee: Map String Uint128 end,
+  tyron: Option Uint128
+  )
+  IsOperational; VerifyAdmin tyron; init_ := addr end
+
+transition BuyNFTUsername(
+  username: String,
+  tyron: Option Uint128
+  )
+  IsOperational; VerifyAdmin tyron; init <- init_;
+  get_fee <-& init.psc_fee[domain_]; fee = option_uint128_value get_fee;
+  accept; msg = let m = { _tag: "BuyDomainNameNFT"; _recipient: init; _amount: fee;
+    username: username;
+    domain: domain_ } in one_msg m; send msg end
+
+transition TransferNFTUsername(
+  username: String,
+  newAddr: ByStr20,
+  tyron: Option Uint128
+  )
+  IsOperational; VerifyAdmin tyron; init <- init_;
+  get_fee <-& init.psc_fee[domain_]; fee = option_uint128_value get_fee;
+  accept; msg = let m = { _tag: "TransferDomainNameNFT"; _recipient: init; _amount: fee;
+    username: username;
+    domain: domain_;
+    newAddr: newAddr } in one_msg m; send msg end
+
 (* Receive $ZIL native funds *)
 transition AddFunds()
-  IsOperational; Payment education fixed; accept end
+  IsOperational; accept end
 
 (* Send $ZIL to any recipient that implements the tag, e.g. "AddFunds", "", etc. *)
 transition SendFunds(
   tag: String,
-  beneficiary: Beneficiary
+  beneficiary: ByStr20,
+  tyron: Option Uint128
   )
-  IsOperational; VerifyAdmin; Payment education fixed;
-  match beneficiary with
-  | UserDomain username domain =>
-      init <- init_;
-      get_addr <-& init.dns[domain][username]; addr = option_bystr20_value get_addr;
-      accept; msg = let m = { _tag: tag; _recipient: addr; _amount: _amount } in one_msg m; send msg
-  | BeneficiaryAddr addr =>
-      accept; msg = let m = { _tag: tag; _recipient: addr; _amount: _amount } in one_msg m; send msg end end
-
-procedure FetchServiceAddr( id: String )
-  init <- init_; get_service <-& init.services_[id]; addr = option_bystr20_value get_service; service_addr[id] := addr end
+  IsOperational; VerifyAdmin tyron;
+  accept; msg = let m = { _tag: tag; _recipient: beneficiary; _amount: _amount } in one_msg m; send msg end
 
 transition Transfer(
-  addrName: String,
-  beneficiary: Beneficiary,
-  amount: Uint128
+  tokenAddr: ByStr20,
+  beneficiary: ByStr20,
+  amount: Uint128,
+  tyron: Option Uint128
   ) 
-  IsOperational; VerifyAdmin; Payment education fixed;
-  FetchServiceAddr addrName; get_token_addr <- service_addr[addrName]; token_addr = option_bystr20_value get_token_addr;
-  match beneficiary with
-  | UserDomain username domain =>
-      init <- init_;
-      get_addr <-& init.dns[domain][username]; addr = option_bystr20_value get_addr;
-      accept; msg = let m = { _tag: "Transfer"; _recipient: token_addr; _amount: zero;
-        to: addr;
-        amount: amount } in one_msg m ; send msg
-  | BeneficiaryAddr addr =>
-      accept; msg = let m = { _tag: "Transfer"; _recipient: token_addr; _amount: zero;
-        to: addr;
-        amount: amount } in one_msg m ; send msg end end
+  IsOperational; VerifyAdmin tyron;
+  accept; msg = let m = { _tag: "Transfer"; _recipient: tokenAddr; _amount: zero;
+    to: beneficiary;
+    amount: amount } in one_msg m ; send msg end
 
 transition RecipientAcceptTransfer( sender: ByStr20, recipient: ByStr20, amount: Uint128 ) IsOperational end
 
@@ -580,246 +544,197 @@ transition TransferSuccessCallBack( sender: ByStr20, recipient: ByStr20, amount 
 
 transition TransferFromSuccessCallBack( initiator: ByStr20, sender: ByStr20, recipient: ByStr20, amount: Uint128 ) IsOperational end
 
-(* The xWallet backbone *)
-
-transition UpdateDeadline( amount: Uint128 )
-  IsOperational; VerifyAdmin; Payment update fixed; deadline_block := amount end
+transition UpdateDeadline(
+  blocks: Uint128,
+  tyron: Option Uint128
+  )
+  IsOperational; VerifyAdmin tyron;
+  deadline := blocks end
 
 procedure IncreaseAllowance(
-  addrName: String,
+  tokenAddr: ByStr20,
+  zilswapAddr: ByStr20,
   amount: Uint128
   )
-  FetchServiceAddr addrName; get_addr <- service_addr[addrName]; addr = option_bystr20_value get_addr;
-  FetchServiceAddr zilswap; get_zilswap <- service_addr[zilswap]; zilswap_addr = option_bystr20_value get_zilswap;
-  msg = let m = {
-    _tag: "IncreaseAllowance"; _recipient: addr; _amount: zero;
-    spender: zilswap_addr;
+  msg = let m = { _tag: "IncreaseAllowance"; _recipient: tokenAddr; _amount: zero;
+    spender: zilswapAddr;
     amount: amount } in one_msg m ; send msg end
 
-procedure VerifyCaller(
-  data: Data,
-  signature: Option ByStr64
-  )
-  current_admin <- admin_;
-  is_admin = builtin eq current_admin _sender;
-  match is_admin with
-  | True =>
-  | False =>
-      current_agent <- agent;
-      is_agent = builtin eq current_agent _sender;
-      match is_agent with
-      | True =>
-          match signature with
-          | None => err = CodeNotValid; ThrowError err
-          | Some sig =>
-              match data with
-              | Data id addrName sndAddrName amt sndAmt trdAmt =>
-                  signed_data = let h1 = builtin sha256hash addrName
-                  in let h2 = builtin sha256hash sndAddrName
-                  in let h3 = builtin sha256hash amt
-                  in let h4 = builtin sha256hash sndAmt
-                  in let h5 = builtin sha256hash trdAmt
-                  in let h1_2 = builtin concat h1 h2
-                  in let h1__3 = builtin concat h1_2 h3
-                  in let h1__4 = builtin concat h1__3 h4
-                  in let h1__5 = builtin concat h1__4 h5
-                  in builtin to_bystr h1__5;
-                  VerifySignature xorder signed_data sig end end
-      | False => err = CodeWrongCaller; ThrowError err end end end
-
 transition AddLiquidity(
-  data: Data,
-  signature: Option ByStr64
+  tokenAddr: ByStr20,
+  zilswapAddr: ByStr20,
+  amount: Uint128,
+  tyron: Option Uint128
   )
-  IsOperational; VerifyCaller data signature;
-  match data with
-  | Data id addrName none amt sndAmt none_ =>
-      IncreaseAllowance addrName amt;
-      get_zilswap <- service_addr[zilswap]; zilswap_addr = option_bystr20_value get_zilswap;
-      get_addr <- service_addr[addrName]; addr = option_bystr20_value get_addr;
-      current_block <- &BLOCKNUMBER; deadline <- deadline_block; this_deadline = builtin badd current_block deadline;
-      amount = Some{ Uint128 } amt; Payment zilswap amount;
-      accept; msg = let m = {
-        _tag: "AddLiquidity"; _recipient: zilswap_addr; _amount: _amount;
-        token_address: addr;
-        min_contribution_amount: amt;
-        max_token_amount: sndAmt;
-        deadline_block: this_deadline } in one_msg m ; send msg end end
+  IsOperational; VerifyAdmin tyron;
+  IncreaseAllowance tokenAddr zilswapAddr amount;
+  current_block <- &BLOCKNUMBER; get_deadline <- deadline; this_deadline = builtin badd current_block get_deadline;
+  accept; msg = let m = { _tag: "AddLiquidity"; _recipient: zilswapAddr; _amount: _amount;
+    token_address: tokenAddr;
+    min_contribution_amount: amount;
+    max_token_amount: amount;
+    deadline_block: this_deadline } in one_msg m ; send msg end
 
 transition RemoveLiquidity(
-  data: Data,
-  signature: Option ByStr64
+  tokenAddr: ByStr20,
+  zilswapAddr: ByStr20,
+  amount: Uint128,
+  minZilAmount: Uint128,
+  minTokenAmount: Uint128,
+  tyron: Option Uint128
   )
-  IsOperational; VerifyCaller data signature;
-  match data with
-  | Data id addrName none_ amt sndAmt trdAmt =>
-      FetchServiceAddr zilswap; get_zilswap <- service_addr[zilswap]; zilswap_addr = option_bystr20_value get_zilswap;
-      FetchServiceAddr addrName; get_addr <- service_addr[addrName]; addr = option_bystr20_value get_addr;
-      current_block <- &BLOCKNUMBER; deadline <- deadline_block; this_deadline = builtin badd current_block deadline;
-      amount = Some{ Uint128 } amt; Payment zilswap amount;
-      accept; msg = let m = {
-        _tag: "RemoveLiquidity"; _recipient: zilswap_addr; _amount: _amount;
-        token_address: addr;
-        contribution_amount: amt;
-        min_zil_amount: sndAmt;
-        min_token_amount: trdAmt;
-        deadline_block: this_deadline } in one_msg m ; send msg end end
+  IsOperational; VerifyAdmin tyron;
+  current_block <- &BLOCKNUMBER; get_deadline <- deadline; this_deadline = builtin badd current_block get_deadline;
+  accept; msg = let m = { _tag: "RemoveLiquidity"; _recipient: zilswapAddr; _amount: zero;
+    token_address: tokenAddr;
+    contribution_amount: amount;
+    min_zil_amount: minZilAmount;
+    min_token_amount: minTokenAmount;
+    deadline_block: this_deadline } in one_msg m ; send msg end
 
 transition SwapExactZILForTokens(
-  data: Data,
-  signature: Option ByStr64
+  tokenAddr: ByStr20,
+  zilswapAddr: ByStr20,
+  amount: Uint128,
+  minTokenAmount: Uint128,
+  tyron: Option Uint128
   )
-  IsOperational; VerifyCaller data signature;
-  match data with
-  | Data id addrName none amt sndAmt none_ =>
-    FetchServiceAddr zilswap; get_zilswap <- service_addr[zilswap]; zilswap_addr = option_bystr20_value get_zilswap;
-    FetchServiceAddr addrName; get_addr <- service_addr[addrName]; addr = option_bystr20_value get_addr;
-    current_block <- &BLOCKNUMBER; deadline <- deadline_block; this_deadline = builtin badd current_block deadline;
-    amount = Some{ Uint128 } amt; Payment zilswap amount;
-    accept; msg = let m = {
-      _tag: "SwapExactZILForTokens"; _recipient: zilswap_addr; _amount: amt;
-      token_address: addr;
-      min_token_amount: sndAmt;
-      deadline_block: this_deadline;
-      recipient_address: _this_address } in one_msg m; send msg end end
+  IsOperational; VerifyAdmin tyron;
+  current_block <- &BLOCKNUMBER; get_deadline <- deadline; this_deadline = builtin badd current_block get_deadline;
+  accept; msg = let m = { _tag: "SwapExactZILForTokens"; _recipient: zilswapAddr; _amount: amount;
+    token_address: tokenAddr;
+    min_token_amount: minTokenAmount;
+    deadline_block: this_deadline;
+    recipient_address: _this_address } in one_msg m; send msg end
 
 transition SwapExactTokensForZIL(
-  data: Data,
-  signature: Option ByStr64
+  tokenAddr: ByStr20,
+  zilswapAddr: ByStr20,
+  amount: Uint128,
+  minZilAmount: Uint128,
+  tyron: Option Uint128
   )
-  IsOperational; VerifyCaller data signature; Payment education fixed;
-  match data with
-  | Data id addrName none amt sndAmt none_ =>
-    IncreaseAllowance addrName amt;
-    get_zilswap <- service_addr[zilswap]; zilswap_addr = option_bystr20_value get_zilswap;
-    get_addr <- service_addr[addrName]; addr = option_bystr20_value get_addr;
-    current_block <- &BLOCKNUMBER; deadline <- deadline_block; this_deadline = builtin badd current_block deadline;
-    accept; msg = let m = {
-      _tag: "SwapExactTokensForZIL"; _recipient: zilswap_addr; _amount: zero;
-      token_address: addr;
-      token_amount: amt;
-      min_zil_amount: sndAmt;
-      deadline_block: this_deadline;
-      recipient_address: _this_address } in one_msg m ; send msg end end
+  IsOperational; VerifyAdmin tyron;
+  IncreaseAllowance tokenAddr zilswapAddr amount;
+  current_block <- &BLOCKNUMBER; get_deadline <- deadline; this_deadline = builtin badd current_block get_deadline;
+  accept; msg = let m = { _tag: "SwapExactTokensForZIL"; _recipient: zilswapAddr; _amount: zero;
+    token_address: tokenAddr;
+    token_amount: amount;
+    min_zil_amount: minZilAmount;
+    deadline_block: this_deadline;
+    recipient_address: _this_address } in one_msg m ; send msg end
     
 transition SwapExactTokensForTokens(
-  data: Data,
-  signature: Option ByStr64
+  tokenAddr: ByStr20,
+  zilswapAddr: ByStr20,
+  toTokenAddr: ByStr20,
+  amount: Uint128,
+  minTokenAmount: Uint128,
+  tyron: Option Uint128
   )
-  IsOperational; VerifyCaller data signature; Payment education fixed;
-  match data with
-  | Data id tokenName toTokenName amt sndAmt trdAmt =>
-    IncreaseAllowance tokenName amt;
-    get_zilswap <- service_addr[zilswap]; zilswap_addr = option_bystr20_value get_zilswap;
-    get_addr <- service_addr[tokenName]; addr = option_bystr20_value get_addr;
-    FetchServiceAddr toTokenName; get_sndAddr <- service_addr[toTokenName]; sndAddr = option_bystr20_value get_sndAddr;
-    current_block <- &BLOCKNUMBER; deadline <- deadline_block; this_deadline = builtin badd current_block deadline;
-    accept; msg = let m = {
-      _tag: "SwapExactTokensForTokens"; _recipient: zilswap_addr; _amount: zero;
-      token0_address: addr;
-      token1_address: sndAddr;
-      token0_amount: amt;
-      min_token1_amount: sndAmt;
-      deadline_block: this_deadline;
-      recipient_address: _this_address } in one_msg m ; send msg end end
+  IsOperational; VerifyAdmin tyron;
+  IncreaseAllowance tokenAddr zilswapAddr amount;
+  current_block <- &BLOCKNUMBER; get_deadline <- deadline; this_deadline = builtin badd current_block get_deadline;
+  accept; msg = let m = {
+    _tag: "SwapExactTokensForTokens"; _recipient: zilswapAddr; _amount: zero;
+    token0_address: tokenAddr;
+    token1_address: toTokenAddr;
+    token0_amount: amount;
+    min_token1_amount: minTokenAmount;
+    deadline_block: this_deadline;
+    recipient_address: _this_address } in one_msg m ; send msg end
 
 transition DelegateStake(
-  data: Data,
-  signature: Option ByStr64
+  stakingAddr: ByStr20,
+  ssnaddr: ByStr20,
+  tyron: Option Uint128
   )
-  IsOperational; VerifyCaller data signature;
-  FetchServiceAddr stakezil; get_addr <- service_addr[stakezil]; addr = option_bystr20_value get_addr;
-  match data with
-  | Data id ssnName sndAddrName amt sndAmt trdAmt =>
-      FetchServiceAddr ssnName; get_ssnaddr <- service_addr[ssnName]; ssnaddr = option_bystr20_value get_ssnaddr;
-      amount_ = Some{ Uint128 } amt; Payment stakezil amount_;
-      current_agent <- agent; is_agent = builtin eq current_agent ssnaddr;
-      match is_agent with
-      | True =>
-      | False => Payment id amount_ end;
-      accept; msg = let m = { _tag: "DelegateStake"; _recipient: addr; _amount: amt;
-        ssnaddr: ssnaddr } in one_msg m; send msg end end
+  IsOperational; VerifyAdmin tyron;
+  accept; msg = let m = { _tag: "DelegateStake"; _recipient: stakingAddr; _amount: _amount;
+    ssnaddr: ssnaddr } in one_msg m; send msg end
 
 transition DelegateStakeSuccessCallBack( ssnaddr: ByStr20, amount: Uint128 ) IsOperational end
 
 transition WithdrawStakeRewards(
-  data: Data,
-  signature: Option ByStr64
+  stakingAddr: ByStr20,
+  ssnAddr: ByStr20,
+  tyron: Option Uint128
   )
-  IsOperational; VerifyCaller data signature;
-  FetchServiceAddr stakezil; get_addr <- service_addr[stakezil]; addr = option_bystr20_value get_addr;
-  match data with
-  | Data id ssnName none none_ none__ none___ =>
-      FetchServiceAddr ssnName; get_ssnaddr <- service_addr[ssnName]; ssnaddr = option_bystr20_value get_ssnaddr;
-      Payment education fixed;
-      current_agent <- agent; is_agent = builtin eq current_agent ssnaddr;
-      match is_agent with
-      | True =>
-      | False => Payment id fixed end;
-      accept; msg = let m = { _tag: "WithdrawStakeRewards"; _recipient: addr; _amount: zero;
-        ssnaddr: ssnaddr } in one_msg m; send msg end end
+  IsOperational; VerifyAdmin tyron;
+  accept; msg = let m = { _tag: "WithdrawStakeRewards"; _recipient: stakingAddr; _amount: zero;
+    ssnaddr: ssnAddr } in one_msg m; send msg end
 
 transition WithdrawStakeRewardsSuccessCallBack( ssnaddr: ByStr20, rewards: Uint128 ) IsOperational end  
 
 transition WithdrawStakeAmt(
-  ssnName: String,
-  amount: Uint128
+  stakingAddr: ByStr20,
+  ssnAddr: ByStr20,
+  amount: Uint128,
+  tyron: Option Uint128
   )
-  IsOperational; VerifyAdmin;
-  FetchServiceAddr stakezil; get_addr <- service_addr[stakezil]; addr = option_bystr20_value get_addr;
-  FetchServiceAddr ssnName; get_ssnaddr <- service_addr[ssnName]; ssnaddr = option_bystr20_value get_ssnaddr;
-  amount_ = Some{ Uint128 } amount; Payment stakezil amount_;
-  accept; msg = let m = { _tag: "WithdrawStakeAmt"; _recipient: addr; _amount: zero;
-    ssnaddr: ssnaddr;
+  IsOperational; VerifyAdmin tyron;
+  accept; msg = let m = { _tag: "WithdrawStakeAmt"; _recipient: stakingAddr; _amount: zero;
+    ssnaddr: ssnAddr;
     amt: amount } in one_msg m; send msg end
 
 transition WithdrawStakeAmtSuccessCallBack( ssnaddr: ByStr20, amount: Uint128 ) IsOperational end
 
-transition CompleteWithdrawal()
-  IsOperational; VerifyAdmin; Payment education fixed;
-  FetchServiceAddr stakezil; get_addr <- service_addr[stakezil]; addr = option_bystr20_value get_addr;
-  accept; msg = let m = { _tag: "CompleteWithdrawal"; _recipient: addr; _amount: zero } in one_msg m; send msg end
+transition CompleteWithdrawal(
+  stakingAddr: ByStr20,
+  tyron: Option Uint128
+  )
+  IsOperational; VerifyAdmin tyron;
+  accept; msg = let m = { _tag: "CompleteWithdrawal"; _recipient: stakingAddr; _amount: zero } in one_msg m; send msg end
 
 transition CompleteWithdrawalNoUnbondedStakeCallBack( amount: Uint128 ) IsOperational end
 
 transition CompleteWithdrawalSuccessCallBack( amount: Uint128 ) IsOperational end
 
 transition ReDelegateStake(
-  ssnName: String,
-  toSsnName: String,
-  amount: Uint128
+  stakingAddr: ByStr20,
+  ssnAddr: ByStr20,
+  toSsnAddr: ByStr20,
+  amount: Uint128,
+  tyron: Option Uint128
   )
-  IsOperational; VerifyAdmin;
-  FetchServiceAddr stakezil; get_addr <- service_addr[stakezil]; addr = option_bystr20_value get_addr;
-  FetchServiceAddr ssnName; get_ssnaddr <- service_addr[ssnName]; ssnaddr = option_bystr20_value get_ssnaddr;
-  FetchServiceAddr toSsnName; get_to_ssnaddr <- service_addr[toSsnName]; to_ssnaddr = option_bystr20_value get_to_ssnaddr;
-  amount_ = Some{ Uint128 } amount; Payment stakezil amount_;
-  accept; msg = let m = { _tag: "ReDelegateStake"; _recipient: addr; _amount: zero;
-    ssnaddr: ssnaddr;
-    to_ssn: to_ssnaddr;
+  IsOperational; VerifyAdmin tyron;
+  accept; msg = let m = { _tag: "ReDelegateStake"; _recipient: stakingAddr; _amount: zero;
+    ssnaddr: ssnAddr;
+    to_ssn: toSsnAddr;
     amount: amount } in one_msg m; send msg end
 
 transition ReDelegateStakeSuccessCallBack( ssnaddr: ByStr20, tossn: ByStr20, amount: Uint128 ) IsOperational end
 
-transition RequestDelegatorSwap( newAddr: ByStr20 )
-  IsOperational; VerifyAdmin; Payment update fixed;
-  FetchServiceAddr stakezil; get_addr <- service_addr[stakezil]; addr = option_bystr20_value get_addr;
-  accept; msg = let m = { _tag: "RequestDelegatorSwap"; _recipient: addr; _amount: zero;
+transition RequestDelegatorSwap( 
+  stakingAddr: ByStr20,
+  newAddr: ByStr20,
+  tyron: Option Uint128
+  )
+  IsOperational; VerifyAdmin tyron;
+  accept; msg = let m = { _tag: "RequestDelegatorSwap"; _recipient: stakingAddr; _amount: zero;
     new_deleg_addr: newAddr } in one_msg m; send msg end
 
-transition ConfirmDelegatorSwap( requestor: ByStr20 )
-  IsOperational; VerifyAdmin; Payment education fixed;
-  FetchServiceAddr stakezil; get_addr <- service_addr[stakezil]; addr = option_bystr20_value get_addr;
-  accept; msg = let m = { _tag: "ConfirmDelegatorSwap"; _recipient: addr; _amount: zero;
+transition ConfirmDelegatorSwap(
+  stakingAddr: ByStr20,
+  requestor: ByStr20,
+  tyron: Option Uint128
+  )
+  IsOperational; VerifyAdmin tyron;
+  accept; msg = let m = { _tag: "ConfirmDelegatorSwap"; _recipient: stakingAddr; _amount: zero;
     requestor: requestor } in one_msg m; send msg end
 
-transition RevokeDelegatorSwap()
-  IsOperational; VerifyAdmin; Payment education fixed;
-  FetchServiceAddr stakezil; get_addr <- service_addr[stakezil]; addr = option_bystr20_value get_addr;
-  accept; msg = let m = { _tag: "RevokeDelegatorSwap"; _recipient: addr; _amount: zero } in one_msg m; send msg end
+transition RevokeDelegatorSwap(
+  stakingAddr: ByStr20,
+  tyron: Option Uint128
+  )
+  IsOperational; VerifyAdmin tyron;
+  accept; msg = let m = { _tag: "RevokeDelegatorSwap"; _recipient: stakingAddr; _amount: zero } in one_msg m; send msg end
 
-transition RejectDelegatorSwap( requestor: ByStr20 )
-  IsOperational; VerifyAdmin; Payment education fixed;
-  FetchServiceAddr stakezil; get_addr <- service_addr[stakezil]; addr = option_bystr20_value get_addr;
-  accept; msg = let m = { _tag: "RejectDelegatorSwap"; _recipient: addr; _amount: zero;
+transition RejectDelegatorSwap( 
+  stakingAddr: ByStr20,
+  requestor: ByStr20,
+  tyron: Option Uint128
+  )
+  IsOperational; VerifyAdmin tyron;
+  accept; msg = let m = { _tag: "RejectDelegatorSwap"; _recipient: stakingAddr; _amount: zero;
     requestor: requestor } in one_msg m; send msg end

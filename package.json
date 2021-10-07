@@ -45,7 +45,7 @@
     "node-fetch": "^2.6.1",
     "readline-sync": "^1.4.10",
     "tslib": "^2.1.0",
-    "tyron": "^3.12.6",
+    "tyron": "^3.13.2",
     "yargs": "^15.4.0"
   },
   "devDependencies": {

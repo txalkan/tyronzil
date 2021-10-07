@@ -24,7 +24,7 @@ import SmartUtil from '../lib/smart-util';
  * @TODO: configure globally
  */
 export enum InitTyron {
-    Testnet = "0x43a7da2adfb4121f15165b5b308d8d409fb29cf3",
+    Testnet = "0x25a7bb9d8b2a82ba073a3ceb3b24b04fb0a39260",
     Mainnet = "",
     Isolated = ""
 }
@@ -84,7 +84,7 @@ export default class tyronzilCLI {
         return addr        
     }
 
-    /** Handle the deployment of a tyron smart contract */
+    /** Handle the deployment of DIDxWallets, NFT Coops and init.tyron smart contracts */
     public static async handleDeploy(): Promise<void> {
         await this.network()
         .then( async set_network => {
