@@ -1,6 +1,6 @@
 {
   "name": "ssiclient",
-  "version": "3.4.0",
+  "version": "3.5.0",
   "description": "SSI Protocol's client for Node.js",
   "main": "dist/bin/index.js",
   "bin": {
