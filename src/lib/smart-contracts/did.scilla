@@ -1,5 +1,5 @@
-(* v3.0.0
-xwallet.tyron: decentralized identifier smart contract wallet (DIDxWallet)
+(* v3.1.0
+did.tyron: W3C decentralized identifier smart contract
 Tyron Self-Sovereign Identity Protocol
 Copyright (C) Tyron Pungtas and its affiliates.
 www.ssiprotocol.com
@@ -11,8 +11,8 @@ the Free Software Foundation, either version 3 of the License, or
 
 This program is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.*)
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+See the GNU General Public License for more details.*)
 
 scilla_version 0
 
@@ -107,14 +107,8 @@ library DID
   let option_bystr20_value = let f = @option_value ByStr20 in f zeroByStr20
   let option_bystr33_value = let f = @option_value ByStr33 in f zeroByStr33
   let option_bystr64_value = let f = @option_value ByStr64 in f zeroByStr64
-  
-  (* xWallet library *)
-  let domain_ = "did"
 
-contract DIDxWallet(
-  init_controller: ByStr20,
-  init_tyron: ByStr20 with contract field services_: Map String ByStr20, field dns: Map String (Map String ByStr20), field psc_fee: Map String Uint128 end
-  )
+contract DID( init_controller: ByStr20 )
   field did: String = ""    (* the W3C decentralized identifier *)
   field controller: ByStr20 = init_controller
   field did_status: DIDStatus = Deployed
@@ -140,12 +134,6 @@ contract DIDxWallet(
   
   (* A monotonically increasing number representing the amount of DID CRUD transactions that have taken place *)
   field crud_tx_number: Uint128 = zero
-  
-  field deadline: Uint128 = Uint128 21   (* approx. 15 minutes *)
-
-  field init: ByStr20 with contract field services_: Map String ByStr20, field dns: Map String (Map String ByStr20), field psc_fee: Map String Uint128 end = init_tyron
-  
-(* DID backbone *)
 
 procedure SupportTyron( tyron: Option Uint128 )
   match tyron with
@@ -501,165 +489,3 @@ transition DidDeactivate(
   VerifyDocument didRecovery document signature;
   verification_methods := empty_methods; services := empty_services; services_ := empty_services_;
   new_status = Deactivated; did_status := new_status; Timestamp end
-
-(* xWallet backbone *)
-
-transition UpdateInit(
-  addr: ByStr20 with contract field services_: Map String ByStr20, field dns: Map String (Map String ByStr20), field psc_fee: Map String Uint128 end,
-  tyron: Option Uint128
-  )
-  IsOperational; VerifyController tyron; init := addr end
-
-transition BuyNFTUsername(
-  username: String,
-  tyron: Option Uint128
-  )
-  IsOperational; VerifyController tyron; current_init <- init;
-  get_fee <-& current_init.psc_fee[domain_]; fee = option_uint128_value get_fee;
-  accept; msg = let m = { _tag: "BuyDomainNameNFT"; _recipient: current_init; _amount: fee;
-    username: username;
-    domain: domain_ } in one_msg m; send msg end
-
-transition TransferNFTUsername(
-  username: String,
-  newAddr: ByStr20,
-  tyron: Option Uint128
-  )
-  IsOperational; VerifyController tyron; current_init <- init;
-  get_fee <-& current_init.psc_fee[domain_]; fee = option_uint128_value get_fee;
-  accept; msg = let m = { _tag: "TransferDomainNameNFT"; _recipient: current_init; _amount: fee;
-    username: username;
-    domain: domain_;
-    newAddr: newAddr } in one_msg m; send msg end
-
-(* Receive $ZIL native funds *)
-transition AddFunds()
-  IsOperational; accept end
-
-(* Send $ZIL to any recipient that implements the tag, e.g. "AddFunds", "", etc. *)
-transition SendFunds(
-  tag: String,
-  beneficiary: ByStr20,
-  tyron: Option Uint128
-  )
-  IsOperational; VerifyController tyron;
-  accept; msg = let m = { _tag: tag; _recipient: beneficiary; _amount: _amount } in one_msg m; send msg end
-
-transition Transfer(
-  tokenAddr: ByStr20,
-  beneficiary: ByStr20,
-  amount: Uint128,
-  tyron: Option Uint128
-  ) 
-  IsOperational; VerifyController tyron;
-  accept; msg = let m = { _tag: "Transfer"; _recipient: tokenAddr; _amount: zero;
-    to: beneficiary;
-    amount: amount } in one_msg m ; send msg end
-
-transition RecipientAcceptTransfer( sender: ByStr20, recipient: ByStr20, amount: Uint128 ) IsOperational end
-
-transition RecipientAcceptTransferFrom( initiator: ByStr20, sender: ByStr20, recipient: ByStr20, amount: Uint128 ) IsOperational end
-
-transition TransferSuccessCallBack( sender: ByStr20, recipient: ByStr20, amount : Uint128 ) IsOperational end
-
-transition TransferFromSuccessCallBack( initiator: ByStr20, sender: ByStr20, recipient: ByStr20, amount: Uint128 ) IsOperational end
-
-transition UpdateDeadline(
-  blocks: Uint128,
-  tyron: Option Uint128
-  )
-  IsOperational; VerifyController tyron;
-  deadline := blocks end
-
-procedure IncreaseAllowance(
-  tokenAddr: ByStr20,
-  zilswapAddr: ByStr20,
-  amount: Uint128
-  )
-  msg = let m = { _tag: "IncreaseAllowance"; _recipient: tokenAddr; _amount: zero;
-    spender: zilswapAddr;
-    amount: amount } in one_msg m ; send msg end
-
-transition AddLiquidity(
-  tokenAddr: ByStr20,
-  zilswapAddr: ByStr20,
-  amount: Uint128,
-  tyron: Option Uint128
-  )
-  IsOperational; VerifyController tyron;
-  IncreaseAllowance tokenAddr zilswapAddr amount;
-  current_block <- &BLOCKNUMBER; get_deadline <- deadline; this_deadline = builtin badd current_block get_deadline;
-  accept; msg = let m = { _tag: "AddLiquidity"; _recipient: zilswapAddr; _amount: _amount;
-    token_address: tokenAddr;
-    min_contribution_amount: amount;
-    max_token_amount: amount;
-    deadline_block: this_deadline } in one_msg m ; send msg end
-
-transition RemoveLiquidity(
-  tokenAddr: ByStr20,
-  zilswapAddr: ByStr20,
-  amount: Uint128,
-  minZilAmount: Uint128,
-  minTokenAmount: Uint128,
-  tyron: Option Uint128
-  )
-  IsOperational; VerifyController tyron;
-  current_block <- &BLOCKNUMBER; get_deadline <- deadline; this_deadline = builtin badd current_block get_deadline;
-  accept; msg = let m = { _tag: "RemoveLiquidity"; _recipient: zilswapAddr; _amount: zero;
-    token_address: tokenAddr;
-    contribution_amount: amount;
-    min_zil_amount: minZilAmount;
-    min_token_amount: minTokenAmount;
-    deadline_block: this_deadline } in one_msg m ; send msg end
-
-transition SwapExactZILForTokens(
-  tokenAddr: ByStr20,
-  zilswapAddr: ByStr20,
-  amount: Uint128,
-  minTokenAmount: Uint128,
-  tyron: Option Uint128
-  )
-  IsOperational; VerifyController tyron;
-  current_block <- &BLOCKNUMBER; get_deadline <- deadline; this_deadline = builtin badd current_block get_deadline;
-  accept; msg = let m = { _tag: "SwapExactZILForTokens"; _recipient: zilswapAddr; _amount: amount;
-    token_address: tokenAddr;
-    min_token_amount: minTokenAmount;
-    deadline_block: this_deadline;
-    recipient_address: _this_address } in one_msg m; send msg end
-
-transition SwapExactTokensForZIL(
-  tokenAddr: ByStr20,
-  zilswapAddr: ByStr20,
-  amount: Uint128,
-  minZilAmount: Uint128,
-  tyron: Option Uint128
-  )
-  IsOperational; VerifyController tyron;
-  IncreaseAllowance tokenAddr zilswapAddr amount;
-  current_block <- &BLOCKNUMBER; get_deadline <- deadline; this_deadline = builtin badd current_block get_deadline;
-  accept; msg = let m = { _tag: "SwapExactTokensForZIL"; _recipient: zilswapAddr; _amount: zero;
-    token_address: tokenAddr;
-    token_amount: amount;
-    min_zil_amount: minZilAmount;
-    deadline_block: this_deadline;
-    recipient_address: _this_address } in one_msg m ; send msg end
-    
-transition SwapExactTokensForTokens(
-  tokenAddr: ByStr20,
-  zilswapAddr: ByStr20,
-  toTokenAddr: ByStr20,
-  amount: Uint128,
-  minTokenAmount: Uint128,
-  tyron: Option Uint128
-  )
-  IsOperational; VerifyController tyron;
-  IncreaseAllowance tokenAddr zilswapAddr amount;
-  current_block <- &BLOCKNUMBER; get_deadline <- deadline; this_deadline = builtin badd current_block get_deadline;
-  accept; msg = let m = {
-    _tag: "SwapExactTokensForTokens"; _recipient: zilswapAddr; _amount: zero;
-    token0_address: tokenAddr;
-    token1_address: toTokenAddr;
-    token0_amount: amount;
-    min_token1_amount: minTokenAmount;
-    deadline_block: this_deadline;
-    recipient_address: _this_address } in one_msg m ; send msg end

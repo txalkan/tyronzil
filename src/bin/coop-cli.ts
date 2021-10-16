@@ -16,7 +16,7 @@ GNU General Public License for more details.*/
 import * as tyron from 'tyron'
 import LogColors from './log-colors';
 import * as readline from 'readline-sync';
-import tyronzilCLI, { admin_zil_secret_key } from './tyronzil-cli';
+import tyronzilCLI, { controller_secret_key } from './tyronzil-cli';
 
 /** Handle the tyronzil command-line interface */
 export default class coopCLI {
@@ -27,7 +27,7 @@ export default class coopCLI {
         console.log(LogColors.yellow(`Initializing tyronzil...`));
         await tyron.TyronZil.default.initialize(
             set_network.network,
-            admin_zil_secret_key,
+            controller_secret_key,
             10000,
             set_network.initTyron
         )
@@ -63,7 +63,7 @@ export default class coopCLI {
         console.log(LogColors.yellow(`Initializing tyronzil...`));
         await tyron.TyronZil.default.initialize(
             set_network.network,
-            admin_zil_secret_key,
+            controller_secret_key,
             10000,
             set_network.initTyron
         )

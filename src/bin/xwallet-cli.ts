@@ -16,7 +16,7 @@ GNU General Public License for more details.*/
 import * as tyron from 'tyron';
 import LogColors from './log-colors';
 import * as readline from 'readline-sync';
-import tyronzilCLI, { admin_zil_secret_key } from './tyronzil-cli';
+import tyronzilCLI, { controller_secret_key } from './tyronzil-cli';
 import * as zcrypto from '@zilliqa-js/crypto';
 
 /** Handle the xWallet command-line interface */
@@ -30,7 +30,7 @@ export default class xWalletCLI {
         console.log(LogColors.yellow(`Executing tyronzil...`));
         await tyron.TyronZil.default.initialize(
             set_network.network,
-            admin_zil_secret_key,
+            controller_secret_key,
             10000,
             set_network.initTyron
         )
@@ -52,7 +52,7 @@ export default class xWalletCLI {
             console.log(LogColors.yellow(`Executing tyronzil...`));
             const initialized = await tyron.TyronZil.default.initialize(
                 set_network.network,
-                admin_zil_secret_key,
+                controller_secret_key,
                 10000,
                 set_network.initTyron
             );
@@ -73,7 +73,7 @@ export default class xWalletCLI {
         console.log(LogColors.yellow(`Executing tyronzil...`));
         await tyron.TyronZil.default.initialize(
             set_network.network,
-            admin_zil_secret_key,
+            controller_secret_key,
             10000,
             set_network.initTyron
         )
@@ -95,7 +95,7 @@ export default class xWalletCLI {
             console.log(LogColors.yellow(`Executing tyronzil...`));
             const init = await tyron.TyronZil.default.initialize(
                 set_network.network,
-                admin_zil_secret_key,
+                controller_secret_key,
                 10000,
                 set_network.initTyron
             );
@@ -117,7 +117,7 @@ export default class xWalletCLI {
             console.log(LogColors.yellow(`Executing tyronzil...`));
             const init = await tyron.TyronZil.default.initialize(
                 set_network.network,
-                admin_zil_secret_key,
+                controller_secret_key,
                 10000,
                 set_network.initTyron
             );
@@ -148,7 +148,7 @@ export default class xWalletCLI {
             console.log(LogColors.yellow(`Executing tyronzil...`));
             const init = await tyron.TyronZil.default.initialize(
                 set_network.network,
-                admin_zil_secret_key,
+                controller_secret_key,
                 50000,
                 set_network.initTyron
             );
@@ -161,22 +161,22 @@ export default class xWalletCLI {
         .catch((err: unknown) => console.error(LogColors.red(err)))            
     }
 
-    public static async handleUpdateAdmin(): Promise<void> {
+    public static async handleUpdateController(): Promise<void> {
         const set_network = await tyronzilCLI.network();
         
         console.log(LogColors.yellow(`Executing tyronzil...`));
         await tyron.TyronZil.default.initialize(
             set_network.network,
-            admin_zil_secret_key,
+            controller_secret_key,
             10000,
             set_network.initTyron
         )
         .then(async (init: any) => {
             const addr = readline.question(LogColors.green(`What's the address of your tyron smart contract?`)+ ` [Base16 address] `+ LogColors.lightBlue(`Your answer: `));
-            const addr1 = readline.question(LogColors.green(`What's your new admin address?`)+ ` [Base16 address] `+ LogColors.lightBlue(`Your answer: `));
+            const addr1 = readline.question(LogColors.green(`What's your new controller address?`)+ ` [Base16 address] `+ LogColors.lightBlue(`Your answer: `));
             
             const tx_params = await tyron.TyronZil.default.TxAddr(addr1);
-            const tx = await tyron.TyronZil.default.submit(tyron.TyronZil.TransitionTag.UpdateAdmin, init, addr, "0", tx_params);
+            const tx = await tyron.TyronZil.default.submit(tyron.TyronZil.TransitionTag.UpdateController, init, addr, "0", tx_params);
             console.log(tx);
         })
         .catch((err: unknown) => console.error(LogColors.red(err)))            

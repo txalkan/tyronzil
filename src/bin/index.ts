@@ -89,8 +89,8 @@ yargs
 	.command('updateinit', ' -> update address of init.tyron', async() => {
 		await xWalletCLI.handleUpdateInit();
 	})
-	.command('updateadmin', ' -> update address of the admin of the contract', async() => {
-		await xWalletCLI.handleUpdateAdmin();
+	.command('updatecontroller', ' -> update address of the DID controller', async() => {
+		await xWalletCLI.handleUpdateController();
 	})
 	.command('nfttransfer', ' -> transfer NFT coop membership', async() => {
 		await coopCLI.handleNFTTransfer();

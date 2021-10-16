@@ -16,7 +16,7 @@ GNU General Public License for more details.*/
 import * as tyron from 'tyron';
 import LogColors from './log-colors';
 import * as readline from 'readline-sync';
-import tyronzilCLI, { admin_zil_secret_key } from './tyronzil-cli';
+import tyronzilCLI, { controller_secret_key } from './tyronzil-cli';
 import SmartUtil from '../lib/smart-util';
 import TyronZIL, { DeployedContract } from 'tyron/dist/blockchain/tyronzil';
 //import * as zcrypto from '@zilliqa-js/crypto';
@@ -42,7 +42,7 @@ export default class pstCLI {
             ];
             const init = await tyron.TyronZil.default.initialize(
                 set_network.network,
-                admin_zil_secret_key,
+                controller_secret_key,
                 50000,
                 set_network.initTyron
             );
@@ -70,14 +70,14 @@ export default class pstCLI {
                 value: '0',
             },
             {
-                vname: 'init_admin',
+                vname: 'init_controller',
                 type: 'ByStr20',
-                value: `${tyronzil.admin}`,
+                value: `${tyronzil.controller}`,
             },
             {
                 vname: 'init_fund',
                 type: 'ByStr20',
-                value: `${tyronzil.admin}`,
+                value: `${tyronzil.controller}`,
             },
             {
                 vname: 'name',
@@ -112,9 +112,9 @@ export default class pstCLI {
         ];
         const smart_contract = tyronzil.API.contracts.new(contractCode, contract_init);
         
-        tyronzil.API.wallet.addByPrivateKey(tyronzil.adminZilSecretKey);
+        tyronzil.API.wallet.addByPrivateKey(tyronzil.controllerSecretKey);
         
-        const deployed_contract = await tyronzil.API.blockchain.getBalance(tyronzil.admin)
+        const deployed_contract = await tyronzil.API.blockchain.getBalance(tyronzil.controller)
         .then( async account => {
             let gas_limit: zutil.Long.Long = new zutil.Long(50000);
             const [deployTx, contract] = await smart_contract.deploy(

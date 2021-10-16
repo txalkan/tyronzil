@@ -14,6 +14,7 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.*/
 
 import * as tyron from 'tyron';
+import * as zcrypto from '@zilliqa-js/crypto';
 import * as fs from 'fs';
 import Util from './util';
 import LogColors from './log-colors';
@@ -21,7 +22,7 @@ import * as readline from 'readline-sync';
 import SmartUtil from '../lib/smart-util';
 
 /** Address of the init.tyron smart contract
- * @TODO: configure globally
+ * @TODO: configure globally, environment variable?
  */
 export enum InitTyron {
     Testnet = "0x25a7bb9d8b2a82ba073a3ceb3b24b04fb0a39260",
@@ -29,7 +30,7 @@ export enum InitTyron {
     Isolated = ""
 }
 
-export const admin_zil_secret_key = '8cefad33c6b2eafe6456e80cd69fda3fcd23b5c4a6719275340f340a9259c26a';
+export const controller_secret_key = '8cefad33c6b2eafe6456e80cd69fda3fcd23b5c4a6719275340f340a9259c26a';
 
 /** Handle the tyronzil command-line interface */
 export default class tyronzilCLI {
@@ -78,10 +79,16 @@ export default class tyronzilCLI {
     }
 
     public static async fetchAddr(set_network: { network: tyron.DidScheme.NetworkNamespace, initTyron: InitTyron }): Promise<string> {
-        const userDomain = readline.question(LogColors.green(`What is the domain name?`) + ` [e.g. uriel.did] ` + LogColors.lightBlue(`Your answer: `));
-        const resolve = userDomain.split(".");
-        const addr = await tyron.Resolver.default.resolveDns(set_network.network, set_network.initTyron, resolve[0], resolve[1]);
-        return addr        
+        const choice = readline.question(LogColors.green(`Would you like to access your SSI wallet by NFT username(1) or with its address(2?`) + ` [1/2] - Defaults to NFT Username. ` + LogColors.lightBlue(`Your answer: `));
+        switch( choice ){  
+            case '2':
+                return zcrypto.toChecksumAddress(choice)
+            default:
+                const userDomain = readline.question(LogColors.green(`What is NFT Username?`) + ` [e.g. tralcan.did] ` + LogColors.lightBlue(`Your answer: `));
+                const resolve = userDomain.split(".");
+                const addr = await tyron.Resolver.default.resolveDns(set_network.network, set_network.initTyron, resolve[0], resolve[1]);
+                return addr
+        }        
     }
 
     /** Handle the deployment of DIDxWallets, NFT Coops and init.tyron smart contracts */
@@ -90,17 +97,49 @@ export default class tyronzilCLI {
         .then( async set_network => {
             const init = await tyron.TyronZil.default.initialize(
                 set_network.network,
-                admin_zil_secret_key,
+                controller_secret_key,
                 50000,
                 set_network.initTyron
             );
-            const tyron_ = readline.question(LogColors.green(`What tyron smart contract would you like to deploy?`)+` [init, coop, xwallet] ` + LogColors.lightBlue(`Your answer: `));
+            const tyron_ = readline.question(LogColors.green(`What tyron smart contract would you like to deploy?`)+` [did, xwallet, init or coop] ` + LogColors.lightBlue(`Your answer: `));
             const version = readline.question(LogColors.green(`What version of the smart contract would you like to deploy?`)+` [number] ` + LogColors.lightBlue(`Your answer: `));
             const contract_code = await SmartUtil.decode(init, set_network.initTyron, tyron_, version);
-            
+            const contract_init = [
+                {
+                    vname: '_scilla_version',
+                    type: 'Uint32',
+                    value: '0',
+                },
+            ];
+            switch ( tyron_ ) {
+                case 'did' || 'init':
+                    contract_init.push(
+                        {
+                            vname: 'init_controller',
+                            type: 'ByStr20',
+                            value: `${init.controller}`,
+                        },
+                    )
+                    break;
+                case 'xwallet' || 'coop':
+                    contract_init.push(
+                        {
+                            vname: 'init_controller',
+                            type: 'ByStr20',
+                            value: `${init.controller}`,
+                        },
+                        {
+                            vname: 'init_tyron',
+                            type: 'ByStr20',
+                            value: `${init.init_tyron}`,
+                        }
+                    )
+                    break;
+            }
+
             // Deploy smart contract
             console.log(LogColors.yellow(`Deploying...`));
-            const deployed_contract = await tyron.TyronZil.default.deploy(init, contract_code);
+            const deployed_contract = await tyron.TyronZil.default.deploy(contract_init, init, contract_code);
             const addr = deployed_contract.contract.address!;
             console.log(LogColors.green(`The smart contract's address is: `) + LogColors.brightGreen(addr));
         })
@@ -115,7 +154,7 @@ export default class tyronzilCLI {
     
             const init = await tyron.TyronZil.default.initialize(
                 set_network.network,
-                admin_zil_secret_key,
+                controller_secret_key,
                 50000,
                 set_network.initTyron
             );
@@ -221,7 +260,7 @@ export default class tyronzilCLI {
             console.log(LogColors.yellow(`Executing tyronzil...`));
             const initialized = await tyron.TyronZil.default.initialize(
                 set_network.network,
-                admin_zil_secret_key,
+                controller_secret_key,
                 10000,
                 set_network.initTyron
             );
@@ -315,7 +354,7 @@ export default class tyronzilCLI {
             console.log(LogColors.yellow(`Executing tyronzil...`));
             const initialized = await tyron.TyronZil.default.initialize(
                 set_network.network,
-                admin_zil_secret_key,
+                controller_secret_key,
                 10000,
                 set_network.initTyron
             );
@@ -354,7 +393,7 @@ export default class tyronzilCLI {
             console.log(LogColors.yellow(`Executing tyronzil...`));
             const initialized = await tyron.TyronZil.default.initialize(
                 set_network.network,
-                admin_zil_secret_key,
+                controller_secret_key,
                 10000,
                 set_network.initTyron
             );
