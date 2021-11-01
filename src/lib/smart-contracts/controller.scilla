@@ -1,0 +1,40 @@
+(*
+Self-Sovereign Identity Protocol.
+Copyright (C) Tyron Pungtas and its affiliates.
+www.ssiprotocol.com
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.*)
+
+scilla_version 0
+
+contract Controller(
+  init_controller: ByStr20
+  )
+  field did: String = ""    (* the W3C decentralized identifier *)
+  field controller: ByStr20 = init_controller
+  
+  (* Verification methods @key: key purpose @value: public DID key *)
+  field verification_methods: Map String ByStr33 = Emp String ByStr33
+  
+  (* Services @key: ID @value: endpoint *)
+  field services: Map String ByStr20 = Emp String ByStr20
+  
+  (* The block number when the DID Create operation occurred *)
+  field did_created: BNum = BNum 0
+  
+  (* The block number when the last DID CRUD operation occurred *)  
+  field ledger_time: BNum = BNum 0
+   
+  field dns: Map String ByStr20 = Emp String ByStr20
+  
+  field paused: Bool = False
+
+  field utility: Map String Uint128 = let emp = Emp String Uint128 in let did = "did" in let fee = Uint128 10000000000000 in builtin put emp did fee

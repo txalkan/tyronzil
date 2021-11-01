@@ -95,44 +95,73 @@ export default class Util {
         }
         for(let i=0, t= Number(amount); i<t; ++i) {
             const id = readline.question(LogColors.green(`What is the service ID? - `) + LogColors.lightBlue(`Your answer: `));
-            const type = readline.question(LogColors.green(`What is the service type? - `) + ` - Defaults to 'website' - ` + LogColors.lightBlue(`Your answer: `));
-            const data_transfer_ = readline.question(LogColors.green(`What is the data transfer protocol? https(1) or git(2)`) + ` - [1/2] - ` + LogColors.lightBlue(`Your answer: `));
-            let data_transfer;
-            switch (Number(data_transfer_)) {
-                case 1:
-                    data_transfer = tyron.DocumentModel.TransferProtocol.Https;
-                    break;
-                case 2:
-                    data_transfer = tyron.DocumentModel.TransferProtocol.Git;
-                    break;
-                default:
-                    throw new tyron.ErrorCode.default("InvalidInput", `That input in not allowed`);
+            if (id === "") {
+                throw new tyron.ErrorCode.default("Invalid parameter", "To register a DID service, you must provide its ID.");
             }
-            const endpoint = readline.question(LogColors.green(`What is the service URI?`) + ` - [www.yourwebsite.com] - ` + LogColors.lightBlue(`Your answer: `));
-            if (id === "" || endpoint === "") {
-                throw new tyron.ErrorCode.default("Invalid parameter", "To register a service-endpoint you must provide its ID, type and URL");
-            }
+            const type = readline.question(LogColors.green(`What is the service type? - `) + ` - website[1] or address [2]' - ` + LogColors.lightBlue(`Your answer: `));
             let TYPE;
-            if(type !== "") {
-                TYPE = type;
-            } else {
-                TYPE = "website"
+            let data_transfer;
+            switch (type) {
+                case '1':
+                    TYPE = "website";
+                    const data_transfer_ = readline.question(LogColors.green(`What is the data transfer protocol? https(1) or git(2)`) + ` - [1/2] - ` + LogColors.lightBlue(`Your answer: `));
+                    switch (Number(data_transfer_)) {
+                        case 1:
+                            data_transfer = tyron.DocumentModel.TransferProtocol.Https;
+                            break;
+                        case 2:
+                            data_transfer = tyron.DocumentModel.TransferProtocol.Git;
+                            break;
+                        default:
+                            throw new tyron.ErrorCode.default("InvalidInput", `That input in not allowed`);
+                    }
+                    const uri = readline.question(LogColors.green(`What is the service URI?`) + ` - [yourwebsite.com] - ` + LogColors.lightBlue(`Your answer: `));
+                    if (uri === "") {
+                        throw new tyron.ErrorCode.default("Invalid parameter", "To register this DID service, you must provide its URI.");
+                    }
+                    // IDs MUST be unique
+                    if(!SERVICE_ID_SET.has(id)) {
+                        SERVICE_ID_SET.add(id);
+                        const service: tyron.DocumentModel.ServiceModel = {
+                            id: id,
+                            endpoint: tyron.DocumentModel.ServiceEndpoint.Web2Endpoint,
+                            type: TYPE,
+                            transferProtocol: data_transfer,
+                            uri: uri
+                        };
+                        SERVICES.push(service);
+                    } else {            
+                        throw new tyron.ErrorCode.default("CodeDocumentServiceIdDuplicated", "The service IDs MUST NOT be duplicated" );
+                    }
+                    break;
+                case '2':
+                    let address = readline.question(LogColors.green(`What is the service URI?`) + ` - [yourwebsite.com] - ` + LogColors.lightBlue(`Your answer: `));
+                    if( address === "" ){
+                        throw new tyron.ErrorCode.default("Invalid parameter", "To register this DID service, you must provide its address.");
+                    }
+                    try {
+                        address = zcrypto.toChecksumAddress(address);
+                    } catch (error) {
+                        throw error
+                    }
+                    // IDs MUST be unique
+                    if(!SERVICE_ID_SET.has(id)) {
+                        SERVICE_ID_SET.add(id);
+                        const service: tyron.DocumentModel.ServiceModel = {
+                            id: id,
+                            endpoint: tyron.DocumentModel.ServiceEndpoint.Web3Endpoint,
+                            address: address
+                        };
+                        SERVICES.push(service);
+                    } else {            
+                        throw new tyron.ErrorCode.default("CodeDocumentServiceIdDuplicated", "The service IDs MUST NOT be duplicated" );
+                    }
+                    break;
             }
+            
+            
 
-            // IDs MUST be unique
-            if(!SERVICE_ID_SET.has(id)) {
-                SERVICE_ID_SET.add(id);
-                const service: tyron.DocumentModel.ServiceModel = {
-                    id: id,
-                    endpoint: tyron.DocumentModel.ServiceEndpoint.Web2Endpoint,
-                    type: TYPE,
-                    transferProtocol: data_transfer,
-                    uri: endpoint
-                };
-                SERVICES.push(service);
-            } else {            
-                throw new tyron.ErrorCode.default("CodeDocumentServiceIdDuplicated", "The service IDs MUST NOT be duplicated" );
-            }
+            
         }
         return SERVICES;
     }

@@ -56,35 +56,4 @@ export default class coopCLI {
         })
         .catch((err: unknown) => console.error(LogColors.red(err)))            
     }
-
-    public static async handleNFTTransfer(): Promise<void> {
-        const set_network = await tyronzilCLI.network();
-        
-        console.log(LogColors.yellow(`Initializing tyronzil...`));
-        await tyron.TyronZil.default.initialize(
-            set_network.network,
-            controller_secret_key,
-            10000,
-            set_network.initTyron
-        )
-        .then(async (init: any) => {
-            const userDomain = readline.question(LogColors.green(`What is the domain name?`) + ` [e.g. uriel.did] ` + LogColors.lightBlue(`Your answer: `));
-            const resolve = userDomain.split(".");
-            const addr = await tyron.Resolver.default.resolveDns(set_network.network, set_network.initTyron, resolve[0], resolve[1])
-            
-            const beneficiary = readline.question(LogColors.green(`What's the domain name of the beneficiary? `)+ LogColors.lightBlue(`Your answer: `));
-            const resolve_ = beneficiary.split(".");
-            const beneficiary_: tyron.TyronZil.Beneficiary = {
-                username: resolve_[0],
-                domain: resolve_[1],
-                constructor: tyron.TyronZil.BeneficiaryConstructor.domain
-            };
-            
-            console.log(LogColors.yellow(`Submitting transaction...`));
-            const tx_params = await tyron.TyronZil.default.NFTTransfer(addr, beneficiary_);
-            const tx = await tyron.TyronZil.default.submit(tyron.TyronZil.TransitionTag.NFTTransfer, init, addr, "0", tx_params);
-            console.log(tx);
-        })
-        .catch((err: unknown) => console.error(LogColors.red(err)))            
-    }
 }

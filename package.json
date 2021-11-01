@@ -39,7 +39,7 @@
   "homepage": "https://github.com/tyroncoop/ssiclient/blob/master/README.md",
   "dependencies": {
     "@types/websocket": "^1.0.1",
-    "@zilliqa-js/zilliqa": "2.2.0",
+    "@zilliqa-js/zilliqa": "3.3.1",
     "bn": "^1.0.5",
     "chalk": "^4.1.0",
     "node-fetch": "^2.6.1",

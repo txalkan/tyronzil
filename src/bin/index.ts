@@ -48,28 +48,6 @@ yargs
 	.command('deploy', ' -> deploys a tyron smart contract', async() => {
 		await tyronzilCLI.handleDeploy();
 	})
-	.command('did', ' -> to execute a tyronZIL DID operation, try: $tyronzil did <subcommand>, with subcommand = create|resolve|update|recover|deactivate', (yargs) => {
-    	yargs
-			.usage('Usage: $0 did <subcommand> [options]')
-			.demandCommand(1, 'Specify a subcommand: create|resolve|update|recover|deactivate')
-			.command('create', ' -> creates a unique digital identity did:tyron:zil)', async() => {
-				await tyronzilCLI.handleDidCreate();
-			})
-			.command('recover', ' -> recovers the given tyronZIL DID and creates a new DID-state)', async() => {
-				await tyronzilCLI.handleDidRecover();
-			})
-			.command('update', ' -> updates the given tyronZIL DID and its DID-state', async() => {
-				await tyronzilCLI.handleDidUpdate();
-			})
-			.command('deactivate', ' -> deactivates the given tyronZIL DID and its DID-state', async() => {
-				await tyronzilCLI.handleDidDeactivate();
-			})
-			.wrap(null)
-			.strict(); //the sub-command must be one of the explicitly defined sub-commands
-  	})
-	.command('resolve', ' -> resolves the given tyronZIL DID into its DID-document (read operation)', async() => {
-		await tyronzilCLI.handleDidResolve();
-	})
 	.command('addfunds', ' -> add $ZIL to smart contract', async() => {
 		await xWalletCLI.handleAddFunds();
 	})
@@ -91,9 +69,6 @@ yargs
 	})
 	.command('updatecontroller', ' -> update address of the DID controller', async() => {
 		await xWalletCLI.handleUpdateController();
-	})
-	.command('nfttransfer', ' -> transfer NFT coop membership', async() => {
-		await coopCLI.handleNFTTransfer();
 	})
 	.command('addwork', ' -> add work to NFT coop', async() => {
 		await coopCLI.handleAddWork();

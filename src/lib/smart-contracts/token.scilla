@@ -1,0 +1,173 @@
+(* v2.1.0
+token.tyron: fungible token <> Proxy smart contract
+Tyron Self-Sovereign Identity Protocol
+Copyright (C) Tyron Pungtas and its affiliates.
+www.ssiprotocol.com
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.*)
+
+scilla_version 0
+
+import BoolUtils IntUtils
+
+library FungibleToken
+  let one_msg =
+    fun( msg: Message ) =>
+    let nil_msg = Nil{ Message } in Cons{ Message } msg nil_msg
+
+  type Error =
+    | CodeWrongCaller
+    | CodeWrongStatus
+    | CodeNotValid
+
+  let make_error = fun( error: Error ) =>
+    let result = match error with
+    | CodeWrongCaller            => Int32 -1
+    | CodeWrongStatus            => Int32 -2
+    | CodeNotValid               => Int32 -3
+    end in { _exception: "Error"; code: result }
+  
+  let zero = Uint128 0
+  
+  type Caller =
+    | Controller
+    | Implementation
+  
+  let controller_ = Controller
+  let implementation_ = Implementation
+  
+contract FungibleToken(
+  init_controller: ByStr20 with contract 
+    field controller: ByStr20,
+    field paused: Bool end,
+  fund: ByStr20,
+  name: String,
+  symbol: String,
+  decimals: Uint32,
+  total_supply: Uint128
+  )
+  with
+    let string_is_not_empty = fun( s : String ) =>
+      let zero = Uint32 0 in
+      let s_length = builtin strlen s in
+      let s_empty = builtin eq s_length zero in
+      negb s_empty in
+    let name_ok = string_is_not_empty name in
+    let symbol_ok = string_is_not_empty symbol in
+      let name_symbol_ok = andb name_ok symbol_ok in
+    let decimals_ok =
+      let six = Uint32 6 in
+      let eighteen = Uint32 18 in
+      let decimals_at_least_6 = uint32_le six decimals in
+      let decimals_no_more_than_18 = uint32_le decimals eighteen in
+      andb decimals_at_least_6 decimals_no_more_than_18 in
+      andb name_symbol_ok decimals_ok
+  =>
+  field implementation: ByStr20 with contract
+    field controller: ByStr20,
+    field paused: Bool end = init_controller
+  field balances: Map ByStr20 Uint128 = let emp = Emp ByStr20 Uint128 in builtin put emp fund total_supply
+  field allowances: Map ByStr20 ( Map ByStr20 Uint128 ) = Emp ByStr20 ( Map ByStr20 Uint128 )
+  
+procedure ThrowError( err: Error )
+  e = make_error err; throw e end
+  
+procedure VerifyCaller( caller: Caller )
+  current_impl <- implementation;
+  is_paused <-& current_impl.paused; match is_paused with
+  | False => | True => err = CodeWrongStatus; ThrowError err end;
+  match caller with
+  | Controller =>
+      controller <-& current_impl.controller;
+      verified = builtin eq _origin controller; match verified with
+      | True => | False => err = CodeWrongCaller; ThrowError err end
+  | Implementation =>
+      verified = builtin eq _sender current_impl; match verified with
+      | True => | False => err = CodeWrongCaller; ThrowError err end end end
+
+transition UpdateImplementation( addr: ByStr20 with contract field controller: ByStr20, field paused: Bool end )
+  VerifyCaller controller_; current_impl <- implementation;
+  is_same = builtin eq current_impl addr; match is_same with
+  | False => | True => err = CodeNotValid; ThrowError err end;
+  implementation := addr;
+  e = { _eventname: "ImplementationUpdated";
+    new_implementation: addr }; event e end
+
+transition Transfer(
+  to: ByStr20,
+  amount: Uint128
+  )
+  current_impl <- implementation;
+  msg = let m = { _tag: "Transfer"; _recipient: current_impl; _amount: zero;
+    originator: _sender;
+    beneficiary: to;
+    amount: amount } in one_msg m; send msg end
+
+transition TransferCallBack(
+  originator: ByStr20,
+  beneficiary: ByStr20,
+  new_originator_bal: Uint128,
+  new_beneficiary_bal: Uint128
+  )
+  current_impl <- implementation; VerifyCaller implementation_;
+  balances[originator] := new_originator_bal;
+  balances[beneficiary] := new_beneficiary_bal end
+
+transition IncreaseAllowance(
+  spender: ByStr20,
+  amount: Uint128
+  )
+  current_impl <- implementation;
+  msg = let m = { _tag: "IncreaseAllowance"; _recipient: current_impl; _amount: zero;
+    originator: _sender;
+    spender: spender;
+    amount: amount } in one_msg m; send msg end
+
+transition DecreaseAllowance(
+  spender: ByStr20,
+  amount: Uint128
+  )
+  current_impl <- implementation;
+  msg = let m = {
+    _tag: "DecreaseAllowance"; _recipient: current_impl; _amount: zero;
+    originator: _sender;
+    spender: spender;
+    amount: amount } in one_msg m; send msg end
+
+transition AllowanceCallBack(
+  originator: ByStr20,
+  spender: ByStr20,
+  new_allowance: Uint128
+  )
+  current_impl <- implementation; VerifyCaller implementation_;
+  allowances[originator][spender] := new_allowance end
+
+transition TransferFrom(
+  from: ByStr20, 
+  to: ByStr20,
+  amount: Uint128
+  )
+  current_impl <- implementation;
+  msg = let m = { _tag: "TransferFrom"; _recipient: current_impl; _amount: zero;
+    originator: from;
+    spender: _sender;
+    beneficiary: to;
+    amount: amount } in one_msg m; send msg end
+
+transition TransferFromCallBack(
+  originator: ByStr20,
+  beneficiary: ByStr20,
+  new_originator_bal: Uint128,
+  new_beneficiary_bal: Uint128
+  )
+  current_impl <- implementation; VerifyCaller implementation_;
+  balances[originator] := new_originator_bal;
+  balances[beneficiary] := new_beneficiary_bal end
