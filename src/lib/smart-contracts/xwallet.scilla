@@ -1,4 +1,4 @@
-(* v3.5.0
+(* v3.6.0
 xwallet.tyron: decentralized identifier smart contract wallet (DIDxWallet)
 Tyron Self-Sovereign Identity Protocol
 Copyright (C) Tyron Pungtas and its affiliates.
@@ -157,6 +157,12 @@ contract DIDxWallet(
   field signed_addr: ByStr = zeroByStr
   
   field deadline: Uint128 = Uint128 10
+  field xinit: ByStr20 with contract
+    field implementation: ByStr20 with contract
+      field services: Map String ByStr20,
+      field utility: Map String Uint128 end,
+    field dns: Map String ByStr20,
+    field guardians: Map String ByStr20 with contract field verification_methods: Map String ByStr33 end end = init
   field dns: Map String ByStr20 = Emp String ByStr20
 
 procedure SupportTyron( tyron: Option Uint128 )
@@ -577,7 +583,7 @@ transition TransferNFTUsername(
   tyron: Option Uint128
   )
   IsOperational; VerifyController tyron; init_did <-& init.implementation;
-  get_fee <-& init_did.utility[domain]; fee = option_uint128_value get_fee;
+  get_fee <-& init_did.utility[transfer]; fee = option_uint128_value get_fee;
   is_tyron = builtin eq id tyron_; match is_tyron with
   | True => | False =>
     is_zil = builtin eq id zil; match is_zil with

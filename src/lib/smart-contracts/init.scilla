@@ -1,5 +1,5 @@
-(* v1.1.0
-initi.tyron: SSI initialization & DNS <> Implementation smart contract
+(* v2.3.0
+init.tyron: SSI initialization & DNS <> Proxy smart contract
 Self-Sovereign Identity Protocol.
 Copyright (C) Tyron Pungtas and its affiliates.
 www.ssiprotocol.com
@@ -16,711 +16,115 @@ GNU General Public License for more details.*)
 
 scilla_version 0
 
-import PairUtils BoolUtils ListUtils IntUtils
-
-library DID
-  type DIDStatus =
-    | Deployed
-    | Created
-    | Recovered
-    | Updated
-    | Deactivated
-    | Locked
-
-  type Operation =
-    | Recovery
-    | Update
-  
-  type Action =
-    | Add
-    | Remove
-
-  type TransferProtocol =
-    | Https
-    | Git
-
-  type Endpoint =
-    | Address of ByStr20
-    | Uri of String TransferProtocol String   (* type, transfer protocol & uri *)
-
-  type Document =
-    | VerificationMethod of Action String ByStr33 String (* add/remove, key purpose, public key & encrypted private key *)
-    | Service of Action String Endpoint (* add/remove, service ID & service *) 
-  
-  let didRecovery = Recovery
-  let didUpdate = Update
-  let update = "update"
-  let recovery = "recovery"
-  let didsr = "socialrecovery"
-  let actionAdd = "add"
-  let actionRemove = "remove"
-  let empty_methods = Emp String ByStr33
-  let empty_dkms = Emp String String
-  let empty_services = Emp String ByStr20
-  let empty_services_ = Emp String Endpoint
-  
-  let did = "did"
-  let transfer = "transfer"
-  
-  let one_msg = fun( msg: Message ) =>
+library Init
+  let one_msg =
+    fun( msg: Message ) =>
     let nil_msg = Nil{ Message } in Cons{ Message } msg nil_msg
-
-  type Error =
-    | CodeWrongStatus
-    | CodeWrongCaller
-    | CodeWrongSignature
-    | CodeUndefinedKey
-    | CodeSameKey
-    | CodeSameId
-    | CodeNotValid
-    | CodeDidLocked
-    | CodeNotProxy
-    | CodeIsPaused
-    | CodeNotPaused
-    | CodeIsNull
-    | CodeNFTUsernameTaken
-    | CodeInsufficientFunds
-    | CodeNotEnoughChar
     
+  type Error =
+    | CodeWrongCaller
+    | CodeWrongStatus
+    | CodeNotValid
+
   let make_error = fun( error: Error ) =>
     let result = match error with
-    | CodeWrongStatus            => Int32 -1
-    | CodeWrongCaller            => Int32 -2
-    | CodeWrongSignature         => Int32 -3
-    | CodeUndefinedKey           => Int32 -4
-    | CodeSameKey                => Int32 -5
-    | CodeSameId                 => Int32 -6
-    | CodeNotValid               => Int32 -7
-    | CodeDidLocked              => Int32 -8
-    | CodeNotProxy               => Int32 -9
-    | CodeIsPaused               => Int32 -10
-    | CodeNotPaused              => Int32 -11
-    | CodeIsNull                 => Int32 -12
-    | CodeNFTUsernameTaken       => Int32 -13
-    | CodeInsufficientFunds      => Int32 -14
-    | CodeNotEnoughChar          => Int32 -15
+    | CodeWrongCaller            => Int32 -1
+    | CodeWrongStatus            => Int32 -2
+    | CodeNotValid               => Int32 -3
     end in { _exception: "Error"; code: result }
   
-  let zero = Uint128 0
-  let zeroByStr20 = 0x0000000000000000000000000000000000000000
-  let zeroByStr33 = 0x000000000000000000000000000000000000000000000000000000000000000000
-  let zeroByStr64 = 0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-  let zero_bystr = builtin to_bystr zeroByStr20
-
-  let option_value = 
-    tfun 'A => fun( default: 'A ) => fun( input: Option 'A) => match input with
-    | Some v => v
-    | None => default end
-  let option_uint128_value = let f = @option_value Uint128 in f zero
-  let option_bystr20_value = let f = @option_value ByStr20 in f zeroByStr20
-  let option_bystr33_value = let f = @option_value ByStr33 in f zeroByStr33
-  let option_bystr64_value = let f = @option_value ByStr64 in f zeroByStr64
-
-  let empty_guardians = Emp ByStr32 Bool
-  let zero_ = Uint32 0
-  let one = Uint32 1
-  let two = Uint32 2
-  let three = Uint32 3
+  type Caller =
+    | Controller
+    | Implementation
   
-  type Beneficiary =
-    | NFTUsername of String
-    | Recipient of ByStr20
-    
-  let true = True
-  let false = False
-  let tyron = "tyron"
+  let controller_ = Controller
+  let implementation_ = Implementation
+  let init = "init"
 
-contract InitI(
-  init_controller: ByStr20,
-  init: ByStr20 with contract
-    field dns: Map String ByStr20,
-    field guardians: Map String ByStr20 with contract field verification_methods: Map String ByStr33 end end
+contract Init( init_controller: ByStr20 with contract 
+  field controller: ByStr20,
+  field services: Map String ByStr20,
+  field paused: Bool,
+  field utility: Map String Uint128 end
   )
-  field did: String = ""    (* the W3C decentralized identifier *)
-  field controller: ByStr20 = init_controller
-  field pending_controller: ByStr20 = zeroByStr20
-  field did_status: DIDStatus = Deployed
-  
-  (* Verification methods @key: key purpose @value: public DID key *)
-  field verification_methods: Map String ByStr33 = empty_methods
-  field dkms: Map String String = empty_dkms
-  
-  (* Services @key: ID @value: endpoint *)
-  field services: Map String ByStr20 = empty_services
-  field services_: Map String Endpoint = empty_services_
-  
-  field document_hash: ByStr = zero_bystr
-  
-  (* The block number when the DID Create operation occurred *)
-  field did_created: BNum = BNum 0
-  
-  (* The block number when the last DID CRUD operation occurred *)  
-  field ledger_time: BNum = BNum 0
-  
-  (* A monotonically increasing number representing the amount of DID CRUD transactions that have taken place *)
-  field tx_number: Uint128 = zero
-  
-  field social_guardians: Map ByStr32 Bool = empty_guardians
-  field counter: Uint32 = zero_
-  field signed_addr: ByStr = zero_bystr
-  
-  field dns: Map String ByStr20 = Emp String ByStr20
-  
-  field paused: Bool = False
+  field implementation: ByStr20 with contract
+    field controller: ByStr20,
+    field services: Map String ByStr20,
+    field paused: Bool,
+    field utility: Map String Uint128 end = init_controller
 
-  field utility: Map String Uint128 = let emp = Emp String Uint128 in let did = "did" in let fee = Uint128 10000000000000 in builtin put emp did fee
-  
-  field minchar: Uint32 = Uint32 7
+  (* DNS records @key: NFT username @value: address *)
+  field dns: Map String ByStr20 = let emp = Emp String ByStr20 in builtin put emp init init_controller
+  field guardians: Map String ByStr20 with contract field verification_methods: Map String ByStr33 end = Emp String ByStr20 with contract field verification_methods: Map String ByStr33 end
 
 procedure ThrowError( err: Error )
   e = make_error err; throw e end
+  
+procedure VerifyCaller( caller: Caller )
+  current_impl <- implementation;
+  is_paused <-& current_impl.paused; match is_paused with
+  | False => | True => err = CodeWrongStatus; ThrowError err end;
+  match caller with
+  | Controller =>
+      controller <-& current_impl.controller;
+      verified = builtin eq _origin controller; match verified with
+      | True => | False => err = CodeWrongCaller; ThrowError err end
+  | Implementation =>
+      verified = builtin eq _sender current_impl; match verified with
+      | True => | False => err = CodeWrongCaller; ThrowError err end end end
 
-procedure IsOperational()
-  current_status <- did_status; match current_status with
-  | Deactivated => err = CodeWrongStatus; ThrowError err
-  | Locked => err = CodeDidLocked; ThrowError err
-  | _ => end end
-
-procedure VerifyController()
-  current_controller <- controller;
-  verified = builtin eq _sender current_controller; match verified with
-  | True =>
-  | False => err = CodeWrongCaller; ThrowError err end end
-
-procedure Timestamp()
-  current_block <- &BLOCKNUMBER;  latest_tx_number <- tx_number; ledger_time := current_block;
-  new_tx_number = let incrementor = Uint128 1 in builtin add latest_tx_number incrementor; tx_number := new_tx_number end
-
-transition UpdateController(
-  addr: ByStr20,
-  tyron: Option Uint128
-  )
-  IsOperational; VerifyController; current_controller <- controller;
-  is_same = builtin eq current_controller addr; match is_same with
+transition UpdateImplementation( addr: ByStr20 with contract field controller: ByStr20, field services: Map String ByStr20, field paused: Bool, field utility: Map String Uint128 end )
+  VerifyCaller controller_;
+  current_impl <- implementation;
+  is_same = builtin eq current_impl addr; match is_same with
   | False => | True => err = CodeNotValid; ThrowError err end;
-  pending_controller := addr; Timestamp end
-  
-transition AcceptPendingController()
-  pending <- pending_controller;
-  verified = builtin eq _origin pending; match verified with
-  | True => | False => err = CodeWrongCaller; ThrowError err end;
-  controller := _origin end
+  implementation := addr; dns[init] := addr;
+  e = { _eventname: "ImplementationUpdated";
+    new_implementation: addr }; event e end
 
-(* Verify Schnorr signature - signed data must correspond with a DID key *)
-procedure VerifySignature(
-  id: String,
-  signedData: ByStr,
-  signature: ByStr64
-  )
-  get_did_key <- verification_methods[id]; did_key = option_bystr33_value get_did_key;
-  is_right_signature = builtin schnorr_verify did_key signedData signature; match is_right_signature with
-  | True =>
-  | False => err = CodeWrongSignature; ThrowError err end end
-
-procedure ThrowIfNoKey( optKey: Option ByStr33 )
-  match optKey with
-  | Some key =>
-  | None => err = CodeUndefinedKey; ThrowError err end end
-
-procedure ThrowIfSameKey(
-  key: ByStr33,
-  sndKey: ByStr33
-  )
-  is_same_key = builtin eq key sndKey;
-  match is_same_key with
-  | True => err = CodeSameKey; ThrowError err
-  | False => end end
-
-procedure VerifyDIDkeys(
-  operation: Operation,
-  didRecovery: ByStr33,
-  didUpdate: ByStr33
-  )
-  get_update_key <- verification_methods[update]; new_update = option_bystr33_value get_update_key;
-  match operation with
-  | Recovery =>
-      get_recovery_key <- verification_methods[recovery]; new_recovery = option_bystr33_value get_recovery_key;
-      ThrowIfSameKey new_recovery new_update;
-      ThrowIfSameKey new_recovery didRecovery; ThrowIfSameKey new_recovery didUpdate; ThrowIfSameKey new_update didRecovery; ThrowIfSameKey new_update didUpdate
-  | Update => ThrowIfSameKey new_update didUpdate; ThrowIfSameKey new_update didRecovery end end
-
-procedure SaveDocument( document: Document )
-  match document with
-  | VerificationMethod action purpose key encrypted =>
-      key_exists <- exists verification_methods[purpose];
-      match action with
-      | Add =>
-          match key_exists with
-          | True => err = CodeSameId; ThrowError err
-          | False =>
-              verification_methods[purpose] := key;
-              dkms[purpose] := encrypted end
-      | Remove => err = CodeNotValid; ThrowError err end
-  | Service action id endpoint =>
-      is_service <- exists services[id];
-      is_service_ <- exists services_[id];
-      service_exists = orb is_service is_service_;
-      match action with
-      | Add =>
-          match service_exists with
-          | True => err = CodeSameId; ThrowError err
-          | False =>
-              match endpoint with
-              | Address addr => services[id] := addr
-              | Uri eType protocol uri => services_[id] := endpoint end end
-      | Remove => err = CodeNotValid; ThrowError err end end end
-
-transition DidCreate(
-  document: List Document,
-  signature: Option ByStr64,
-  tyron: Option Uint128
-  )
-  current_status <- did_status;
-  match current_status with
-  | Deployed =>
-      VerifyController;
-      new_did = let did_prefix = "did:tyron:zil:test:" in let did_suffix = builtin to_string _this_address in
-        builtin concat did_prefix did_suffix; did := new_did;
-      forall document SaveDocument;
-      get_recovery_key <- verification_methods[recovery]; ThrowIfNoKey get_recovery_key; did_recovery = option_bystr33_value get_recovery_key;
-      get_update_key <- verification_methods[update]; ThrowIfNoKey get_update_key; did_update = option_bystr33_value get_update_key;
-      ThrowIfSameKey did_recovery did_update;
-      new_status = Created; did_status := new_status;
-      current_block <- &BLOCKNUMBER; did_created := current_block; Timestamp
-  | _ => err = CodeWrongStatus; ThrowError err end end
-
-procedure UpdateDocument( document: Document )
-  match document with
-  | VerificationMethod action purpose key encrypted =>
-      match action with
-      | Add =>
-          verification_methods[purpose] := key;
-          dkms[purpose] := encrypted
-      | Remove =>
-          key_exists <- exists verification_methods[purpose];
-          match key_exists with
-          | True =>
-              delete verification_methods[purpose];
-              delete dkms[purpose]
-          | False => err = CodeNotValid; ThrowError err end end
-  | Service action id endpoint =>
-      is_service <- exists services[id];
-      is_service_ <- exists services_[id];
-      service_exists = orb is_service is_service_;
-      match action with
-      | Add =>
-          match service_exists with
-          | True => err = CodeSameId; ThrowError err
-          | False => 
-              match endpoint with
-              | Address addr => services[id] := addr
-              | Uri eType protocol uri => services_[id] := endpoint end end
-      | Remove =>
-          match service_exists with
-          | True => delete services[id]; delete services_[id]
-          | False => err = CodeNotValid; ThrowError err end end end end
-
-procedure ValidateDocument(
-  operation: Operation,
-  document: List Document
-  )
-  match operation with
-  | Recovery => 
-      verification_methods := empty_methods; dkms := empty_dkms; services := empty_services; services_ := empty_services_;
-      forall document SaveDocument
-  | Update => forall document UpdateDocument end end
-
-procedure HashDocument( document: Document )
-  doc_hash <- document_hash;
-  match document with
-  | VerificationMethod action purpose key encrypted =>
-      match action with
-      | Add =>
-          hash = let h1 = builtin sha256hash actionAdd in
-            let h2 = builtin sha256hash purpose in
-            let h3 = builtin sha256hash key in
-            let h4 = builtin sha256hash encrypted in
-            let h1_2 = builtin concat h1 h2 in
-            let h1_3 = builtin concat h1_2 h3 in
-            builtin concat h1_3 h4;
-          doc_hash_ = let hash_ = builtin to_bystr hash in builtin concat doc_hash hash_;
-          document_hash := doc_hash_
-      | Remove =>
-          hash = let h1 = builtin sha256hash actionRemove in
-            let h2 = builtin sha256hash purpose in
-            builtin concat h1 h2;
-          doc_hash_ = let hash_ = builtin to_bystr hash in builtin concat doc_hash hash_;
-          document_hash := doc_hash_ end
-  | Service action id endpoint =>
-      match action with
-      | Add =>
-          match endpoint with
-          | Uri eType transfer uri =>
-              hash = let h1 = builtin sha256hash actionAdd in
-                let h2 = builtin sha256hash id in
-                let h3 = builtin sha256hash uri in
-                let h1_2 = builtin concat h1 h2 in
-                builtin concat h1_2 h3;
-              doc_hash_ = let hash_ = builtin to_bystr hash in builtin concat doc_hash hash_;
-              document_hash := doc_hash_
-          | Address addr =>
-              hash = let h1 = builtin sha256hash actionAdd in
-                let h2 = builtin sha256hash id in
-                let h3 = builtin sha256hash addr in
-                let h1_2 = builtin concat h1 h2 in
-                builtin concat h1_2 h3;
-              doc_hash_ = let hash_ = builtin to_bystr hash in builtin concat doc_hash hash_;
-              document_hash := doc_hash_ end
-      | Remove =>
-          hash = let h1 = builtin sha256hash actionRemove in
-            let h2 = builtin sha256hash id in
-            builtin concat h1 h2;
-          doc_hash_ = let hash_ = builtin to_bystr hash in builtin concat doc_hash hash_;
-          document_hash := doc_hash_ end end end
-
-procedure VerifyDocument(
-  operation: Operation,
-  document: List Document,
-  signature: Option ByStr64
-  )
-  document_hash := zero_bystr;
-  forall document HashDocument;
-  doc_hash <- document_hash;
-  sig = option_bystr64_value signature;
-  id = match operation with
-  | Recovery => recovery
-  | Update => update end;
-  VerifySignature id doc_hash sig;
-  ValidateDocument operation document end
-
-transition DidRecover(
-  document: List Document,
-  signature: Option ByStr64,
-  tyron: Option Uint128
-  )
-  VerifyController;
-  current_status <- did_status; match current_status with
-  | Created => | Recovered => | Updated =>
-  | _ => err = CodeWrongStatus; ThrowError err end;
-  get_recovery_key <- verification_methods[recovery]; did_recovery = option_bystr33_value get_recovery_key;
-  get_update_key <- verification_methods[update]; did_update = option_bystr33_value get_update_key;
-  VerifyDocument didRecovery document signature;
-  VerifyDIDkeys didRecovery did_recovery did_update;
-  new_status = Recovered; did_status := new_status; Timestamp end
-
-transition DidUpdate(
-  document: List Document,
-  signature: Option ByStr64,
-  tyron: Option Uint128
-  )
-  VerifyController;
-  current_status <- did_status; match current_status with
-  | Created => | Recovered => | Updated =>
-  | _ => err = CodeWrongStatus; ThrowError err end;
-  get_recovery_key <- verification_methods[recovery]; did_recovery = option_bystr33_value get_recovery_key;
-  get_update_key <- verification_methods[update]; did_update = option_bystr33_value get_update_key;
-  VerifyDocument didUpdate document signature;
-  VerifyDIDkeys didUpdate did_recovery did_update;
-  new_status = Updated; did_status := new_status; Timestamp end
-
-transition DidDeactivate(
-  document: List Document,
-  signature: Option ByStr64,
-  tyron: Option Uint128
-  ) 
-  VerifyController;
-  current_status <- did_status; match current_status with
-  | Created => | Recovered => | Updated =>
-  | _ => err = CodeWrongStatus; ThrowError err end;
-  VerifyDocument didRecovery document signature;
-  verification_methods := empty_methods; services := empty_services; services_ := empty_services_;
-  new_status = Deactivated; did_status := new_status; Timestamp end
-
-(* xWallet backbone *)
-
-procedure SaveGuardians( id: ByStr32 )
-  repeated <- exists social_guardians[id]; match repeated with
-  | True => err = CodeSameId; ThrowError err
-  | False => social_guardians[id] := true end end
-
-transition ConfigureSocialRecovery(
-  guardians: List ByStr32,
-  tyron: Option Uint128
-  )
-  IsOperational; VerifyController;
-  length = let list_length = @list_length ByStr32 in list_length guardians;
-  is_ok = uint32_ge length three; match is_ok with
-  | False => err = CodeNotValid; ThrowError err
-  | True =>
-      social_guardians := empty_guardians; forall guardians SaveGuardians;
-      is_three = builtin eq length three;
-      min = match is_three with
-      | True => three
-      | False => let div_ = builtin div length two in builtin add div_ one end;
-      counter := min end;
-  Timestamp end
-
-transition Lock(
-  signature: ByStr64,
-  tyron: Option Uint128
-  )
-  IsOperational; min <- counter;
-  is_ok = uint32_ge min three; match is_ok with
-  | False => err = CodeNotValid; ThrowError err
-  | True =>
-      this_did <- did; hash = let hash_ = builtin sha256hash this_did in builtin to_bystr hash_;
-      get_didkey <- verification_methods[didsr]; did_key = option_bystr33_value get_didkey;
-      is_right_signature = builtin schnorr_verify did_key hash signature;
-      match is_right_signature with
-      | False => err = CodeWrongSignature; ThrowError err
-      | True => locked = Locked; did_status := locked end end;
-  Timestamp end
-
-procedure VerifySocialRecovery( proof: Pair String ByStr64 )
-  guardian_name = let fst_element = @fst String ByStr64 in fst_element proof;
-  guardian_sig = let snd_element = @snd String ByStr64 in snd_element proof;
-  hash = builtin sha256hash guardian_name; is_valid <- exists social_guardians[hash];
-  match is_valid with
-  | False => err = CodeWrongCaller; ThrowError err
-  | True =>
-      get_addr <-& init.guardians[guardian_name];
-      match get_addr with
-      | None => err = CodeNotValid; ThrowError err
-      | Some addr =>
-          get_didkey <-& addr.verification_methods[didsr]; did_key = option_bystr33_value get_didkey;
-          signed_data <- signed_addr; is_right_signature = builtin schnorr_verify did_key signed_data guardian_sig;
-          match is_right_signature with
-          | False =>
-          | True => 
-              counter_ <- counter;
-              add_ = builtin add counter_ one; counter := add_ end end end end
-
-transition SocialRecovery( 
-  addr: ByStr20,
-  signatures: List( Pair String ByStr64 ),
-  tyron: Option Uint128
-  )
-  current_status <- did_status; match current_status with
-  | Deactivated => err = CodeWrongStatus; ThrowError err
-  | _ => end;
-  signed_data = builtin to_bystr addr; signed_addr := signed_data;
-  sig = let list_length = @list_length( Pair String ByStr64 ) in list_length signatures;
-  min <- counter; is_ok = uint32_ge sig min;
-  match is_ok with
-  | False => err = CodeNotValid; ThrowError err
-  | True =>
-      counter := zero_;
-      forall signatures VerifySocialRecovery;
-      counter_ <- counter; is_ok_ = uint32_ge counter_ min;
-      match is_ok_ with
-      | False => err = CodeWrongSignature; ThrowError err
-      | True =>
-          controller := addr;
-          new_status = Recovered; did_status := new_status end end;
-  Timestamp end
-
-(* Receive $ZIL native funds *)
-transition AddFunds()
-  IsOperational; accept; Timestamp end
-
-(* Send $ZIL to any recipient that implements the tag, e.g. "AddFunds", "", etc. *)
-transition SendFunds(
-  tag: String,
-  beneficiary: Beneficiary,
-  tyron: Option Uint128
-  )
-  IsOperational; VerifyController;
-  match beneficiary with
-  | NFTUsername username =>
-      get_addr <-& init.dns[username]; addr = option_bystr20_value get_addr;
-      accept; msg = let m = { _tag: tag; _recipient: addr; _amount: _amount } in one_msg m; send msg
-  | Recipient addr =>
-      accept; msg = let m = { _tag: tag; _recipient: addr; _amount: _amount } in one_msg m; send msg end; Timestamp end
-
-transition Transfer(
-  addrName: String,
-  beneficiary: Beneficiary,
-  amount: Uint128,
-  tyron: Option Uint128
-  ) 
-  IsOperational; VerifyController;
-  get_token_addr <- services[addrName]; token_addr = option_bystr20_value get_token_addr;
-  match beneficiary with
-  | NFTUsername username =>
-      get_addr <-& init.dns[username]; addr = option_bystr20_value get_addr;
-      accept; msg = let m = { _tag: "Transfer"; _recipient: token_addr; _amount: zero;
-        to: addr;
-        amount: amount } in one_msg m ; send msg
-  | Recipient addr =>
-      accept; msg = let m = { _tag: "Transfer"; _recipient: token_addr; _amount: zero;
-        to: addr;
-        amount: amount } in one_msg m ; send msg end; Timestamp end
-
-transition RecipientAcceptTransfer( sender: ByStr20, recipient: ByStr20, amount: Uint128 ) IsOperational end
-
-transition RecipientAcceptTransferFrom( initiator: ByStr20, sender: ByStr20, recipient: ByStr20, amount: Uint128 ) IsOperational end
-
-transition TransferSuccessCallBack( sender: ByStr20, recipient: ByStr20, amount : Uint128 ) IsOperational end
-
-transition TransferFromSuccessCallBack( initiator: ByStr20, sender: ByStr20, recipient: ByStr20, amount: Uint128 ) IsOperational end
-
-transition Dns(
-  addr: ByStr20,
-  domain: String,
-  didKey: ByStr33,
-  encrypted: String,
-  tyron: Option Uint128
-  )
-  IsOperational; VerifyController;
-  verification_methods[domain] := didKey; dkms[domain] := encrypted;
-  dns[domain] := addr; Timestamp end
-
-(* init implementation backbone *)
-
-procedure ThrowIfNotProxy()
-  verified = builtin eq init _sender; match verified with
-  | True => | False => err= CodeNotProxy; ThrowError err end end
-
-procedure IsNotPaused()
-  is_paused <- paused; match is_paused with
-  | False => | True => err = CodeIsPaused; ThrowError err end end
-
-procedure IsPaused()
-  is_paused <- paused; match is_paused with
-  | True => | False => err = CodeNotPaused; ThrowError err end end
-
-procedure IsNotNull( addr: ByStr20 )
-  is_null = builtin eq addr zeroByStr20; match is_null with
-  | False => | True => err = CodeIsNull; ThrowError err end end
-
-transition Pause()
-  IsOperational; VerifyController;
-  IsNotPaused; paused := true;
-  e = { _eventname: "SmartContractPaused";
-    pauser: _origin }; event e end
-
-transition Unpause()
-  IsOperational; VerifyController;
-  IsPaused; paused := false;
-  e = { _eventname: "SmartContractUnpaused";
-    pauser: _origin }; event e end
-
-transition AddUtility(
-  id: String,
-  fee: Uint128
-  )
-  IsOperational; VerifyController; IsNotPaused;
-  utility[id] := fee end
-  
-transition RemoveUtility( id: String )
-  IsOperational; VerifyController; IsNotPaused; delete utility[id] end
-
-procedure NFTUsernameCallBack(
+transition NFTUsernameCallBack(
   username: String,
   addr: ByStr20
   )
-  msg = let m = { _tag: "NFTUsernameCallBack"; _recipient: _sender; _amount: zero;
-    username: username;
-    addr: addr } in one_msg m; send msg end
-  
-procedure PremiumNFTUsername_( premium: String )
-  get_addr <-& init.dns[premium]; match get_addr with
-  | Some addr => err = CodeNFTUsernameTaken; ThrowError err
-  | None => NFTUsernameCallBack premium _this_address end end
-
-transition PremiumNFTUsername( premium: List String )
-  IsOperational; VerifyController; IsNotPaused;
-  forall premium PremiumNFTUsername_ end
-
-transition TransferPremiumNFTUsername(
-  username: String,
-  newAddr: ByStr20,
-  guardianship: Option ByStr20 with contract field verification_methods: Map String ByStr33 end
-  )
-  IsOperational; VerifyController; IsNotPaused;
-  accept; msg = let m = { _tag: "NFTUsernameCallBack"; _recipient: init; _amount: _amount;
-    username: username;
-    newAddr: newAddr;
-    guardianship: guardianship } in one_msg m; send msg end
-
-procedure NFTGuardianshipCallBack(
-  username: String,
-  addr: ByStr20 with contract field verification_methods: Map String ByStr33 end
-  )
-  msg = let m = { _tag: "NFTGuardianshipCallBack"; _recipient: _sender; _amount: zero;
-    username: username;
-    addr: addr } in one_msg m; send msg end
-
-transition UpdateMinChar(
-  new: Uint32
-  )
-  IsOperational;  IsNotPaused; VerifyController;
-  minchar := new end
-
-procedure VerifyMinChar( username: String )
-  length = builtin strlen username; current_minchar <- minchar;
-  verified = uint32_ge length current_minchar; match verified with
-  | True => | False => err = CodeNotEnoughChar; ThrowError err end end
+  VerifyCaller implementation_; dns[username] := addr end
 
 transition BuyNFTUsername(
   username: String,
-  addr: ByStr20,
   guardianship: Option ByStr20 with contract field verification_methods: Map String ByStr33 end
   )
-  IsOperational; ThrowIfNotProxy; IsNotPaused; IsNotNull addr; VerifyMinChar username;
-  get_addr <-& init.dns[username]; match get_addr with
-  | Some addr_ => err = CodeNFTUsernameTaken; ThrowError err
-  | None =>
-      get_fee <- utility[did]; match get_fee with
-      | None => err = CodeNotValid; ThrowError err
-      | Some fee =>
-          tyron_addr <- services[tyron]; tyron_ = option_bystr20_value tyron_addr;
-          msg = let m = { _tag: "TransferFrom"; _recipient: tyron_; _amount: zero;
-            from: addr;
-            to: _this_address;
-            amount: fee } in one_msg m; send msg end end;
-  NFTUsernameCallBack username addr;
-  match guardianship with
-  | None => | Some guardian => NFTGuardianshipCallBack username guardian end end
+  current_impl <- implementation;
+  accept; msg = let m = { _tag: "BuyNFTUsername"; _recipient: current_impl; _amount: _amount;
+    username: username;
+    addr: _sender;
+    guardianship: guardianship } in one_msg m; send msg end
 
+transition NFTGuardianshipCallBack(
+  username: String,
+  addr: ByStr20 with contract field verification_methods: Map String ByStr33 end
+  )
+  VerifyCaller implementation_; guardians[username] := addr end
+  
 transition UpdateGuardianship(
   username: String,
-  addr: ByStr20,
-  guardian: ByStr20 with contract field verification_methods: Map String ByStr33 end
+  addr: ByStr20 with contract field verification_methods: Map String ByStr33 end
   )
-  IsOperational; ThrowIfNotProxy; IsNotPaused;
-  get_addr <-& init.dns[username]; match get_addr with
-  | Some addr_ =>
-      is_owner = builtin eq addr addr_;
-      match is_owner with
-      | False => err = CodeWrongCaller; ThrowError err
-      | True => NFTGuardianshipCallBack username guardian end
-  | None => err = CodeNotValid; ThrowError err end end
+  current_impl <- implementation;
+  accept; msg = let m = { _tag: "UpdateGuardianship"; _recipient: current_impl; _amount: _amount;
+    username: username;
+    addr: _sender;
+    guardian: addr } in one_msg m; send msg end
+
+transition RemoveGuardianshipCallBack( username: String )
+  VerifyCaller implementation_; delete guardians[username] end
 
 transition TransferNFTUsername(
   username: String,
-  addr: ByStr20,
   newAddr: ByStr20,
-  guardianship: Option ByStr20 with contract field verification_methods: Map String ByStr33 end,
-  id: String
+  guardianship: Option ByStr20 with contract field verification_methods: Map String ByStr33 end
   )
-  IsOperational; ThrowIfNotProxy; IsNotPaused; IsNotNull newAddr;
-  get_addr_ <-& init.dns[username]; addr_ = option_bystr20_value get_addr_;
-  is_owner = builtin eq addr addr_;
-  match is_owner with
-  | False => err = CodeWrongCaller; ThrowError err
-  | True =>
-      get_fee <- utility[did]; match get_fee with
-      | None => err = CodeNotValid; ThrowError err
-      | Some fee =>
-          tyron_addr <- services[tyron]; tyron_ = option_bystr20_value tyron_addr;
-          msg = let m = { _tag: "TransferFrom"; _recipient: tyron_; _amount: zero;
-            from: addr;
-            to: _this_address;
-            amount: fee } in one_msg m; send msg end end;
-  NFTUsernameCallBack username newAddr;
-  match guardianship with
-  | Some guardian => NFTGuardianshipCallBack username guardian
-  | None =>
-      msg = let m = { _tag: "RemoveGuardianshipCallBack"; _recipient: _sender; _amount: zero;
-        username: username } in one_msg m; send msg end end
+  current_impl <- implementation;
+  accept; msg = let m = { _tag: "TransferNFTUsername"; _recipient: current_impl; _amount: _amount;
+    username: username;
+    addr: _sender;
+    newAddr: newAddr;
+    guardianship: guardianship } in one_msg m; send msg end

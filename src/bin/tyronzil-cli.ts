@@ -213,6 +213,15 @@ export default class tyronzilCLI {
                         }
                     )
                     break;
+                case 'dex':
+                    contract_init.push(
+                        {
+                            vname: 'init_controller',
+                            type: 'ByStr20',
+                            value: `0x52615a6da17d248bbb6d1892025fa842372bdedc`,
+                        },
+                    )
+                    break;
             }
 
             // Deploy smart contract

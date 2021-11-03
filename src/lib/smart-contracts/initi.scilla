@@ -701,8 +701,7 @@ transition TransferNFTUsername(
   username: String,
   addr: ByStr20,
   newAddr: ByStr20,
-  guardianship: Option ByStr20 with contract field verification_methods: Map String ByStr33 end,
-  id: String
+  guardianship: Option ByStr20 with contract field verification_methods: Map String ByStr33 end
   )
   IsOperational; ThrowIfNotProxy; IsNotPaused; IsNotNull newAddr;
   get_addr_ <-& init.dns[username]; addr_ = option_bystr20_value get_addr_;
