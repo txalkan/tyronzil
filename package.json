@@ -42,7 +42,7 @@
     "@zilliqa-js/zilliqa": "2.2.0",
     "bn": "^1.0.5",
     "chalk": "^4.1.0",
-    "node-fetch": "^3.1.1",
+    "node-fetch": "^3.2.10",
     "readline-sync": "^1.4.10",
     "tslib": "^2.1.0",
     "tyron": "^3.12.4",
